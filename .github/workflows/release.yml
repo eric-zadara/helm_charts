@@ -29,8 +29,15 @@ jobs:
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
 
       - name: Run chart-releaser
+        id: releaser
         uses: helm/chart-releaser-action@v1.6.0
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
         with:
           skip_existing: true
+
+      - name: Run helm-docs
+        if: steps.releaser.outputs.changed_charts != ''
+        uses: losisin/helm-docs-github-action@v1
+        with:
+          git-push: true
