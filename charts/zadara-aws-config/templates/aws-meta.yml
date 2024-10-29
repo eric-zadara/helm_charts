@@ -1,8 +1,7 @@
-{{- $endpointUrl := "https://cloud.zadara.com" -}}
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: aws-meta
 data:
-  endpoint: {{ $endpointUrl }}/api/v2/aws/ec2
+  endpoint: {{ tpl $.Values.serviceOverrides.ec2.Url $ }}

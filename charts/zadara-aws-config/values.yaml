@@ -1,0 +1,15 @@
+default:
+  region: "us-east-1"
+  signingRegion: "us-east-1"
+
+endpointUrl: "https://cloud.zadara.com"
+
+global: {}
+
+serviceOverrides:
+  ec2:
+    Url: "{{ .Values.endpointUrl }}/api/v2/aws/ec2"
+  autoscaling:
+    Url: "{{ .Values.endpointUrl }}/api/v2/aws/autoscaling"
+  elasticloadbalancing:
+    Url: "{{ .Values.endpointUrl }}/api/v2/aws/elbv2"
