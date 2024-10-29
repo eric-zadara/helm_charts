@@ -2,10 +2,17 @@ apiVersion: v1
 entries:
   zadara-aws-config:
   - apiVersion: v2
+    created: "2024-10-29T17:08:49.210541254Z"
+    digest: 331518596cbc09bf9af1ede1a0960d0a85405c09881228e2b7e9a4dfaa45900d
+    name: zadara-aws-config
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/zadara-aws-config-0.0.2/zadara-aws-config-0.0.2.tgz
+    version: 0.0.2
+  - apiVersion: v2
     created: "2024-10-28T15:30:55.676816552Z"
     digest: ccab9eb657d4a91595ac5a14e3400394ec18e2c41563a59143eaada9f93c9890
     name: zadara-aws-config
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/zadara-aws-config-0.0.1/zadara-aws-config-0.0.1.tgz
     version: 0.0.1
-generated: "2024-10-28T15:30:55.676823455Z"
+generated: "2024-10-29T17:08:49.210552725Z"
