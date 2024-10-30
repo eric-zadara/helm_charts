@@ -1,11 +1,16 @@
 default:
+  # -- Default region string
   region: "us-east-1"
+  # -- Default region string used for signing
   signingRegion: "us-east-1"
 
+# -- Default root endpoint
 endpointUrl: "https://cloud.zadara.com"
 
+# -- cloud.conf `[Global]` stanza
 global: {}
 
+# -- Definition for all ServiceOverrides and their attributes, overrides any defaults from above
 serviceOverrides:
   ec2:
     Url: "{{ .Values.endpointUrl }}/api/v2/aws/ec2"
