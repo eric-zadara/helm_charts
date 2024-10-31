@@ -1,0 +1,24 @@
+selfSigned:
+  # -- Enable "selfsigned" as an available cert type
+  enabled: false
+acme:
+  letsencrypt-staging:
+    # -- Enable "letsencrypt-staging" as an available cert type
+    enabled: false
+    # -- acmeServer target for letsencrypt-staging
+    acmeServer: https://acme-staging-v02.api.letsencrypt.org/directory
+    solvers:
+      - http01:
+          ingress:
+            # -- ingressClassName to be available for
+            ingressClassName: traefik
+  letsencrypt-prod:
+    # -- Enable "letsencrypt-prod" as an available cert type
+    enabled: false
+    # -- acmeServer target for letsencrypt-prod
+    acmeServer: https://acme-v02.api.letsencrypt.org/directory
+    solvers:
+      - http01:
+          ingress:
+            # -- ingressClassName to be available for
+            ingressClassName: traefik
