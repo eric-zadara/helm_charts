@@ -1,4 +1,4 @@
-# Map of HelmChartConfig objects for k3s helm operator
+# -- Map of HelmChartConfig objects for k3s helm operator
 config: {}
 #  traefik:
 #    namespace: kube-system
