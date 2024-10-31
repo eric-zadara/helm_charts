@@ -2,6 +2,13 @@ apiVersion: v1
 entries:
   k3s-helmchartconfig:
   - apiVersion: v2
+    created: "2024-10-31T17:20:21.616119036Z"
+    digest: 5c28ef85c019cd68dedd803a569281ccf5f7c0b779981d9b41c719f95f97ba2e
+    name: k3s-helmchartconfig
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/k3s-helmchartconfig-0.0.2/k3s-helmchartconfig-0.0.2.tgz
+    version: 0.0.2
+  - apiVersion: v2
     created: "2024-10-31T17:05:27.663328683Z"
     digest: e023bb1556adba352918f6471bb309d9677d0560fe34af98dc960f00769b4cc5
     name: k3s-helmchartconfig
@@ -9,6 +16,13 @@ entries:
     - https://github.com/eric-zadara/helm_charts/releases/download/k3s-helmchartconfig-0.0.1/k3s-helmchartconfig-0.0.1.tgz
     version: 0.0.1
   zadara-aws-config:
+  - apiVersion: v2
+    created: "2024-10-31T17:20:21.778433109Z"
+    digest: f7eaf824ab4f84c0ebe1669a5dc0901b9e6cea7288930bdcfdd85ca79e8c6627
+    name: zadara-aws-config
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/zadara-aws-config-0.0.3/zadara-aws-config-0.0.3.tgz
+    version: 0.0.3
   - apiVersion: v2
     created: "2024-10-29T17:08:49.210541254Z"
     digest: 331518596cbc09bf9af1ede1a0960d0a85405c09881228e2b7e9a4dfaa45900d
@@ -23,4 +37,4 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/zadara-aws-config-0.0.1/zadara-aws-config-0.0.1.tgz
     version: 0.0.1
-generated: "2024-10-31T17:05:27.758957484Z"
+generated: "2024-10-31T17:20:21.778454609Z"
