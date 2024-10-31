@@ -7,8 +7,6 @@ on:
 
 jobs:
   release:
-    # depending on default permission settings for your org (contents being read-only or read-write for workloads), you will have to add permissions
-    # see: https://docs.github.com/en/actions/security-guides/automatic-token-authentication#modifying-the-permissions-for-the-github_token
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -28,6 +26,11 @@ jobs:
         env:
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
 
+      - name: Run helm-docs
+        uses: losisin/helm-docs-github-action@v1
+        with:
+          git-push: true
+
       - name: Run chart-releaser
         id: releaser
         uses: helm/chart-releaser-action@v1.6.0
@@ -36,8 +39,3 @@ jobs:
         with:
           skip_existing: true
 
-      - name: Run helm-docs
-        if: steps.releaser.outputs.changed_charts != ''
-        uses: losisin/helm-docs-github-action@v1
-        with:
-          git-push: true
