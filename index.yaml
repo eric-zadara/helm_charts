@@ -1,5 +1,13 @@
 apiVersion: v1
 entries:
+  cert-manager-clusterissuers:
+  - apiVersion: v2
+    created: "2024-10-31T18:23:36.505668096Z"
+    digest: 930047a72cd6f4a2a15e564ab9fac1f712d1df19d5aeec8a69d9b4e3989a4b49
+    name: cert-manager-clusterissuers
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/cert-manager-clusterissuers-0.0.1/cert-manager-clusterissuers-0.0.1.tgz
+    version: 0.0.1
   k3s-helmchartconfig:
   - apiVersion: v2
     created: "2024-10-31T17:20:21.616119036Z"
@@ -37,4 +45,4 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/zadara-aws-config-0.0.1/zadara-aws-config-0.0.1.tgz
     version: 0.0.1
-generated: "2024-10-31T17:20:21.778454609Z"
+generated: "2024-10-31T18:23:36.505687843Z"
