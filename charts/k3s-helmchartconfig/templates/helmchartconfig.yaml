@@ -1,0 +1,18 @@
+{{- range $configName, $configContent := .Values.config }}
+{{- if ne $configContent.enabled false }}
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: {{ $configName }}
+  namespace: {{ $configContent.namespace }}
+spec:
+{{- if $configContent.set }}
+  set:
+{{ toYaml $configContent.set | indent 4 }}
+{{- end }}
+{{- if $configContent.valuesContent }}
+  valuesContent: |-
+{{ toYaml $configContent.valuesContent | indent 4 }}
+{{- end }}
+{{- end }}
+{{- end }}
