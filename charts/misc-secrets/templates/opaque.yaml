@@ -1,0 +1,17 @@
+{{- range $secretName, $secretMeta := (index $.Values "insecure-opaque") }}
+{{- if ne $secretMeta.enabled false }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ printf "%s" $secretName }}
+{{- if $secretMeta.annotations }}
+  annotations: {{ toYaml $secretMeta.annotations | nindent 4 }}
+{{- end }}
+type: Opaque
+data:
+{{- range $secretKey, $secretValue := $secretMeta.data }}
+  {{ tpl $secretKey $ }}: {{ (tpl $secretValue $) | b64enc }}
+{{- end }}
+{{- end }}
+{{- end }}

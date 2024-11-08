@@ -1,0 +1,34 @@
+{{- range $secretName, $secretMeta := (index $.Values "insecure-tls") }}
+{{- if ne $secretMeta.enabled false }}
+{{- $secretNameHash := $secretName | sha256sum }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ printf "%s" $secretName }}
+{{- if $secretMeta.annotations }}
+  annotations: {{ toYaml $secretMeta.annotations | nindent 4 }}
+{{- end }}
+type: kubernetes.io/tls
+data:
+{{- if $secretMeta.data.key }}
+{{- $cert := genSelfSignedCertWithKey $secretNameHash (list) (list) 3650 (default (genPrivateKey "rsa") $secretMeta.data.key) }}
+  tls.key: |
+    {{ $secretMeta.data.key | b64enc }}
+  tls.crt: |
+    {{ (default $cert.Cert $secretMeta.data.crt) | b64enc }}
+{{- else if $secretMeta.data.keyB64 }}
+{{- $cert := genSelfSignedCertWithKey $secretNameHash (list) (list) 3650 (default (genPrivateKey "rsa") ($secretMeta.data.keyB64 | b64dec)) }}
+  tls.key: |
+    {{ $secretMeta.data.keyB64 }}
+  tls.crt: |
+    {{ (default ($cert.Cert | b64enc) $secretMeta.data.crtB64) }}
+{{ else }}
+{{- $cert := genSelfSignedCertWithKey $secretNameHash (list) (list) 3650 (genPrivateKey "rsa") }}
+  tls.key: |
+    {{ $cert.Key | b64enc }}
+  tls.crt: |
+    {{ $cert.Cert | b64enc }}
+{{- end }}
+{{- end }}
+{{- end }}

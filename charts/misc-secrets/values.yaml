@@ -1,0 +1,24 @@
+# -- Insecure and generic secret
+insecure-opaque:
+  example:
+    enabled: false
+    data:
+      mykey: "myvalue"
+# -- Insecure and generic TLS secret, will generate if undefined
+insecure-tls:
+  example:
+    enabled: false
+    data:
+      key: "tlsPayload"
+      crt: "crtPayload"
+  exampleB64:
+    enabled: false
+    data:
+      keyB64: "tlsPayload"
+      crtB64: "crtPayload"
+# -- Create Bitnami's SealedSecrets
+sealed:
+  example:
+    enabled: false
+    encryptedData:
+      mykey: "encrypted payload from kubeseal"

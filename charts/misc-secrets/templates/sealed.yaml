@@ -1,0 +1,14 @@
+{{- range $secretName, $secretMeta := .Values.sealed }}
+{{- if ne $secretMeta.enabled false }}
+---
+apiVersion: "bitnami.com/v1alpha1"
+kind: SealedSecret
+metadata:
+  name: {{ printf "%s" $secretName }}
+{{- if $secretMeta.annotations }}
+  annotations: {{ toYaml $secretMeta.annotations | nindent 4 }}
+{{- end }}
+spec:
+  encryptedData: {{ toYaml $secretMeta.encryptedData | nindent 4 }}
+{{- end }}
+{{- end }}
