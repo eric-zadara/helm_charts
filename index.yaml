@@ -23,6 +23,14 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/k3s-helmchartconfig-0.0.1/k3s-helmchartconfig-0.0.1.tgz
     version: 0.0.1
+  misc-secrets:
+  - apiVersion: v2
+    created: "2024-11-08T20:16:25.668073175Z"
+    digest: f63bbc99201a0b20c464c791c6a677b0e55fafbbe1b04ac554a299b2f5a09ce9
+    name: misc-secrets
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/misc-secrets-0.0.1/misc-secrets-0.0.1.tgz
+    version: 0.0.1
   zadara-aws-config:
   - apiVersion: v2
     created: "2024-10-31T17:20:21.778433109Z"
@@ -45,4 +53,4 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/zadara-aws-config-0.0.1/zadara-aws-config-0.0.1.tgz
     version: 0.0.1
-generated: "2024-10-31T18:23:36.505687843Z"
+generated: "2024-11-08T20:16:25.668085108Z"
