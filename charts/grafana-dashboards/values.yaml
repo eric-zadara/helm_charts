@@ -1,0 +1,23 @@
+# -- Set dashboard kind
+configKind: ConfigMap
+# -- Set deployment namespace for objects
+configNamespace: null
+# -- Set default annotations for all objects
+configAnnotations: {}
+# -- Set default labels for all objects
+configLabels:
+  grafana_dashboard: ""
+zadara:
+  # -- Deploy Zadara dashboards
+  enabled: false
+  # -- Set annotations for objects in dashboards/zadara
+  annotations: {}
+  # -- Set labels for objects in dashboards/zadara
+  labels: {}
+nvidia:
+  # -- Deploy nvidia dashboards
+  enabled: false
+  # -- Set annotations for objects in dashboards/nvidia
+  annotations: {}
+  # -- Set labels for objects in dashboards/nvidia
+  labels: {}

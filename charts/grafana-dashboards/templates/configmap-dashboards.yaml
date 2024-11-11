@@ -1,0 +1,30 @@
+{{- if eq $.Values.configKind "ConfigMap" }}
+{{- $files := .Files.Glob "dashboards/**.json" }}
+{{- range $path, $fileContents := $files }}
+{{- $folderName := base (dir $path) }}
+{{- $folderConfig := get $.Values $folderName }}
+{{- if ne $folderConfig.enabled false }}
+{{- $fileName := base $path }}
+{{- $thisAnnotations := merge (default $folderConfig.annotations (dict)) $.Values.configAnnotations (dict "dashboard-folder" $folderName) }}
+{{- $thisLabels := merge (default $folderConfig.labels (dict)) $.Values.configLabels }}
+---
+# {{ $path }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ printf "dash-%s" (sha1sum $path) | trunc 63 | trimSuffix "-" }}
+{{- if $folderConfig.namespace }}
+  namespace: {{ $folderConfig.namespace }}
+{{- end }}
+{{- if $thisAnnotations }}
+  annotations: {{ toYaml $thisAnnotations | nindent 4 }}
+{{- end }}
+{{- if $thisLabels }}
+  labels: {{ toYaml $thisLabels | nindent 4 }}
+{{- end }}
+data:
+  {{ $fileName }}: |-
+{{ $.Files.Get $path | fromJson | toJson | indent 4 }}
+{{- end }}
+{{- end }}
+{{- end }}
