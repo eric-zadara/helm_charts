@@ -8,6 +8,14 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/cert-manager-clusterissuers-0.0.1/cert-manager-clusterissuers-0.0.1.tgz
     version: 0.0.1
+  grafana-dashboards:
+  - apiVersion: v2
+    created: "2024-11-11T19:10:40.764531401Z"
+    digest: 2085cb95c9c7082a16cb566de660c5bc8b8ff9821056ede24265eb972fea2af2
+    name: grafana-dashboards
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/grafana-dashboards-0.0.1/grafana-dashboards-0.0.1.tgz
+    version: 0.0.1
   k3s-helmchartconfig:
   - apiVersion: v2
     created: "2024-10-31T17:20:21.616119036Z"
@@ -53,4 +61,4 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/zadara-aws-config-0.0.1/zadara-aws-config-0.0.1.tgz
     version: 0.0.1
-generated: "2024-11-08T20:16:25.668085108Z"
+generated: "2024-11-11T19:10:40.764550256Z"
