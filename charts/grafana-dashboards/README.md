@@ -1,6 +1,6 @@
 # grafana-dashboards
 
-![Version: 0.0.1](https://img.shields.io/badge/Version-0.0.1-informational?style=flat-square)
+![Version: 0.0.2](https://img.shields.io/badge/Version-0.0.2-informational?style=flat-square)
 
 ## Values
 
@@ -13,6 +13,9 @@
 | nvidia.annotations | object | `{}` | Set annotations for objects in dashboards/nvidia |
 | nvidia.enabled | bool | `false` | Deploy nvidia dashboards |
 | nvidia.labels | object | `{}` | Set labels for objects in dashboards/nvidia |
+| vespa.annotations | object | `{}` | Set annotations for objects in dashboards/nvidia |
+| vespa.enabled | bool | `false` | Deploy vespa dashboards |
+| vespa.labels | object | `{}` | Set labels for objects in dashboards/nvidia |
 | zadara.annotations | object | `{}` | Set annotations for objects in dashboards/zadara |
 | zadara.enabled | bool | `false` | Deploy Zadara dashboards |
 | zadara.labels | object | `{}` | Set labels for objects in dashboards/zadara |
