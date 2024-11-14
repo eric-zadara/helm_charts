@@ -222,8 +222,8 @@
         "legend": {
           "calcs": [],
           "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false
+          "placement": "right",
+          "showLegend": true
         },
         "tooltip": {
           "mode": "multi",
@@ -240,7 +240,7 @@
           "editorMode": "code",
           "expr": "queries_rate{namespace=~\"$namespace\",job=~\"$job\",container=~\"$container\",pod=~\"$pod\"}",
           "interval": "",
-          "legendFormat": "",
+          "legendFormat": "{{pod}} {{operation}} {{status}}",
           "range": true,
           "refId": "B"
         }
@@ -336,8 +336,8 @@
         "legend": {
           "calcs": [],
           "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false
+          "placement": "right",
+          "showLegend": true
         },
         "tooltip": {
           "mode": "multi",
@@ -354,7 +354,7 @@
           "editorMode": "code",
           "expr": "feed_operations_rate{namespace=~\"$namespace\",job=~\"$job\",container=~\"$container\",pod=~\"$pod\"}",
           "interval": "",
-          "legendFormat": "",
+          "legendFormat": "{{pod}} {{operation}} {{status}}",
           "range": true,
           "refId": "A"
         }
@@ -851,7 +851,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -948,7 +949,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1061,7 +1063,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1102,7 +1105,7 @@
           "editorMode": "code",
           "expr": "cpu{namespace=~\"$namespace\",job=~\"$job\",container=~\"$container\",pod=~\"$pod\"}",
           "interval": "",
-          "legendFormat": "",
+          "legendFormat": "{{pod}}",
           "range": true,
           "refId": "A"
         }
@@ -1158,7 +1161,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1256,7 +1260,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1353,7 +1358,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1589,6 +1595,6 @@
   "timezone": "",
   "title": "Vespa Detailed Monitoring Dashboard",
   "uid": "3_SUtUZMk",
-  "version": 3,
+  "version": 4,
   "weekStart": ""
 }
