@@ -648,7 +648,7 @@
     "list": [
       {
         "current": {
-          "selected": true,
+          "selected": false,
           "text": "default",
           "value": "default"
         },
@@ -709,7 +709,7 @@
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "definition": "label_values(vespa_container_status{namespace=~\"$namespace\",job=~\"$job\",container=~\"$container\",pod=~\"$pod\"},job)",
+        "definition": "label_values(vespa_container_status{namespace=~\"$namespace\"},job)",
         "hide": 0,
         "includeAll": true,
         "multi": true,
@@ -717,7 +717,7 @@
         "options": [],
         "query": {
           "qryType": 1,
-          "query": "label_values(vespa_container_status{namespace=~\"$namespace\",job=~\"$job\",container=~\"$container\",pod=~\"$pod\"},job)",
+          "query": "label_values(vespa_container_status{namespace=~\"$namespace\"},job)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 2,
@@ -810,6 +810,6 @@
   "timezone": "",
   "title": "Vespa Basic Monitoring Dashboard",
   "uid": "KNxeOzWMk",
-  "version": 1,
+  "version": 3,
   "weekStart": ""
 }
