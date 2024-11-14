@@ -618,8 +618,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -717,8 +716,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -780,9 +778,9 @@
     "list": [
       {
         "current": {
-          "selected": false,
-          "text": "VictoriaMetrics",
-          "value": "P4169E866C3094E38"
+          "selected": true,
+          "text": "default",
+          "value": "default"
         },
         "hide": 0,
         "includeAll": false,
