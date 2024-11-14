@@ -46,7 +46,8 @@
     },
     {
       "datasource": {
-        "uid": "Prometheus"
+        "type": "prometheus",
+        "uid": "${datasource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -129,12 +130,19 @@
       "targets": [
         {
           "datasource": {
-            "uid": "Prometheus"
+            "type": "prometheus",
+            "uid": "${datasource}"
           },
-          "expr": "feed_operations_rate",
+          "disableTextWrap": false,
+          "editorMode": "builder",
+          "expr": "feed_operations_rate{namespace=~\"$namespace\"}",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
           "interval": "",
           "legendFormat": "Feed Operations / Second",
-          "refId": "A"
+          "range": true,
+          "refId": "A",
+          "useBackend": false
         }
       ],
       "title": "Feed Rate",
@@ -142,7 +150,8 @@
     },
     {
       "datasource": {
-        "uid": "Prometheus"
+        "type": "prometheus",
+        "uid": "${datasource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -224,11 +233,14 @@
       "targets": [
         {
           "datasource": {
-            "uid": "Prometheus"
+            "type": "prometheus",
+            "uid": "${datasource}"
           },
-          "expr": "queries_rate",
+          "editorMode": "code",
+          "expr": "queries_rate{namespace=~\"$namespace\"}",
           "interval": "",
           "legendFormat": "Queries / Second",
+          "range": true,
           "refId": "A"
         }
       ],
@@ -237,7 +249,8 @@
     },
     {
       "datasource": {
-        "uid": "Prometheus"
+        "type": "prometheus",
+        "uid": "${datasource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -318,11 +331,14 @@
       "targets": [
         {
           "datasource": {
-            "uid": "Prometheus"
+            "type": "prometheus",
+            "uid": "${datasource}"
           },
-          "expr": "content_proton_documentdb_documents_total_last",
+          "editorMode": "code",
+          "expr": "content_proton_documentdb_documents_total_last{namespace=~\"$namespace\"}",
           "interval": "",
           "legendFormat": "Total Documents in Storage",
+          "range": true,
           "refId": "A"
         }
       ],
@@ -331,7 +347,8 @@
     },
     {
       "datasource": {
-        "uid": "Prometheus"
+        "type": "prometheus",
+        "uid": "${datasource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -412,11 +429,14 @@
       "targets": [
         {
           "datasource": {
-            "uid": "Prometheus"
+            "type": "prometheus",
+            "uid": "${datasource}"
           },
-          "expr": "query_latency_average",
+          "editorMode": "code",
+          "expr": "query_latency_average{namespace=~\"$namespace\"}",
           "interval": "",
           "legendFormat": "Average Query Latency",
+          "range": true,
           "refId": "A"
         }
       ],
@@ -425,7 +445,8 @@
     },
     {
       "datasource": {
-        "uid": "Prometheus"
+        "type": "prometheus",
+        "uid": "${datasource}"
       },
       "description": "",
       "fieldConfig": {
@@ -507,11 +528,14 @@
       "targets": [
         {
           "datasource": {
-            "uid": "Prometheus"
+            "type": "prometheus",
+            "uid": "${datasource}"
           },
-          "expr": "query_latency_95percentile",
+          "editorMode": "code",
+          "expr": "query_latency_95percentile{namespace=~\"$namespace\"}",
           "interval": "",
           "legendFormat": "95 Percentile Query Latency",
+          "range": true,
           "refId": "A"
         }
       ],
@@ -520,7 +544,8 @@
     },
     {
       "datasource": {
-        "uid": "Prometheus"
+        "type": "prometheus",
+        "uid": "${datasource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -601,11 +626,14 @@
       "targets": [
         {
           "datasource": {
-            "uid": "Prometheus"
+            "type": "prometheus",
+            "uid": "${datasource}"
           },
-          "expr": "query_latency_99percentile",
+          "editorMode": "code",
+          "expr": "query_latency_99percentile{namespace=~\"$namespace\"}",
           "interval": "",
           "legendFormat": "99 Percentile Query Latency",
+          "range": true,
           "refId": "A"
         }
       ],
@@ -613,6 +641,7 @@
       "type": "timeseries"
     }
   ],
+  "refresh": "1m",
   "schemaVersion": 39,
   "tags": [],
   "templating": {
