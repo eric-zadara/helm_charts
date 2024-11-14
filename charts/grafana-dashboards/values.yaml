@@ -21,3 +21,10 @@ nvidia:
   annotations: {}
   # -- Set labels for objects in dashboards/nvidia
   labels: {}
+vespa:
+  # -- Deploy vespa dashboards
+  enabled: false
+  # -- Set annotations for objects in dashboards/nvidia
+  annotations: {}
+  # -- Set labels for objects in dashboards/nvidia
+  labels: {}
