@@ -134,8 +134,8 @@
             "uid": "${datasource}"
           },
           "disableTextWrap": false,
-          "editorMode": "builder",
-          "expr": "feed_operations_rate{namespace=~\"$namespace\"}",
+          "editorMode": "code",
+          "expr": "feed_operations_rate{namespace=~\"$namespace\",job=~\"$job\",container=~\"$container\",pod=~\"$pod\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "interval": "",
@@ -237,7 +237,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "queries_rate{namespace=~\"$namespace\"}",
+          "expr": "queries_rate{namespace=~\"$namespace\",job=~\"$job\",container=~\"$container\",pod=~\"$pod\"}",
           "interval": "",
           "legendFormat": "Queries / Second",
           "range": true,
@@ -335,7 +335,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "content_proton_documentdb_documents_total_last{namespace=~\"$namespace\"}",
+          "expr": "content_proton_documentdb_documents_total_last{namespace=~\"$namespace\",job=~\"$job\",container=~\"$container\",pod=~\"$pod\"}",
           "interval": "",
           "legendFormat": "Total Documents in Storage",
           "range": true,
@@ -433,7 +433,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "query_latency_average{namespace=~\"$namespace\"}",
+          "expr": "query_latency_average{namespace=~\"$namespace\",job=~\"$job\",container=~\"$container\",pod=~\"$pod\"}",
           "interval": "",
           "legendFormat": "Average Query Latency",
           "range": true,
@@ -532,7 +532,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "query_latency_95percentile{namespace=~\"$namespace\"}",
+          "expr": "query_latency_95percentile{namespace=~\"$namespace\",job=~\"$job\",container=~\"$container\",pod=~\"$pod\"}",
           "interval": "",
           "legendFormat": "95 Percentile Query Latency",
           "range": true,
@@ -630,7 +630,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "query_latency_99percentile{namespace=~\"$namespace\"}",
+          "expr": "query_latency_99percentile{namespace=~\"$namespace\",job=~\"$job\",container=~\"$container\",pod=~\"$pod\"}",
           "interval": "",
           "legendFormat": "99 Percentile Query Latency",
           "range": true,
@@ -709,7 +709,7 @@
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "definition": "label_values(vespa_container_status{namespace=~\"$namespace\"},job)",
+        "definition": "label_values(vespa_container_status{namespace=~\"$namespace\",job=~\"$job\",container=~\"$container\",pod=~\"$pod\"},job)",
         "hide": 0,
         "includeAll": true,
         "multi": true,
@@ -717,7 +717,7 @@
         "options": [],
         "query": {
           "qryType": 1,
-          "query": "label_values(vespa_container_status{namespace=~\"$namespace\"},job)",
+          "query": "label_values(vespa_container_status{namespace=~\"$namespace\",job=~\"$job\",container=~\"$container\",pod=~\"$pod\"},job)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 2,

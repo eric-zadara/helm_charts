@@ -124,7 +124,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "content_proton_documentdb_documents_total_last{namespace=~\"$namespace\"}",
+          "expr": "content_proton_documentdb_documents_total_last{namespace=~\"$namespace\",job=~\"$job\",container=~\"$container\",pod=~\"$pod\"}",
           "instant": false,
           "interval": "",
           "legendFormat": "",
@@ -238,7 +238,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "queries_rate{namespace=~\"$namespace\"}",
+          "expr": "queries_rate{namespace=~\"$namespace\",job=~\"$job\",container=~\"$container\",pod=~\"$pod\"}",
           "interval": "",
           "legendFormat": "",
           "range": true,
@@ -352,7 +352,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "feed_operations_rate{namespace=~\"$namespace\"}",
+          "expr": "feed_operations_rate{namespace=~\"$namespace\",job=~\"$job\",container=~\"$container\",pod=~\"$pod\"}",
           "interval": "",
           "legendFormat": "",
           "range": true,
@@ -466,7 +466,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "query_latency_95percentile{namespace=~\"$namespace\"}",
+          "expr": "query_latency_95percentile{namespace=~\"$namespace\",job=~\"$job\",container=~\"$container\",pod=~\"$pod\"}",
           "interval": "",
           "legendFormat": "",
           "range": true,
@@ -580,7 +580,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "query_latency_99percentile{namespace=~\"$namespace\"}",
+          "expr": "query_latency_99percentile{namespace=~\"$namespace\",job=~\"$job\",container=~\"$container\",pod=~\"$pod\"}",
           "interval": "",
           "legendFormat": "",
           "range": true,
@@ -695,7 +695,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "query_latency_average{namespace=~\"$namespace\"}",
+          "expr": "query_latency_average{namespace=~\"$namespace\",job=~\"$job\",container=~\"$container\",pod=~\"$pod\"}",
           "interval": "",
           "legendFormat": "",
           "range": true,
@@ -793,7 +793,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "http_status_2xx_rate{namespace=~\"$namespace\"}",
+          "expr": "http_status_2xx_rate{namespace=~\"$namespace\",job=~\"$job\",container=~\"$container\",pod=~\"$pod\"}",
           "interval": "",
           "legendFormat": "",
           "range": true,
@@ -891,7 +891,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "http_status_4xx_rate{namespace=~\"$namespace\"}",
+          "expr": "http_status_4xx_rate{namespace=~\"$namespace\",job=~\"$job\",container=~\"$container\",pod=~\"$pod\"}",
           "interval": "",
           "legendFormat": "",
           "range": true,
@@ -1005,7 +1005,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "http_status_5xx_rate{namespace=~\"$namespace\"}",
+          "expr": "http_status_5xx_rate{namespace=~\"$namespace\",job=~\"$job\",container=~\"$container\",pod=~\"$pod\"}",
           "interval": "",
           "legendFormat": "",
           "range": true,
@@ -1103,7 +1103,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "cpu{namespace=~\"$namespace\"}",
+          "expr": "cpu{namespace=~\"$namespace\",job=~\"$job\",container=~\"$container\",pod=~\"$pod\"}",
           "interval": "",
           "legendFormat": "",
           "range": true,
@@ -1201,7 +1201,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "content_proton_documentdb_disk_usage_last{namespace=~\"$namespace\"} / (1024 * 1024)",
+          "expr": "content_proton_documentdb_disk_usage_last{namespace=~\"$namespace\",job=~\"$job\",container=~\"$container\",pod=~\"$pod\"} / (1024 * 1024)",
           "interval": "",
           "legendFormat": "",
           "range": true,
@@ -1300,7 +1300,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "content_proton_resource_usage_disk_average{namespace=~\"$namespace\"} * 100",
+          "expr": "content_proton_resource_usage_disk_average{namespace=~\"$namespace\",job=~\"$job\",container=~\"$container\",pod=~\"$pod\"} * 100",
           "interval": "",
           "legendFormat": "",
           "range": true,
@@ -1414,7 +1414,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "content_proton_resource_usage_memory_average{namespace=~\"$namespace\"} * 100",
+          "expr": "content_proton_resource_usage_memory_average{namespace=~\"$namespace\",job=~\"$job\",container=~\"$container\",pod=~\"$pod\"} * 100",
           "interval": "",
           "legendFormat": "",
           "range": true,
@@ -1493,7 +1493,7 @@
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "definition": "label_values(vespa_container_status{namespace=~\"$namespace\"},job)",
+        "definition": "label_values(vespa_container_status{namespace=~\"$namespace\",job=~\"$job\",container=~\"$container\",pod=~\"$pod\"},job)",
         "hide": 0,
         "includeAll": true,
         "multi": true,
@@ -1501,7 +1501,7 @@
         "options": [],
         "query": {
           "qryType": 1,
-          "query": "label_values(vespa_container_status{namespace=~\"$namespace\"},job)",
+          "query": "label_values(vespa_container_status{namespace=~\"$namespace\",job=~\"$job\",container=~\"$container\",pod=~\"$pod\"},job)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 2,
