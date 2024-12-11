@@ -1,6 +1,6 @@
 # grafana-dashboards
 
-![Version: 0.0.5](https://img.shields.io/badge/Version-0.0.5-informational?style=flat-square)
+![Version: 0.0.6](https://img.shields.io/badge/Version-0.0.6-informational?style=flat-square)
 
 ## Values
 
@@ -10,6 +10,9 @@
 | configKind | string | `"ConfigMap"` | Set dashboard kind |
 | configLabels | object | `{"grafana_dashboard":""}` | Set default labels for all objects |
 | configNamespace | string | `nil` | Set deployment namespace for objects |
+| node-exporter.annotations | object | `{}` | Set annotations for objects in dashboards/node-exporter |
+| node-exporter.enabled | bool | `false` | Deploy node-exporter dashboards |
+| node-exporter.labels | object | `{}` | Set labels for objects in dashboards/node-exporter |
 | nvidia.annotations | object | `{}` | Set annotations for objects in dashboards/nvidia |
 | nvidia.enabled | bool | `false` | Deploy nvidia dashboards |
 | nvidia.labels | object | `{}` | Set labels for objects in dashboards/nvidia |
