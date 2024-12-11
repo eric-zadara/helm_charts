@@ -73,7 +73,7 @@
   },
   "editable": true,
   "fiscalYearStartMonth": 0,
-  "gnetId": null,
+  "gnetId": 1860,
   "graphTooltip": 1,
   "id": null,
   "links": [
@@ -23937,7 +23937,7 @@
   },
   "timezone": "browser",
   "title": "Node Exporter Single Full",
-  "uid": "rYdddlPWk2",
+  "uid": "",
   "version": 1,
   "weekStart": ""
 }
