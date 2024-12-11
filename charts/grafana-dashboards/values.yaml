@@ -28,3 +28,10 @@ vespa:
   annotations: {}
   # -- Set labels for objects in dashboards/nvidia
   labels: {}
+node-exporter:
+  # -- Deploy node-exporter dashboards
+  enabled: false
+  # -- Set annotations for objects in dashboards/node-exporter
+  annotations: {}
+  # -- Set labels for objects in dashboards/node-exporter
+  labels: {}
