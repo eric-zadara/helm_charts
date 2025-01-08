@@ -1,5 +1,21 @@
 apiVersion: v1
 entries:
+  argo-examples-onyx:
+  - apiVersion: v2
+    created: "2025-01-08T18:44:32.532735651Z"
+    digest: e6f2265ac4ff709f1cd932f6eb41605d5cf86161543839bade37007bdb9274b9
+    name: argo-examples-onyx
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/argo-examples-onyx-0.0.1/argo-examples-onyx-0.0.1.tgz
+    version: 0.0.1
+  argo-examples-operators:
+  - apiVersion: v2
+    created: "2025-01-08T18:44:32.629125651Z"
+    digest: 6091ec29adbb6348ef92652fff5c3745e2eaba2ba852f0f70a204978860a7350
+    name: argo-examples-operators
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/argo-examples-operators-0.0.1/argo-examples-operators-0.0.1.tgz
+    version: 0.0.1
   cert-manager-clusterissuers:
   - apiVersion: v2
     created: "2024-10-31T18:23:36.505668096Z"
@@ -103,4 +119,4 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/zadara-aws-config-0.0.1/zadara-aws-config-0.0.1.tgz
     version: 0.0.1
-generated: "2024-12-11T23:26:35.219918331Z"
+generated: "2025-01-08T18:44:32.629153633Z"
