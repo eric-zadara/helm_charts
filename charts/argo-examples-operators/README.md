@@ -6,9 +6,11 @@
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| argocd.argocdApps.annotations."argocd.argoproj.io/sync-wave" | string | `"1"` |  |
-| argocd.enabled | bool | `true` | Enable/Takeover argocd |
-| argocd.targetRevision | string | `"7.6.8"` | Set chart version |
+| argo-cd.argocdApps.annotations."argocd.argoproj.io/sync-wave" | string | `"1"` |  |
+| argo-cd.enabled | bool | `true` | Enable/Takeover argocd |
+| argo-cd.namespace | string | `"argocd"` | Override default target namespace |
+| argo-cd.redundancy.replicas | int | `2` |  |
+| argo-cd.targetRevision | string | `"7.6.8"` | Set chart version |
 | argocdApps | object | `{"annotations":{"argocd.argoproj.io/sync-wave":"10"},"destination":{"server":"https://kubernetes.default.svc"},"namespace":"argocd","project":"default","syncPolicy":{"automated":{"prune":true,"selfHeal":true},"syncOptions":["CreateNamespace=true","ServerSideApply=true"]}}` | ArgoCD Application defaults for all applications |
 | argocdApps.annotations | object | `{"argocd.argoproj.io/sync-wave":"10"}` | Set default annotations for the application. |
 | argocdApps.destination | object | `{"server":"https://kubernetes.default.svc"}` | Set default argocd destination configuration |
@@ -26,12 +28,13 @@
 | cloudnative-pg.argocdApps.annotations."argocd.argoproj.io/sync-wave" | string | `"4"` |  |
 | cloudnative-pg.enabled | bool | `true` | Enable CNPG |
 | cloudnative-pg.targetRevision | string | `"0.22.0"` | Set chart version |
-| common | object | `{"ingress":{"enabled":true,"ingressClassName":"traefik","rootDomain":"domain.com"},"monitoring":{"enabled":false}}` | Set common settings to be used in all applications |
-| common.ingress | object | `{"enabled":true,"ingressClassName":"traefik","rootDomain":"domain.com"}` | Common defaults applied to ingresses in all applications |
-| common.ingress.enabled | bool | `true` | Enable ingresses for all applications |
+| common | object | `{"ingress":{"enabled":false,"ingressClassName":"traefik","rootDomain":""},"monitoring":{"enabled":false},"redundancy":{"replicas":3}}` | Set common settings to be used in all applications |
+| common.ingress | object | `{"enabled":false,"ingressClassName":"traefik","rootDomain":""}` | Common defaults applied to ingresses in all applications |
+| common.ingress.enabled | bool | `false` | Enable ingresses for all applications |
 | common.ingress.ingressClassName | string | `"traefik"` | Set default ingressClassName |
-| common.ingress.rootDomain | string | `"domain.com"` | Set root domain to use for ingress rules of all applications |
+| common.ingress.rootDomain | string | `""` | Set root domain to use for ingress rules of all applications |
 | common.monitoring | object | `{"enabled":false}` | TODO Set/Enable podMonitor/serviceMonitor |
+| common.redundancy | object | `{"replicas":3}` | Set default redundancy configurations |
 | gpu-operator.enabled | bool | `true` | Load gpu-operator |
 | gpu-operator.targetRevision | string | `"v24.6.1"` | Set chart version |
 | grafana-dashboards.chartSource | string | `"git"` | Set chart source. git/helm |

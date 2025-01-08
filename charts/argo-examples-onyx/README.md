@@ -12,12 +12,13 @@
 | argocdApps.namespace | string | `"argocd"` | Set default namespace to put the ArgoCD App CRD into |
 | argocdApps.project | string | `"default"` | Set default ArgoCD Project to designate |
 | argocdApps.syncPolicy | object | `{"automated":{"prune":true,"selfHeal":true},"syncOptions":["CreateNamespace=true","ServerSideApply=true"]}` | Set default syncPolicy for all apps |
-| common | object | `{"ingress":{"enabled":true,"ingressClassName":"traefik","rootDomain":"domain.com"},"monitoring":{"enabled":false}}` | Set common settings to be used in all applications |
-| common.ingress | object | `{"enabled":true,"ingressClassName":"traefik","rootDomain":"domain.com"}` | Common defaults applied to ingresses in all applications |
+| common | object | `{"ingress":{"enabled":true,"ingressClassName":"traefik","rootDomain":""},"monitoring":{"enabled":false},"redundancy":{"replicas":3}}` | Set common settings to be used in all applications |
+| common.ingress | object | `{"enabled":true,"ingressClassName":"traefik","rootDomain":""}` | Common defaults applied to ingresses in all applications |
 | common.ingress.enabled | bool | `true` | Enable ingresses for all applications |
 | common.ingress.ingressClassName | string | `"traefik"` | Set default ingressClassName |
-| common.ingress.rootDomain | string | `"domain.com"` | Set root domain to use for ingress rules of all applications |
+| common.ingress.rootDomain | string | `""` | Set root domain to use for ingress rules of all applications |
 | common.monitoring | object | `{"enabled":false}` | TODO Set/Enable podMonitor/serviceMonitor |
+| common.redundancy | object | `{"replicas":3}` | Set default redundancy configurations |
 | ollama.argocdApps.annotations."argocd.argoproj.io/sync-wave" | string | `"11"` |  |
 | ollama.enabled | bool | `true` | Enable ollama |
 | ollama.targetRevision | string | `"1.1.2"` | Set chart version/revision |
