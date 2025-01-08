@@ -36,11 +36,13 @@ common:
   redundancy:
     replicas: 3
 
-argocd:
+argo-cd:
   # -- Enable/Takeover argocd
   enabled: true
   # -- Set chart version
   targetRevision: 7.6.8
+  # -- Override default target namespace
+  namespace: argocd
   argocdApps:
     annotations:
       argocd.argoproj.io/sync-wave: "1"

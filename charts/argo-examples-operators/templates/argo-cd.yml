@@ -1,4 +1,4 @@
-{{ $chartName := "argocd" }}
+{{ $chartName := "argo-cd" }}
 {{ $repoURL := "https://argoproj.github.io/argo-helm" }}
 {{ $appConfig := merge (index $.Values $chartName) $.Values.common }}
 {{- if ne $appConfig.enabled false }}
