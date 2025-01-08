@@ -42,8 +42,6 @@ spec:
             instances: {{ $appConfig.redundancy.replicas }}
             monitoring:
               enabled: {{ (default false $appConfig.monitoring.enabled) }}
-        hotpatch:
-          vespaRedundancy: {{ (div $appConfig.redundancy.replicas 2) | add1 }}
         vespa:
           statefulSets:
             single: { enabled: false }
@@ -54,6 +52,12 @@ spec:
               enabled: true
               replicaCount: {{ $appConfig.redundancy.replicas }}
           replicaCount: {{ $appConfig.redundancy.replicas }}
+        configMap:
+          vespa:
+            VESPA_CONFIG_SERVER_HOST: 'vespa-cfg'
+            VESPA_HOST: 'vespa-content'
+        hotpatch:
+          vespaRedundancy: {{ (div $appConfig.redundancy.replicas 2) | add1 }}
         web:
           replicaCount: {{ $appConfig.redundancy.replicas }}
         api:
