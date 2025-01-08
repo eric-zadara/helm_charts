@@ -35,7 +35,9 @@ spec:
             psp_auto_creation_enabled: false
         vmagent: { enabled: true }
         vmsingle: { enabled: false }
-        vmcluster: { enabled: true, spec: { retentionPeriod: "7d" } }
+        vmcluster:
+          enabled: true
+          spec: { retentionPeriod: "7d" }
         vmalert: { enabled: false }
         alertmanager: { enabled: false }
         prometheus-node-exporter:

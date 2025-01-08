@@ -35,15 +35,34 @@ spec:
 {{- else }}
         cnpg:
           cluster:
-            instances: 3
+            instances: {{ $appConfig.redundancy.replicas }}
             monitoring:
               enabled: {{ (default false $appConfig.monitoring.enabled) }}
           pooler:
-            instances: 3
+            instances: {{ $appConfig.redundancy.replicas }}
             monitoring:
               enabled: {{ (default false $appConfig.monitoring.enabled) }}
+        hotpatch:
+          vespaRedundancy: {{ (div $appConfig.redundancy.replicas 2) | add1 }}
+        vespa:
+          statefulSets:
+            single: { enabled: false }
+            cfg:
+              enabled: true
+              replicaCount: {{ $appConfig.redundancy.replicas }}
+            content:
+              enabled: true
+              replicaCount: {{ $appConfig.redundancy.replicas }}
+          replicaCount: {{ $appConfig.redundancy.replicas }}
+        web:
+          replicaCount: {{ $appConfig.redundancy.replicas }}
+        api:
+          replicaCount: {{ $appConfig.redundancy.replicas }}
+        worker:
+          replicaCount: 1
         {{- range $i, $section := (list "inference" "index") }}
         {{ $section }}:
+          replicaCount: 1
           runtimeClassName: nvidia
           resources:
             requests:
@@ -67,12 +86,14 @@ spec:
                       - tesla-26b9
         {{- end }}
         ingress:
-          enabled: {{ and (default false $appConfig.ingress.enabled) (not (not $appConfig.ingress.rootDomain)) }}
-          {{- if and (default false $appConfig.ingress.enabled) (not (not $appConfig.ingress.rootDomain)) }}
+          enabled: {{ default false $appConfig.ingress.enabled }}
+          {{- if default false $appConfig.ingress.enabled }}
           annotations:
             cert-manager.io/cluster-issuer: self-signed
-          hostname: "onyx.{{ $appConfig.ingress.rootDomain }}"
           tls: true
+          {{- if not (not $appConfig.ingress.rootDomain) }}
+          hostname: "onyx.{{ $appConfig.ingress.rootDomain }}"
+          {{- end }}
           {{- end }}
 {{- end }}
 {{- end }}

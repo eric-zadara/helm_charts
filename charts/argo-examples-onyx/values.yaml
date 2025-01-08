@@ -26,12 +26,15 @@ common:
     # -- Enable ingresses for all applications
     enabled: true
     # -- Set root domain to use for ingress rules of all applications
-    rootDomain: 'domain.com'
+    rootDomain: ''
     # -- Set default ingressClassName
     ingressClassName: traefik
   # -- TODO Set/Enable podMonitor/serviceMonitor
   monitoring:
     enabled: false
+  # -- Set default redundancy configurations
+  redundancy:
+    replicas: 3
 
 ollama:
   # -- Enable ollama

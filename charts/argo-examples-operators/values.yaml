@@ -24,14 +24,17 @@ common:
   # -- Common defaults applied to ingresses in all applications
   ingress:
     # -- Enable ingresses for all applications
-    enabled: true
+    enabled: false
     # -- Set root domain to use for ingress rules of all applications
-    rootDomain: 'domain.com'
+    rootDomain: ''
     # -- Set default ingressClassName
     ingressClassName: traefik
   # -- TODO Set/Enable podMonitor/serviceMonitor
   monitoring:
     enabled: false
+  # -- Set default redundancy configurations
+  redundancy:
+    replicas: 3
 
 argocd:
   # -- Enable/Takeover argocd
@@ -41,6 +44,8 @@ argocd:
   argocdApps:
     annotations:
       argocd.argoproj.io/sync-wave: "1"
+  redundancy:
+    replicas: 2
 
 cert-manager:
   # -- Enable cert-manager
