@@ -93,7 +93,7 @@ spec:
           enabled: {{ default false $appConfig.ingress.enabled }}
           {{- if default false $appConfig.ingress.enabled }}
           annotations:
-            cert-manager.io/cluster-issuer: self-signed
+            cert-manager.io/cluster-issuer: selfsigned
           tls: true
           {{- if not (not $appConfig.ingress.rootDomain) }}
           hostname: "onyx.{{ $appConfig.ingress.rootDomain }}"
