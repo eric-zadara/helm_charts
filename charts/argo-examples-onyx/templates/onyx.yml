@@ -61,7 +61,7 @@ spec:
         web:
           replicaCount: {{ $appConfig.redundancy.replicas }}
         api:
-          replicaCount: {{ $appConfig.redundancy.replicas }}
+          replicaCount: 1
         worker:
           replicaCount: 1
         {{- range $i, $section := (list "inference" "index") }}
