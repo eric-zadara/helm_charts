@@ -1,0 +1,110 @@
+# -- ArgoCD Application defaults for all applications
+argocdApps:
+  # -- Set default ArgoCD Project to designate
+  project: default
+  # -- Set default namespace to put the ArgoCD App CRD into
+  namespace: argocd
+  # -- Set default argocd destination configuration
+  destination:
+    server: https://kubernetes.default.svc
+  # -- Set default syncPolicy for all apps
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+  # -- Set default annotations for the application.
+  annotations:
+    argocd.argoproj.io/sync-wave: "10"
+
+# -- Set common settings to be used in all applications
+common:
+  # -- Common defaults applied to ingresses in all applications
+  ingress:
+    # -- Enable ingresses for all applications
+    enabled: true
+    # -- Set root domain to use for ingress rules of all applications
+    rootDomain: 'domain.com'
+    # -- Set default ingressClassName
+    ingressClassName: traefik
+  # -- TODO Set/Enable podMonitor/serviceMonitor
+  monitoring:
+    enabled: false
+
+argocd:
+  # -- Enable/Takeover argocd
+  enabled: true
+  # -- Set chart version
+  targetRevision: 7.6.8
+  argocdApps:
+    annotations:
+      argocd.argoproj.io/sync-wave: "1"
+
+cert-manager:
+  # -- Enable cert-manager
+  enabled: true
+  # -- Set chart version
+  targetRevision: v1.15.3
+  # -- Override app name
+  nameOverride:
+  argocdApps:
+    annotations:
+      argocd.argoproj.io/sync-wave: "2"
+
+cert-manager-clusterissuers:
+  # -- Install default cert-manager ClusterIssuers
+  enabled: true
+  # -- Set chart version
+  targetRevision: 0.0.1
+  # -- Override default target namespace
+  namespace: cert-manager
+  argocdApps:
+    annotations:
+      argocd.argoproj.io/sync-wave: "3"
+
+prometheus-operator-crds:
+  # -- Load Prom CRDs for Victoria Metrics
+  enabled: true
+  # -- Set chart version
+  targetRevision: 14.0.0
+  # -- Override default target namespace
+  namespace: victoria-metrics-k8s-stack
+  argocdApps:
+    annotations:
+      argocd.argoproj.io/sync-wave: "2"
+
+victoria-metrics-k8s-stack:
+  # -- Enable victoria-metrics
+  enabled: true
+  # -- Set chart version
+  targetRevision: 0.25.14
+  argocdApps:
+    annotations:
+      argocd.argoproj.io/sync-wave: "3"
+
+cloudnative-pg:
+  # -- Enable CNPG
+  enabled: true
+  # -- Set chart version
+  targetRevision: 0.22.0
+  argocdApps:
+    annotations:
+      argocd.argoproj.io/sync-wave: "4"
+
+grafana-dashboards:
+  # -- Load Prom CRDs for Victoria Metrics
+  enabled: true
+  # -- Set chart version
+  targetRevision: HEAD
+  # -- Set chart source. git/helm
+  chartSource: git
+  # -- Override default target namespace
+  namespace: victoria-metrics-k8s-stack
+
+gpu-operator:
+  # -- Load gpu-operator
+  enabled: true
+  # -- Set chart version
+  targetRevision: v24.6.1

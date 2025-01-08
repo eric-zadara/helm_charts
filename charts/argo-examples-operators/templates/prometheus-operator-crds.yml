@@ -1,0 +1,28 @@
+{{ $chartName := "prometheus-operator-crds" }}
+{{ $repoURL := "https://prometheus-community.github.io/helm-charts" }}
+{{ $appConfig := merge (index $.Values $chartName) $.Values.common }}
+{{- if ne $appConfig.enabled false }}
+{{ $argoConfig := merge (default $appConfig.argocdApps (dict)) $.Values.argocdApps }}
+{{ $appName := default $chartName $appConfig.nameOverride }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: {{ $appName }}
+  namespace: {{ $argoConfig.namespace }}
+  annotations: {{ toYaml $argoConfig.annotations | nindent 4 }}
+spec:
+  project: {{ $argoConfig.project }}
+  destination:
+    namespace: {{ default $appName $appConfig.namespace }}
+    server: {{ $argoConfig.destination.server }}
+  syncPolicy: {{ toYaml $argoConfig.syncPolicy | nindent 4 }}
+  source: 
+    repoURL: {{ $repoURL }}
+    chart: {{ $chartName }}
+    targetRevision: {{ $appConfig.targetRevision }}
+{{- if $appConfig.helmConfig }}
+    helm:
+      valuesObject: {{ toYaml $appConfig.helmConfig | nindent 8 }}
+{{- end }}
+{{- end }}

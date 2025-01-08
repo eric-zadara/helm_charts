@@ -1,0 +1,72 @@
+{{ $chartName := "argocd" }}
+{{ $repoURL := "https://argoproj.github.io/argo-helm" }}
+{{ $appConfig := merge (index $.Values $chartName) $.Values.common }}
+{{- if ne $appConfig.enabled false }}
+{{ $argoConfig := merge (default $appConfig.argocdApps (dict)) $.Values.argocdApps }}
+{{ $appName := default $chartName $appConfig.nameOverride }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: {{ $appName }}
+  namespace: {{ $argoConfig.namespace }}
+  annotations: {{ toYaml $argoConfig.annotations | nindent 4 }}
+spec:
+  project: {{ $argoConfig.project }}
+  destination:
+    namespace: {{ default $appName $appConfig.namespace }}
+    server: {{ $argoConfig.destination.server }}
+  syncPolicy: {{ toYaml $argoConfig.syncPolicy | nindent 4 }}
+  source: 
+    repoURL: {{ $repoURL }}
+    chart: {{ $chartName }}
+    targetRevision: {{ $appConfig.targetRevision }}
+    helm:
+      valuesObject:
+{{- if $appConfig.helmConfig }}
+{{ toYaml $appConfig.helmConfig | indent 8 }}
+{{- else }}
+        configs:
+          params: {}
+          cm:
+            resource.customizations.health.argoproj.io_Application: |
+              hs = {}
+              hs.status = "Progressing"
+              hs.message = ""
+              if obj.status ~= nil then
+                if obj.status.health ~= nil then
+                  hs.status = obj.status.health.status
+                  if obj.status.health.message ~= nil then
+                    hs.message = obj.status.health.message
+                  end
+                end
+              end
+              return hs
+          rbac: {}
+        redis-ha: { enabled: true }
+        controller: { replicas: 1 }
+        applicationSet: { replicas: 2 }
+        repoServer:
+          autoscaling:
+            enabled: true
+            minReplicas: 2
+        server:
+          autoscaling:
+            enabled: true
+            minReplicas: 2
+          ingress:
+            enabled: {{ and (default false $appConfig.ingress.enabled) (not (not $appConfig.ingress.rootDomain)) }}
+            {{- if and (default false $appConfig.ingress.enabled) (not (not $appConfig.ingress.rootDomain)) }}
+            https: true
+            ingressClassName: {{ $appConfig.ingress.ingressClassName }}
+            annotations:
+              cert-manager.io/cluster-issuer: self-signed
+            hosts:
+              - "argocd.{{ $appConfig.ingress.rootDomain }}"
+            tls:
+              - secretName: {{ $appName }}-tls
+                hosts:
+                  - "argocd.{{ $appConfig.ingress.rootDomain }}"
+            {{- end }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,4 @@
+apiVersion: v2
+name: argo-examples-onyx
+version: 0.0.1
+dependencies: []

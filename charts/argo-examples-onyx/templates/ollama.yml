@@ -1,0 +1,68 @@
+{{ $chartName := "ollama" }}
+{{ $repoURL := "https://otwld.github.io/ollama-helm/" }}
+{{ $appConfig := merge (index $.Values $chartName) $.Values.common }}
+{{- if ne $appConfig.enabled false }}
+{{ $argoConfig := merge (default $appConfig.argocdApps (dict)) $.Values.argocdApps }}
+{{ $appName := default $chartName $appConfig.nameOverride }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: {{ $appName }}
+  namespace: {{ $argoConfig.namespace }}
+  annotations: {{ toYaml $argoConfig.annotations | nindent 4 }}
+spec:
+  project: {{ $argoConfig.project }}
+  destination:
+    namespace: {{ default $appName $appConfig.namespace }}
+    server: {{ $argoConfig.destination.server }}
+  syncPolicy: {{ toYaml $argoConfig.syncPolicy | nindent 4 }}
+  source: 
+    repoURL: {{ $repoURL }}
+    chart: {{ $chartName }}
+    targetRevision: {{ $appConfig.targetRevision }}
+    helm:
+      valuesObject:
+{{- if $appConfig.helmConfig }}
+{{ toYaml $appConfig.helmConfig | indent 8 }}
+{{- else }}
+        ollama:
+          gpu:
+            enabled: true
+            type: nvidia
+          models:
+            pull:
+              - llama3.1:8b-instruct-q8_0
+            run:
+              - llama3.1:8b-instruct-q8_0
+        replicaCount: 1
+        extraEnv:
+          - name: "OLLAMA_KEEP_ALIVE"
+            value: "-1"
+        resources:
+          requests:
+            cpu: 4
+            memory: 15Gi
+            nvidia.com/gpu: 8
+          limits:
+            cpu: 8
+            memory: 20Gi
+            nvidia.com/gpu: 8
+        persistentVolume:
+          enabled: true
+          size: 200Gi
+        runtimeClassName: nvidia
+        affinity:
+          nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+              nodeSelectorTerms:
+                - matchExpressions:
+                  - key: nvidia.com/device-plugin.config
+                    operator: In
+                    values:
+                      - tesla-25b6
+                      - tesla-2235
+                      - tesla-27b8
+                      - tesla-26b9
+{{- end }}
+{{- end }}

@@ -1,0 +1,52 @@
+# -- ArgoCD Application defaults for all applications
+argocdApps:
+  # -- Set default ArgoCD Project to designate
+  project: default
+  # -- Set default namespace to put the ArgoCD App CRD into
+  namespace: argocd
+  # -- Set default argocd destination configuration
+  destination:
+    server: https://kubernetes.default.svc
+  # -- Set default syncPolicy for all apps
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+  # -- Set default annotations for the application
+  annotations:
+    argocd.argoproj.io/sync-wave: "20"
+
+# -- Set common settings to be used in all applications
+common:
+  # -- Common defaults applied to ingresses in all applications
+  ingress:
+    # -- Enable ingresses for all applications
+    enabled: true
+    # -- Set root domain to use for ingress rules of all applications
+    rootDomain: 'domain.com'
+    # -- Set default ingressClassName
+    ingressClassName: traefik
+  # -- TODO Set/Enable podMonitor/serviceMonitor
+  monitoring:
+    enabled: false
+
+ollama:
+  # -- Enable ollama
+  enabled: true
+  # -- Set chart version/revision
+  targetRevision: 1.1.2
+  argocdApps:
+    annotations:
+      argocd.argoproj.io/sync-wave: "11"
+
+onyx:
+  # -- Enable onyx
+  enabled: true
+  # -- Set chart source. git/helm
+  chartSource: helm
+  # -- Set chart version/revision
+  targetRevision: 0.0.2
+

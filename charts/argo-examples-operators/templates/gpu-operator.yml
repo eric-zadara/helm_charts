@@ -1,0 +1,79 @@
+{{ $chartName := "gpu-operator" }}
+{{ $repoURL := "https://helm.ngc.nvidia.com/nvidia" }}
+{{ $appConfig := merge (index $.Values $chartName) $.Values.common }}
+{{- if ne $appConfig.enabled false }}
+{{ $argoConfig := merge (default $appConfig.argocdApps (dict)) $.Values.argocdApps }}
+{{ $appName := default $chartName $appConfig.nameOverride }}
+{{- $gpus := `[
+  {"name":"Tesla A16", "id":"tesla-25b6", "replicas": 17},
+  {"name":"Tesla A40", "id":"tesla-2235", "replicas": 49},
+  {"name":"Tesla L4", "id":"tesla-27b8", "replicas": 25},
+  {"name":"Tesla L40S", "id":"tesla-26b9", "replicas": 49}
+]` -}}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: {{ $appName }}
+  namespace: {{ $argoConfig.namespace }}
+  annotations: {{ toYaml $argoConfig.annotations | nindent 4 }}
+spec:
+  project: {{ $argoConfig.project }}
+  destination:
+    namespace: {{ default $appName $appConfig.namespace }}
+    server: {{ $argoConfig.destination.server }}
+  syncPolicy: {{ toYaml $argoConfig.syncPolicy | nindent 4 }}
+  source: 
+    repoURL: {{ $repoURL }}
+    chart: {{ $chartName }}
+    targetRevision: {{ $appConfig.targetRevision }}
+    helm:
+      valuesObject:
+{{- if $appConfig.helmConfig }}
+{{ toYaml $appConfig.helmConfig | indent 8 }}
+{{- else }}
+        daemonsets: { labels: { argocd.argoproj.io/instance: gpu-operator } }
+        operator: { labels: { argocd.argoproj.io/instance: gpu-operator } }
+        driver:
+          enabled: true
+          resources: { requests: { cpu: '0.01', memory: '6Gi' } }
+        toolkit: { enabled: true }
+        migManager: { enabled: false , config: { name: default-mig-parted-config } }
+        dcgmExporter:
+          serviceMonitor: { enabled: false }
+          resources: { requests: { cpu: '0.01', memory: '1Gi' } }
+        devicePlugin:
+          resources: { requests: { cpu: '0.01', memory: '64Mi' } }
+          config:
+            create: true
+            name: device-plugin-configs
+            default: "any"
+            data:
+              {{- range $gpuEntry := ($gpus | fromJsonArray) }}
+              # {{ $gpuEntry.name }}
+              {{ $gpuEntry.id }}: |-
+                version: v1
+                flags: { migStrategy: none }
+                sharing:
+                  timeSlicing:
+                    failRequestsGreaterThanOne: false
+                    resources: [{ name: nvidia.com/gpu, replicas: {{ $gpuEntry.replicas }} }]
+              {{- end }}
+          nfd: { enabled: true }
+          node-feature-discovery:
+            worker:
+              config:
+                sources:
+                  custom:
+                    - name: "gpu-timeslice"
+                      labelsTemplate: |
+                        {{"{{"}} range .pci.device {{"}}"}}nvidia.com/device-plugin.config=tesla-{{"{{"}} .device {{"}}"}}
+                        {{"{{"}} end {{"}}"}}
+                      matchFeatures:
+                        - feature: pci.device
+                          matchExpressions:
+                            class: {op: InRegexp, value: ["^03"]}
+                            vendor: ["10de"]
+
+{{- end }}
+{{- end }}
