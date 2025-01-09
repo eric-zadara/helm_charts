@@ -81,13 +81,14 @@ spec:
             nodeAffinity:
               requiredDuringSchedulingIgnoredDuringExecution:
                 nodeSelectorTerms:
-                  - key: nvidia.com/device-plugin.config
-                    operator: In
-                    values:
-                      - tesla-25b6
-                      - tesla-2235
-                      - tesla-27b8
-                      - tesla-26b9
+                  - matchExpressions:
+                    - key: nvidia.com/device-plugin.config
+                      operator: In
+                      values:
+                        - tesla-25b6
+                        - tesla-2235
+                        - tesla-27b8
+                        - tesla-26b9
         {{- end }}
         ingress:
           enabled: {{ default false $appConfig.ingress.enabled }}
