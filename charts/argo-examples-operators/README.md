@@ -10,7 +10,7 @@
 | argo-cd.enabled | bool | `true` | Enable/Takeover argocd |
 | argo-cd.namespace | string | `"argocd"` | Override default target namespace |
 | argo-cd.redundancy.replicas | int | `2` |  |
-| argo-cd.targetRevision | string | `"7.6.8"` | Set chart version |
+| argo-cd.targetRevision | string | `"7.7.14"` | Set chart version |
 | argocdApps | object | `{"annotations":{"argocd.argoproj.io/sync-wave":"10"},"destination":{"server":"https://kubernetes.default.svc"},"namespace":"argocd","project":"default","syncPolicy":{"automated":{"prune":true,"selfHeal":true},"syncOptions":["CreateNamespace=true","ServerSideApply=true"]}}` | ArgoCD Application defaults for all applications |
 | argocdApps.annotations | object | `{"argocd.argoproj.io/sync-wave":"10"}` | Set default annotations for the application. |
 | argocdApps.destination | object | `{"server":"https://kubernetes.default.svc"}` | Set default argocd destination configuration |
