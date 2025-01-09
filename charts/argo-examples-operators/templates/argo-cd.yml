@@ -48,7 +48,9 @@ spec:
               end
               return hs
           rbac: {}
-        redis-ha: { enabled: true }
+        redis-ha:
+          enabled: true
+          replicas: {{ max 2 $appConfig.redundancy.replicas }}
         controller: { replicas: {{ $appConfig.redundancy.replicas }} }
         applicationSet: { replicas: {{ $appConfig.redundancy.replicas }} }
         repoServer:
