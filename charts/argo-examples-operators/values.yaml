@@ -40,7 +40,7 @@ argo-cd:
   # -- Enable/Takeover argocd
   enabled: true
   # -- Set chart version
-  targetRevision: 7.6.8
+  targetRevision: 7.7.14
   # -- Override default target namespace
   namespace: argocd
   argocdApps:
