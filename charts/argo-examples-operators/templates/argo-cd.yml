@@ -26,6 +26,10 @@ spec:
 {{- if $appConfig.helmConfig }}
 {{ toYaml $appConfig.helmConfig | indent 8 }}
 {{- else }}
+        {{- if (not (not $appConfig.ingress.rootDomain)) }}
+        global:
+          domain: "argocd.{{ $appConfig.ingress.rootDomain }}"
+        {{- end }}
         configs:
           params: {}
           cm:
