@@ -6,12 +6,12 @@
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| argocdApps | object | `{"annotations":{"argocd.argoproj.io/sync-wave":"20"},"destination":{"server":"https://kubernetes.default.svc"},"namespace":"argocd","project":"default","syncPolicy":{"automated":{"prune":true,"selfHeal":true},"syncOptions":["CreateNamespace=true","ServerSideApply=true"]}}` | ArgoCD Application defaults for all applications |
+| argocdApps | object | `{"annotations":{"argocd.argoproj.io/sync-wave":"20"},"destination":{"server":"https://kubernetes.default.svc"},"namespace":"argocd","project":"default","syncPolicy":{"automated":{"prune":true,"selfHeal":true},"syncOptions":["CreateNamespace=true"]}}` | ArgoCD Application defaults for all applications |
 | argocdApps.annotations | object | `{"argocd.argoproj.io/sync-wave":"20"}` | Set default annotations for the application |
 | argocdApps.destination | object | `{"server":"https://kubernetes.default.svc"}` | Set default argocd destination configuration |
 | argocdApps.namespace | string | `"argocd"` | Set default namespace to put the ArgoCD App CRD into |
 | argocdApps.project | string | `"default"` | Set default ArgoCD Project to designate |
-| argocdApps.syncPolicy | object | `{"automated":{"prune":true,"selfHeal":true},"syncOptions":["CreateNamespace=true","ServerSideApply=true"]}` | Set default syncPolicy for all apps |
+| argocdApps.syncPolicy | object | `{"automated":{"prune":true,"selfHeal":true},"syncOptions":["CreateNamespace=true"]}` | Set default syncPolicy for all apps |
 | common | object | `{"ingress":{"enabled":true,"ingressClassName":"traefik","rootDomain":""},"monitoring":{"enabled":false},"redundancy":{"replicas":3},"revisionHistoryLimit":2}` | Set common settings to be used in all applications |
 | common.ingress | object | `{"enabled":true,"ingressClassName":"traefik","rootDomain":""}` | Common defaults applied to ingresses in all applications |
 | common.ingress.enabled | bool | `true` | Enable ingresses for all applications |
