@@ -42,11 +42,11 @@ spec:
         alertmanager: { enabled: false }
         prometheus-node-exporter:
           hostNetwork: false
-          revisionHistoryLimit: 2
+          revisionHistoryLimit: {{ $appConfig.revisionHistoryLimit }}
         kube-state-metrics: {}
         grafana:
           enabled: true
-          revisionHistoryLimit: 2
+          revisionHistoryLimit: {{ $appConfig.revisionHistoryLimit }}
           deploymentStrategy: { type: Recreate }
           persistence: { enabled: true, type: pvc }
           ingress:

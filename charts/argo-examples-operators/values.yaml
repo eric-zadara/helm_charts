@@ -35,6 +35,8 @@ common:
   # -- Set default redundancy configurations
   redundancy:
     replicas: 3
+  # -- Default revisionHistoryLimit where applicable
+  revisionHistoryLimit: 2
 
 argo-cd:
   # -- Enable/Takeover argocd

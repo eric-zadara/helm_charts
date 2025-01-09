@@ -100,5 +100,8 @@ spec:
           hostname: "onyx.{{ $appConfig.ingress.rootDomain }}"
           {{- end }}
           {{- end }}
+        redis:
+          master:
+            revisionHistoryLimit: {{ $appConfig.revisionHistoryLimit }}
 {{- end }}
 {{- end }}
