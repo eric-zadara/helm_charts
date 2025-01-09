@@ -14,7 +14,7 @@ argocdApps:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
-      - ServerSideApply=true
+      #- ServerSideApply=true
   # -- Set default annotations for the application
   annotations:
     argocd.argoproj.io/sync-wave: "20"
