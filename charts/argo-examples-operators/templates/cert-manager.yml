@@ -26,6 +26,7 @@ spec:
 {{- if $appConfig.helmConfig }}
 {{ toYaml $appConfig.helmConfig | indent 8 }}
 {{- else }}
-        installCRDs: true
+        crds:
+          enabled: true
 {{- end }}
 {{- end }}
