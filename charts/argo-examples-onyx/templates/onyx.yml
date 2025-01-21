@@ -51,7 +51,6 @@ spec:
             content:
               enabled: true
               replicaCount: {{ $appConfig.redundancy.replicas }}
-          replicaCount: {{ $appConfig.redundancy.replicas }}
         configMap:
           vespa:
             VESPA_CONFIG_SERVER_HOST: 'vespa-cfg'

@@ -53,5 +53,4 @@ onyx:
   # -- Set chart source. git/helm
   chartSource: helm
   # -- Set chart version/revision
-  targetRevision: 0.0.4
-
+  targetRevision: 0.0.5
