@@ -1,6 +1,6 @@
 # argo-examples-onyx
 
-![Version: 0.0.10](https://img.shields.io/badge/Version-0.0.10-informational?style=flat-square)
+![Version: 0.0.11](https://img.shields.io/badge/Version-0.0.11-informational?style=flat-square)
 
 ## Values
 
@@ -25,6 +25,8 @@
 | ollama.enabled | bool | `true` | Enable ollama |
 | ollama.targetRevision | string | `"1.1.2"` | Set chart version/revision |
 | onyx.chartSource | string | `"helm"` | Set chart source. git/helm |
+| onyx.config.configMap.auth | object | `{}` | Configmap for setting Onyx Env Vars for authentication |
+| onyx.config.configMap.web | object | `{}` | Configmap for setting Onyx Env Vars related to web |
 | onyx.enabled | bool | `true` | Enable onyx |
 | onyx.targetRevision | string | `"0.0.5"` | Set chart version/revision |
 
