@@ -42,17 +42,6 @@ spec:
           enabled: false
           size: 200Gi
         runtimeClassName: nvidia
-        affinity:
-          nodeAffinity:
-            requiredDuringSchedulingIgnoredDuringExecution:
-              nodeSelectorTerms:
-                - matchExpressions:
-                  - key: nvidia.com/device-plugin.config
-                    operator: In
-                    values:
-                      - tesla-25b6
-                      - tesla-2235
-                      - tesla-27b8
-                      - tesla-26b9
+        affinity: {{ toYaml $appConfig.affinity | nindent 10 }}
 {{- end }}
 {{- end }}

@@ -61,7 +61,18 @@ ollama:
       cpu: 8
       memory: 20Gi
       nvidia.com/gpu: 8
-
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+            - key: nvidia.com/device-plugin.config
+              operator: In
+              values:
+                - tesla-25b6
+                - tesla-2235
+                - tesla-27b8
+                - tesla-26b9
 
 onyx:
   # -- Enable onyx
@@ -82,3 +93,33 @@ onyx:
           nvidia.com/gpu: 4
         limits:
           nvidia.com/gpu: 4
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                - key: nvidia.com/device-plugin.config
+                  operator: In
+                  values:
+                    - tesla-25b6
+                    - tesla-2235
+                    - tesla-27b8
+                    - tesla-26b9
+    index:
+      resources:
+        requests:
+          nvidia.com/gpu: 4
+        limits:
+          nvidia.com/gpu: 4
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                - key: nvidia.com/device-plugin.config
+                  operator: In
+                  values:
+                    - tesla-25b6
+                    - tesla-2235
+                    - tesla-27b8
+                    - tesla-26b9

@@ -73,24 +73,13 @@ spec:
         {{ $section }}:
           replicaCount: 1
           runtimeClassName: nvidia
-          resources: {{ toYaml $appConfig.config.inference.resources | nindent 10 }}
-          # TODO Revise ^ to do a map lookup for configure these seperately
           tolerations:
             - key: nvidia.com/gpu
               operator: Exists
               effect: NoSchedule
-          affinity:
-            nodeAffinity:
-              requiredDuringSchedulingIgnoredDuringExecution:
-                nodeSelectorTerms:
-                  - matchExpressions:
-                    - key: nvidia.com/device-plugin.config
-                      operator: In
-                      values:
-                        - tesla-25b6
-                        - tesla-2235
-                        - tesla-27b8
-                        - tesla-26b9
+          resources: {{ toYaml $appConfig.config.inference.resources | nindent 12 }}
+          affinity: {{ toYaml $appConfig.config.inference.affinity | nindent 12 }}
+          # TODO Revise ^ to do a map lookup for configure these seperately
         {{- end }}
         ingress:
           enabled: {{ default false $appConfig.ingress.enabled }}
