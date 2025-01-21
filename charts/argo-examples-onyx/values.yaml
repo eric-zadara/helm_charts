@@ -56,3 +56,9 @@ onyx:
   chartSource: helm
   # -- Set chart version/revision
   targetRevision: 0.0.5
+  config:
+    configMap:
+      # -- Configmap for setting Onyx Env Vars for authentication
+      auth: {}
+      # -- Configmap for setting Onyx Env Vars related to web
+      web: {}
