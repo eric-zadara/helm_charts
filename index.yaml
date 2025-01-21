@@ -2,6 +2,13 @@ apiVersion: v1
 entries:
   argo-examples-onyx:
   - apiVersion: v2
+    created: "2025-01-21T23:34:20.612970977Z"
+    digest: 4c6d0d861b26d389d5b9af9fea87ec09ae56219fe7e9895e277f1a93eff20a80
+    name: argo-examples-onyx
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/argo-examples-onyx-0.0.13/argo-examples-onyx-0.0.13.tgz
+    version: 0.0.13
+  - apiVersion: v2
     created: "2025-01-21T23:15:54.586885284Z"
     digest: 553c9196088ed84fae81a12d969dccf239d7e2689495325907efc3e0534d5e5d
     name: argo-examples-onyx
@@ -231,4 +238,4 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/zadara-aws-config-0.0.1/zadara-aws-config-0.0.1.tgz
     version: 0.0.1
-generated: "2025-01-21T23:15:54.586980001Z"
+generated: "2025-01-21T23:34:20.613057709Z"
