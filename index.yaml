@@ -168,6 +168,13 @@ entries:
     version: 0.0.1
   misc-secrets:
   - apiVersion: v2
+    created: "2025-01-21T21:27:43.294405889Z"
+    digest: 5d39b2fefe6405a75c55191a057d4a76b68a72e6c5d9581c20ca27785d6400f6
+    name: misc-secrets
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/misc-secrets-0.0.2/misc-secrets-0.0.2.tgz
+    version: 0.0.2
+  - apiVersion: v2
     created: "2024-11-08T20:16:25.668073175Z"
     digest: f63bbc99201a0b20c464c791c6a677b0e55fafbbe1b04ac554a299b2f5a09ce9
     name: misc-secrets
@@ -196,4 +203,4 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/zadara-aws-config-0.0.1/zadara-aws-config-0.0.1.tgz
     version: 0.0.1
-generated: "2025-01-10T20:17:01.786608021Z"
+generated: "2025-01-21T21:27:43.294461773Z"
