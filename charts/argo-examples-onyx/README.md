@@ -1,6 +1,6 @@
 # argo-examples-onyx
 
-![Version: 0.0.11](https://img.shields.io/badge/Version-0.0.11-informational?style=flat-square)
+![Version: 0.0.12](https://img.shields.io/badge/Version-0.0.12-informational?style=flat-square)
 
 ## Values
 
@@ -22,11 +22,20 @@
 | common.redundancy | object | `{"replicas":3}` | Set default redundancy configurations |
 | common.revisionHistoryLimit | int | `2` | Default revisionHistoryLimit where applicable |
 | ollama.argocdApps.annotations."argocd.argoproj.io/sync-wave" | string | `"11"` |  |
+| ollama.config.models | list | `["llama3.1:8b-instruct-q8_0"]` | Set list of models to be preloaded into ollama |
 | ollama.enabled | bool | `true` | Enable ollama |
+| ollama.resources.limits."nvidia.com/gpu" | int | `8` |  |
+| ollama.resources.limits.cpu | int | `8` |  |
+| ollama.resources.limits.memory | string | `"20Gi"` |  |
+| ollama.resources.requests."nvidia.com/gpu" | int | `8` |  |
+| ollama.resources.requests.cpu | int | `4` |  |
+| ollama.resources.requests.memory | string | `"15Gi"` |  |
 | ollama.targetRevision | string | `"1.1.2"` | Set chart version/revision |
 | onyx.chartSource | string | `"helm"` | Set chart source. git/helm |
 | onyx.config.configMap.auth | object | `{}` | Configmap for setting Onyx Env Vars for authentication |
 | onyx.config.configMap.web | object | `{}` | Configmap for setting Onyx Env Vars related to web |
+| onyx.config.inference.resources.limits."nvidia.com/gpu" | int | `4` |  |
+| onyx.config.inference.resources.requests."nvidia.com/gpu" | int | `4` |  |
 | onyx.enabled | bool | `true` | Enable onyx |
 | onyx.targetRevision | string | `"0.0.5"` | Set chart version/revision |
 
