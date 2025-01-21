@@ -53,7 +53,7 @@ spec:
             enabled: {{ and (default false $appConfig.ingress.enabled) (not (not $appConfig.ingress.rootDomain)) }}
             {{- if and (default false $appConfig.ingress.enabled) (not (not $appConfig.ingress.rootDomain)) }}
             annotations:
-              cert-manager.io/cluster-issuer: selfsigned
+              cert-manager.io/cluster-issuer: {{ $appConfig.ingress.clusterIssuer }}
             hosts:
               - "grafana.{{ $appConfig.ingress.rootDomain }}"
             tls:

@@ -29,6 +29,8 @@ common:
     rootDomain: ''
     # -- Set default ingressClassName
     ingressClassName: traefik
+    # -- Set default cert-manager cluster-issuer
+    clusterIssuer: selfsigned
   # -- TODO Set/Enable podMonitor/serviceMonitor
   monitoring:
     enabled: false

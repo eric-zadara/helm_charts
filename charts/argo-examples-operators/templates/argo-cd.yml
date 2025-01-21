@@ -67,7 +67,7 @@ spec:
             https: true
             ingressClassName: {{ $appConfig.ingress.ingressClassName }}
             annotations:
-              cert-manager.io/cluster-issuer: selfsigned
+              cert-manager.io/cluster-issuer: {{ $appConfig.ingress.clusterIssuer }}
             hosts:
               - "argocd.{{ $appConfig.ingress.rootDomain }}"
             tls:
