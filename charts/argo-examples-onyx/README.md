@@ -1,6 +1,6 @@
 # argo-examples-onyx
 
-![Version: 0.0.12](https://img.shields.io/badge/Version-0.0.12-informational?style=flat-square)
+![Version: 0.0.13](https://img.shields.io/badge/Version-0.0.13-informational?style=flat-square)
 
 ## Values
 
@@ -21,6 +21,12 @@
 | common.monitoring | object | `{"enabled":false}` | TODO Set/Enable podMonitor/serviceMonitor |
 | common.redundancy | object | `{"replicas":3}` | Set default redundancy configurations |
 | common.revisionHistoryLimit | int | `2` | Default revisionHistoryLimit where applicable |
+| ollama.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key | string | `"nvidia.com/device-plugin.config"` |  |
+| ollama.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator | string | `"In"` |  |
+| ollama.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values[0] | string | `"tesla-25b6"` |  |
+| ollama.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values[1] | string | `"tesla-2235"` |  |
+| ollama.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values[2] | string | `"tesla-27b8"` |  |
+| ollama.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values[3] | string | `"tesla-26b9"` |  |
 | ollama.argocdApps.annotations."argocd.argoproj.io/sync-wave" | string | `"11"` |  |
 | ollama.config.models | list | `["llama3.1:8b-instruct-q8_0"]` | Set list of models to be preloaded into ollama |
 | ollama.enabled | bool | `true` | Enable ollama |
@@ -34,6 +40,20 @@
 | onyx.chartSource | string | `"helm"` | Set chart source. git/helm |
 | onyx.config.configMap.auth | object | `{}` | Configmap for setting Onyx Env Vars for authentication |
 | onyx.config.configMap.web | object | `{}` | Configmap for setting Onyx Env Vars related to web |
+| onyx.config.index.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key | string | `"nvidia.com/device-plugin.config"` |  |
+| onyx.config.index.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator | string | `"In"` |  |
+| onyx.config.index.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values[0] | string | `"tesla-25b6"` |  |
+| onyx.config.index.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values[1] | string | `"tesla-2235"` |  |
+| onyx.config.index.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values[2] | string | `"tesla-27b8"` |  |
+| onyx.config.index.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values[3] | string | `"tesla-26b9"` |  |
+| onyx.config.index.resources.limits."nvidia.com/gpu" | int | `4` |  |
+| onyx.config.index.resources.requests."nvidia.com/gpu" | int | `4` |  |
+| onyx.config.inference.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key | string | `"nvidia.com/device-plugin.config"` |  |
+| onyx.config.inference.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator | string | `"In"` |  |
+| onyx.config.inference.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values[0] | string | `"tesla-25b6"` |  |
+| onyx.config.inference.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values[1] | string | `"tesla-2235"` |  |
+| onyx.config.inference.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values[2] | string | `"tesla-27b8"` |  |
+| onyx.config.inference.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values[3] | string | `"tesla-26b9"` |  |
 | onyx.config.inference.resources.limits."nvidia.com/gpu" | int | `4` |  |
 | onyx.config.inference.resources.requests."nvidia.com/gpu" | int | `4` |  |
 | onyx.enabled | bool | `true` | Enable onyx |
