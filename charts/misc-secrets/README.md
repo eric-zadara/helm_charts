@@ -1,6 +1,6 @@
 # misc-secrets
 
-![Version: 0.0.1](https://img.shields.io/badge/Version-0.0.1-informational?style=flat-square)
+![Version: 0.0.2](https://img.shields.io/badge/Version-0.0.2-informational?style=flat-square)
 
 ## Values
 
@@ -8,6 +8,7 @@
 |-----|------|---------|-------------|
 | insecure-opaque | object | `{"example":{"data":{"mykey":"myvalue"},"enabled":false}}` | Insecure and generic secret |
 | insecure-tls | object | `{"example":{"data":{"crt":"crtPayload","key":"tlsPayload"},"enabled":false},"exampleB64":{"data":{"crtB64":"crtPayload","keyB64":"tlsPayload"},"enabled":false}}` | Insecure and generic TLS secret, will generate if undefined |
+| namespaceOverride | string | `""` | Override default namespace for all secrets |
 | sealed | object | `{"example":{"enabled":false,"encryptedData":{"mykey":"encrypted payload from kubeseal"}}}` | Create Bitnami's SealedSecrets |
 
 ----------------------------------------------
