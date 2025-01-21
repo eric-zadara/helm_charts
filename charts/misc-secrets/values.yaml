@@ -1,3 +1,5 @@
+# -- Override default namespace for all secrets
+namespaceOverride: ''
 # -- Insecure and generic secret
 insecure-opaque:
   example:

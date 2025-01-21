@@ -5,6 +5,7 @@ apiVersion: "bitnami.com/v1alpha1"
 kind: SealedSecret
 metadata:
   name: {{ printf "%s" $secretName }}
+  namespace: {{ default $.Release.Namespace $.Values.namespaceOverride }}
 {{- if $secretMeta.annotations }}
   annotations: {{ toYaml $secretMeta.annotations | nindent 4 }}
 {{- end }}
