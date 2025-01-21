@@ -31,23 +31,13 @@ spec:
             enabled: true
             type: nvidia
           models:
-            pull:
-              - llama3.1:8b-instruct-q8_0
-            run:
-              - llama3.1:8b-instruct-q8_0
+            pull: {{ toYaml $appConfig.config.models | nindent 14 }}
+            run: {{ toYaml $appConfig.config.models | nindent 14 }}
         replicaCount: {{ $appConfig.redundancy.replicas }}
         extraEnv:
           - name: "OLLAMA_KEEP_ALIVE"
             value: "-1"
-        resources:
-          requests:
-            cpu: 4
-            memory: 15Gi
-            nvidia.com/gpu: 8
-          limits:
-            cpu: 8
-            memory: 20Gi
-            nvidia.com/gpu: 8
+        resources: {{ toYaml $appConfig.resources | nindent 10 }}
         persistentVolume:
           enabled: false
           size: 200Gi

@@ -48,6 +48,20 @@ ollama:
   argocdApps:
     annotations:
       argocd.argoproj.io/sync-wave: "11"
+  config:
+    # -- Set list of models to be preloaded into ollama
+    models:
+      - llama3.1:8b-instruct-q8_0
+  resources:
+    requests:
+      cpu: 4
+      memory: 15Gi
+      nvidia.com/gpu: 8
+    limits:
+      cpu: 8
+      memory: 20Gi
+      nvidia.com/gpu: 8
+
 
 onyx:
   # -- Enable onyx
@@ -62,3 +76,9 @@ onyx:
       auth: {}
       # -- Configmap for setting Onyx Env Vars related to web
       web: {}
+    inference:
+      resources:
+        requests:
+          nvidia.com/gpu: 4
+        limits:
+          nvidia.com/gpu: 4

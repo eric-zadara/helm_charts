@@ -73,11 +73,8 @@ spec:
         {{ $section }}:
           replicaCount: 1
           runtimeClassName: nvidia
-          resources:
-            requests:
-              nvidia.com/gpu: 4
-            limits:
-              nvidia.com/gpu: 4
+          resources: {{ toYaml $appConfig.config.inference.resources | nindent 10 }}
+          # TODO Revise ^ to do a map lookup for configure these seperately
           tolerations:
             - key: nvidia.com/gpu
               operator: Exists
