@@ -1,6 +1,6 @@
 # argo-examples-onyx
 
-![Version: 0.0.9](https://img.shields.io/badge/Version-0.0.9-informational?style=flat-square)
+![Version: 0.0.10](https://img.shields.io/badge/Version-0.0.10-informational?style=flat-square)
 
 ## Values
 
@@ -12,8 +12,9 @@
 | argocdApps.namespace | string | `"argocd"` | Set default namespace to put the ArgoCD App CRD into |
 | argocdApps.project | string | `"default"` | Set default ArgoCD Project to designate |
 | argocdApps.syncPolicy | object | `{"automated":{"prune":true,"selfHeal":true},"syncOptions":["CreateNamespace=true"]}` | Set default syncPolicy for all apps |
-| common | object | `{"ingress":{"enabled":true,"ingressClassName":"traefik","rootDomain":""},"monitoring":{"enabled":false},"redundancy":{"replicas":3},"revisionHistoryLimit":2}` | Set common settings to be used in all applications |
-| common.ingress | object | `{"enabled":true,"ingressClassName":"traefik","rootDomain":""}` | Common defaults applied to ingresses in all applications |
+| common | object | `{"ingress":{"clusterIssuer":"selfsigned","enabled":true,"ingressClassName":"traefik","rootDomain":""},"monitoring":{"enabled":false},"redundancy":{"replicas":3},"revisionHistoryLimit":2}` | Set common settings to be used in all applications |
+| common.ingress | object | `{"clusterIssuer":"selfsigned","enabled":true,"ingressClassName":"traefik","rootDomain":""}` | Common defaults applied to ingresses in all applications |
+| common.ingress.clusterIssuer | string | `"selfsigned"` | Set default cert-manager cluster-issuer |
 | common.ingress.enabled | bool | `true` | Enable ingresses for all applications |
 | common.ingress.ingressClassName | string | `"traefik"` | Set default ingressClassName |
 | common.ingress.rootDomain | string | `""` | Set root domain to use for ingress rules of all applications |

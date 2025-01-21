@@ -1,6 +1,6 @@
 # argo-examples-operators
 
-![Version: 0.0.5](https://img.shields.io/badge/Version-0.0.5-informational?style=flat-square)
+![Version: 0.0.6](https://img.shields.io/badge/Version-0.0.6-informational?style=flat-square)
 
 ## Values
 
@@ -28,8 +28,9 @@
 | cloudnative-pg.argocdApps.annotations."argocd.argoproj.io/sync-wave" | string | `"4"` |  |
 | cloudnative-pg.enabled | bool | `true` | Enable CNPG |
 | cloudnative-pg.targetRevision | string | `"0.22.0"` | Set chart version |
-| common | object | `{"ingress":{"enabled":false,"ingressClassName":"traefik","rootDomain":""},"monitoring":{"enabled":false},"redundancy":{"replicas":3},"revisionHistoryLimit":2}` | Set common settings to be used in all applications |
-| common.ingress | object | `{"enabled":false,"ingressClassName":"traefik","rootDomain":""}` | Common defaults applied to ingresses in all applications |
+| common | object | `{"ingress":{"clusterIssuer":"selfsigned","enabled":false,"ingressClassName":"traefik","rootDomain":""},"monitoring":{"enabled":false},"redundancy":{"replicas":3},"revisionHistoryLimit":2}` | Set common settings to be used in all applications |
+| common.ingress | object | `{"clusterIssuer":"selfsigned","enabled":false,"ingressClassName":"traefik","rootDomain":""}` | Common defaults applied to ingresses in all applications |
+| common.ingress.clusterIssuer | string | `"selfsigned"` | Set default cert-manager cluster-issuer |
 | common.ingress.enabled | bool | `false` | Enable ingresses for all applications |
 | common.ingress.ingressClassName | string | `"traefik"` | Set default ingressClassName |
 | common.ingress.rootDomain | string | `""` | Set root domain to use for ingress rules of all applications |
