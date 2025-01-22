@@ -39,6 +39,14 @@ common:
     replicas: 3
   # -- Default revisionHistoryLimit where applicable
   revisionHistoryLimit: 2
+  auth:
+    # -- Set auth type if application supports it [none|basic|google]
+    type: none
+    # -- OAuth client ID for google
+    oauthClientID:
+    # -- OAuth client secret for google
+    oauthClientSecret:
+    oauthValidEmailDomains: []
 
 argo-cd:
   # -- Enable/Takeover argocd
@@ -52,6 +60,11 @@ argo-cd:
       argocd.argoproj.io/sync-wave: "1"
   redundancy:
     replicas: 2
+  config:
+    # -- Configure RBAC per ArgoCD's helm chart
+    rbac: {}
+    # -- Enable Argo's build in terminal
+    execEnabled: false
 
 cert-manager:
   # -- Enable cert-manager
@@ -94,6 +107,9 @@ victoria-metrics-k8s-stack:
   argocdApps:
     annotations:
       argocd.argoproj.io/sync-wave: "3"
+  config:
+    # -- If AUTH is configured, configure `grafana."grafana.ini"."auth.google".role_attribute_path`
+    googleAuthRolePath:
 
 cloudnative-pg:
   # -- Enable CNPG

@@ -33,7 +33,28 @@ spec:
         configs:
           params:
             server.insecure: true
+          {{- if $appConfig.config.repositories }}
+          repositories: {{ toYaml $appConfig.config.repositories | nindent 12 }}
+          {{- end }}
+          {{- if $appConfig.config.credentialTemplates }}
+          credentialTemplates: {{ toYaml $appConfig.config.credentialTemplates | nindent 12 }}
+          {{- end }}
           cm:
+            exec.enabled: {{ $appConfig.config.execEnabled }}
+            {{- if eq $appConfig.auth.type "google" }}
+            dex.config: |
+              connectors:
+              - config:
+                  issuer: https://accounts.google.com
+                  clientID: {{ $appConfig.auth.oauthClientID }}
+                  clientSecret: {{ $appConfig.auth.oauthClientSecret }}
+                  {{- if $appConfig.auth.oauthValidEmailDomains }}
+                  hostedDomains: {{ toYaml $appConfig.auth.oauthValidEmailDomains | nindent 20 }}
+                  {{- end }}
+                type: oidc
+                id: google
+                name: Google
+            {{- end }}
             resource.customizations.health.argoproj.io_Application: |
               hs = {}
               hs.status = "Progressing"
@@ -47,7 +68,9 @@ spec:
                 end
               end
               return hs
-          rbac: {}
+          {{- if $appConfig.config.rbac }}
+          rbac: {{ toYaml $appConfig.config.rbac | nindent 12 }}
+          {{- end }}
         redis-ha:
           enabled: true
           replicas: {{ max 2 $appConfig.redundancy.replicas }}

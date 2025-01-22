@@ -46,6 +46,7 @@ spec:
         kube-state-metrics: {}
         grafana:
           enabled: true
+          assertNoLeakedSecrets: true
           revisionHistoryLimit: {{ $appConfig.revisionHistoryLimit }}
           deploymentStrategy: { type: Recreate }
           persistence: { enabled: true, type: pvc }
@@ -61,5 +62,30 @@ spec:
                 hosts:
                   - "grafana.{{ $appConfig.ingress.rootDomain }}"
             {{- end }}
+          {{- if or (eq $appConfig.auth.type "google") (and (default false $appConfig.ingress.enabled) (not (not $appConfig.ingress.rootDomain))) }}
+          grafana.ini:
+            {{- if and (default false $appConfig.ingress.enabled) (not (not $appConfig.ingress.rootDomain)) }}
+            server:
+              root_url: "https://grafana.{{ $appConfig.ingress.rootDomain }}"
+            {{- end }}
+            {{- if eq $appConfig.auth.type "google" }}
+            auth.google:
+              enabled: true
+              client_id: {{ $appConfig.auth.oauthClientID }}
+              client_secret: {{ $appConfig.auth.oauthClientSecret }}
+              scopes: openid email profile https://www.googleapis.com/auth/cloud-identity.groups.readonly
+              auth_url: https://accounts.google.com/o/oauth2/v2/auth
+              token_url: https://oauth2.googleapis.com/token
+              api_url: https://openidconnect.googleapis.com/v1/userinfo
+              allowed_domains: {{ join " " $appConfig.auth.oauthValidEmailDomains | quote }}
+              hosted_domain: {{ $appConfig.auth.oauthValidEmailDomains | first | quote }}
+              use_pkce: true
+              allow_assign_grafana_admin: true
+              {{- if default false $appConfig.config.googleAuthRolePath }}
+              role_attribute_path: {{ $appConfig.config.googleAuthRolePath }}
+              {{- end }}
+              skip_org_role_sync: false
+            {{- end }}
+          {{- end }}
 {{- end }}
 {{- end }}
