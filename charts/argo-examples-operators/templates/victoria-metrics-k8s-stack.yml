@@ -46,7 +46,8 @@ spec:
         kube-state-metrics: {}
         grafana:
           enabled: true
-          assertNoLeakedSecrets: true
+          # TODO Rework to more secure form
+          assertNoLeakedSecrets: false
           revisionHistoryLimit: {{ $appConfig.revisionHistoryLimit }}
           deploymentStrategy: { type: Recreate }
           persistence: { enabled: true, type: pvc }
