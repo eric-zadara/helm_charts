@@ -48,10 +48,6 @@ spec:
                   issuer: https://accounts.google.com
                   clientID: {{ $appConfig.auth.oauthClientID }}
                   clientSecret: {{ $appConfig.auth.oauthClientSecret }}
-                  {{- if $appConfig.auth.oauthValidEmailDomains }}
-                  hostedDomains: {{ toYaml $appConfig.auth.oauthValidEmailDomains | nindent 20 }}
-                  {{- end }}
-                type: oidc
                 id: google
                 name: Google
             {{- end }}

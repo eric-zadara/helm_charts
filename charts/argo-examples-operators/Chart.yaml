@@ -1,4 +1,4 @@
 apiVersion: v2
 name: argo-examples-operators
-version: 0.0.7
+version: 0.0.8
 dependencies: []
