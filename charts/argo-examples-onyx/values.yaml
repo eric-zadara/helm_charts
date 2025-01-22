@@ -46,7 +46,7 @@ common:
     oauthClientID:
     # -- OAuth client secret for google
     oauthClientSecret:
-    oauthValidEmailDomains:
+    oauthValidEmailDomains: []
 
 ollama:
   # -- Enable ollama

@@ -65,7 +65,7 @@ spec:
             GOOGLE_OAUTH_CLIENT_ID: {{ $appConfig.auth.oauthClientID }}
             GOOGLE_OAUTH_CLIENT_SECRET: {{ $appConfig.auth.oauthClientSecret }}
             {{- if $appConfig.auth.oauthValidEmailDomains }}
-            VALID_EMAIL_DOMAINS: {{ $appConfig.auth.oauthValidEmailDomains }}
+            VALID_EMAIL_DOMAINS: {{ join "," $appConfig.auth.oauthValidEmailDomains }}
             {{- end }}
             {{- else if eq appConfig.auth.type "basic" }}
             AUTH_TYPE: basic
