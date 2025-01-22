@@ -39,6 +39,14 @@ common:
     replicas: 3
   # -- Default revisionHistoryLimit where applicable
   revisionHistoryLimit: 2
+  auth:
+    # -- Set auth type if application supports it [none|basic|google]
+    type: none
+    # -- OAuth client ID for google
+    oauthClientID:
+    # -- OAuth client secret for google
+    oauthClientSecret:
+    oauthValidEmailDomains:
 
 ollama:
   # -- Enable ollama
