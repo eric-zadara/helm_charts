@@ -1,6 +1,6 @@
 # argo-examples-onyx
 
-![Version: 0.0.15](https://img.shields.io/badge/Version-0.0.15-informational?style=flat-square)
+![Version: 0.0.16](https://img.shields.io/badge/Version-0.0.16-informational?style=flat-square)
 
 ## Values
 
@@ -12,7 +12,7 @@
 | argocdApps.namespace | string | `"argocd"` | Set default namespace to put the ArgoCD App CRD into |
 | argocdApps.project | string | `"default"` | Set default ArgoCD Project to designate |
 | argocdApps.syncPolicy | object | `{"automated":{"prune":true,"selfHeal":true},"syncOptions":["CreateNamespace=true"]}` | Set default syncPolicy for all apps |
-| common | object | `{"auth":{"oauthClientID":null,"oauthClientSecret":null,"oauthValidEmailDomains":null,"type":"none"},"ingress":{"clusterIssuer":"selfsigned","enabled":true,"ingressClassName":"traefik","rootDomain":""},"monitoring":{"enabled":false},"redundancy":{"replicas":3},"revisionHistoryLimit":2}` | Set common settings to be used in all applications |
+| common | object | `{"auth":{"oauthClientID":null,"oauthClientSecret":null,"oauthValidEmailDomains":[],"type":"none"},"ingress":{"clusterIssuer":"selfsigned","enabled":true,"ingressClassName":"traefik","rootDomain":""},"monitoring":{"enabled":false},"redundancy":{"replicas":3},"revisionHistoryLimit":2}` | Set common settings to be used in all applications |
 | common.auth.oauthClientID | string | `nil` | OAuth client ID for google |
 | common.auth.oauthClientSecret | string | `nil` | OAuth client secret for google |
 | common.auth.type | string | `"none"` | Set auth type if application supports it [none|basic|google] |

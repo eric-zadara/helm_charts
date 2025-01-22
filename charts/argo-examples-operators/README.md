@@ -1,12 +1,14 @@
 # argo-examples-operators
 
-![Version: 0.0.6](https://img.shields.io/badge/Version-0.0.6-informational?style=flat-square)
+![Version: 0.0.7](https://img.shields.io/badge/Version-0.0.7-informational?style=flat-square)
 
 ## Values
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | argo-cd.argocdApps.annotations."argocd.argoproj.io/sync-wave" | string | `"1"` |  |
+| argo-cd.config.execEnabled | bool | `false` | Enable Argo's build in terminal |
+| argo-cd.config.rbac | object | `{}` | Configure RBAC per ArgoCD's helm chart |
 | argo-cd.enabled | bool | `true` | Enable/Takeover argocd |
 | argo-cd.namespace | string | `"argocd"` | Override default target namespace |
 | argo-cd.redundancy.replicas | int | `2` |  |
@@ -28,7 +30,10 @@
 | cloudnative-pg.argocdApps.annotations."argocd.argoproj.io/sync-wave" | string | `"4"` |  |
 | cloudnative-pg.enabled | bool | `true` | Enable CNPG |
 | cloudnative-pg.targetRevision | string | `"0.22.0"` | Set chart version |
-| common | object | `{"ingress":{"clusterIssuer":"selfsigned","enabled":false,"ingressClassName":"traefik","rootDomain":""},"monitoring":{"enabled":false},"redundancy":{"replicas":3},"revisionHistoryLimit":2}` | Set common settings to be used in all applications |
+| common | object | `{"auth":{"oauthClientID":null,"oauthClientSecret":null,"oauthValidEmailDomains":[],"type":"none"},"ingress":{"clusterIssuer":"selfsigned","enabled":false,"ingressClassName":"traefik","rootDomain":""},"monitoring":{"enabled":false},"redundancy":{"replicas":3},"revisionHistoryLimit":2}` | Set common settings to be used in all applications |
+| common.auth.oauthClientID | string | `nil` | OAuth client ID for google |
+| common.auth.oauthClientSecret | string | `nil` | OAuth client secret for google |
+| common.auth.type | string | `"none"` | Set auth type if application supports it [none|basic|google] |
 | common.ingress | object | `{"clusterIssuer":"selfsigned","enabled":false,"ingressClassName":"traefik","rootDomain":""}` | Common defaults applied to ingresses in all applications |
 | common.ingress.clusterIssuer | string | `"selfsigned"` | Set default cert-manager cluster-issuer |
 | common.ingress.enabled | bool | `false` | Enable ingresses for all applications |
@@ -48,6 +53,7 @@
 | prometheus-operator-crds.namespace | string | `"victoria-metrics-k8s-stack"` | Override default target namespace |
 | prometheus-operator-crds.targetRevision | string | `"14.0.0"` | Set chart version |
 | victoria-metrics-k8s-stack.argocdApps.annotations."argocd.argoproj.io/sync-wave" | string | `"3"` |  |
+| victoria-metrics-k8s-stack.config.googleAuthRolePath | string | `nil` | If AUTH is configured, configure `grafana."grafana.ini"."auth.google".role_attribute_path` |
 | victoria-metrics-k8s-stack.enabled | bool | `true` | Enable victoria-metrics |
 | victoria-metrics-k8s-stack.targetRevision | string | `"0.25.14"` | Set chart version |
 
