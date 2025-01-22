@@ -40,7 +40,7 @@ spec:
         toolkit: { enabled: true }
         migManager: { enabled: false , config: { name: default-mig-parted-config } }
         dcgmExporter:
-          serviceMonitor: { enabled: false }
+          serviceMonitor: { enabled: {{ default false $appConfig.monitoring.enabled }} }
           resources: { requests: { cpu: '0.01', memory: '1Gi' } }
         devicePlugin:
           resources: { requests: { cpu: '0.01', memory: '64Mi' } }

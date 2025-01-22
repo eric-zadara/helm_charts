@@ -31,9 +31,11 @@ common:
     ingressClassName: traefik
     # -- Set default cert-manager cluster-issuer
     clusterIssuer: selfsigned
-  # -- TODO Set/Enable podMonitor/serviceMonitor
   monitoring:
+    # -- Enable pod/service monitors
     enabled: false
+    # -- Override monitor label
+    label: victoria-metrics-k8s-stack
   # -- Set default redundancy configurations
   redundancy:
     replicas: 3
