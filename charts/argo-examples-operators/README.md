@@ -1,6 +1,6 @@
 # argo-examples-operators
 
-![Version: 0.0.10](https://img.shields.io/badge/Version-0.0.10-informational?style=flat-square)
+![Version: 0.0.11](https://img.shields.io/badge/Version-0.0.11-informational?style=flat-square)
 
 ## Values
 
@@ -30,7 +30,7 @@
 | cloudnative-pg.argocdApps.annotations."argocd.argoproj.io/sync-wave" | string | `"4"` |  |
 | cloudnative-pg.enabled | bool | `true` | Enable CNPG |
 | cloudnative-pg.targetRevision | string | `"0.22.0"` | Set chart version |
-| common | object | `{"auth":{"oauthClientID":null,"oauthClientSecret":null,"oauthValidEmailDomains":[],"type":"none"},"ingress":{"clusterIssuer":"selfsigned","enabled":false,"ingressClassName":"traefik","rootDomain":""},"monitoring":{"enabled":false},"redundancy":{"replicas":3},"revisionHistoryLimit":2}` | Set common settings to be used in all applications |
+| common | object | `{"auth":{"oauthClientID":null,"oauthClientSecret":null,"oauthValidEmailDomains":[],"type":"none"},"ingress":{"clusterIssuer":"selfsigned","enabled":false,"ingressClassName":"traefik","rootDomain":""},"monitoring":{"enabled":false,"label":"victoria-metrics-k8s-stack"},"redundancy":{"replicas":3},"revisionHistoryLimit":2}` | Set common settings to be used in all applications |
 | common.auth.oauthClientID | string | `nil` | OAuth client ID for google |
 | common.auth.oauthClientSecret | string | `nil` | OAuth client secret for google |
 | common.auth.type | string | `"none"` | Set auth type if application supports it [none|basic|google] |
@@ -39,7 +39,8 @@
 | common.ingress.enabled | bool | `false` | Enable ingresses for all applications |
 | common.ingress.ingressClassName | string | `"traefik"` | Set default ingressClassName |
 | common.ingress.rootDomain | string | `""` | Set root domain to use for ingress rules of all applications |
-| common.monitoring | object | `{"enabled":false}` | TODO Set/Enable podMonitor/serviceMonitor |
+| common.monitoring.enabled | bool | `false` | Enable pod/service monitors |
+| common.monitoring.label | string | `"victoria-metrics-k8s-stack"` | Override monitor label |
 | common.redundancy | object | `{"replicas":3}` | Set default redundancy configurations |
 | common.revisionHistoryLimit | int | `2` | Default revisionHistoryLimit where applicable |
 | gpu-operator.enabled | bool | `true` | Load gpu-operator |
