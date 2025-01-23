@@ -1,6 +1,6 @@
 # argo-examples-onyx
 
-![Version: 0.0.17](https://img.shields.io/badge/Version-0.0.17-informational?style=flat-square)
+![Version: 0.0.18](https://img.shields.io/badge/Version-0.0.18-informational?style=flat-square)
 
 ## Values
 
