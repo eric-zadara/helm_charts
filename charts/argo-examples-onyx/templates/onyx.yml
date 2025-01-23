@@ -62,16 +62,16 @@ spec:
           {{- if default false $appConfig.config.configMap.web }}
           web: {{ toYaml $appConfig.config.configMap.web | nindent 12 }}
           {{- end }}
-          {{- if or (default false $appConfig.config.configMap.auth) (ne appConfig.auth.type "none") }}
+          {{- if or (default false $appConfig.config.configMap.auth) (ne $appConfig.auth.type "none") }}
           auth:
-            {{- if eq appConfig.auth.type "google" }}
+            {{- if eq $appConfig.auth.type "google" }}
             AUTH_TYPE: google_oauth
             GOOGLE_OAUTH_CLIENT_ID: {{ $appConfig.auth.oauthClientID }}
             GOOGLE_OAUTH_CLIENT_SECRET: {{ $appConfig.auth.oauthClientSecret }}
             {{- if $appConfig.auth.oauthValidEmailDomains }}
             VALID_EMAIL_DOMAINS: {{ join "," $appConfig.auth.oauthValidEmailDomains }}
             {{- end }}
-            {{- else if eq appConfig.auth.type "basic" }}
+            {{- else if eq $appConfig.auth.type "basic" }}
             AUTH_TYPE: basic
             {{- end }}
             {{- if default false $appConfig.config.configMap.auth }}
