@@ -51,6 +51,10 @@ spec:
             content:
               enabled: true
               replicaCount: {{ $appConfig.redundancy.replicas }}
+          podMonitor:
+            enabled: {{ default false $appConfig.monitoring.enabled }}
+            additionalLabels:
+              release: {{ $appConfig.monitoring.label }}
         configMap:
           vespa:
             VESPA_CONFIG_SERVER_HOST: 'vespa-cfg'
