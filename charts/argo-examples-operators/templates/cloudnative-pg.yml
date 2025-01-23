@@ -29,7 +29,7 @@ spec:
         monitoring:
           podMonitorEnabled: {{ default false $appConfig.monitoring.enabled }}
           podMonitorAdditionalLabels:
-            release: {{ default false $appConfig.monitoring.label }}
+            release: {{ $appConfig.monitoring.label }}
           grafanaDashboard:
             create: {{ (index $.Values "victoria-metrics-k8s-stack").enabled }}
             namespace: victoria-metrics-k8s-stack
