@@ -32,7 +32,8 @@ spec:
             type: nvidia
           models:
             pull: {{ toYaml $appConfig.config.models | nindent 14 }}
-            run: {{ toYaml $appConfig.config.models | nindent 14 }}
+            run:
+              - {{ $appConfig.config.models | first }}
         replicaCount: {{ $appConfig.redundancy.replicas }}
         extraEnv:
           - name: "OLLAMA_KEEP_ALIVE"
