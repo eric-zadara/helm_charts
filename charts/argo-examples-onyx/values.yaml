@@ -93,6 +93,8 @@ onyx:
   targetRevision: 0.0.5
   config:
     configMap:
+      # -- Configmap for setting Onyx Env Vars to all pods
+      global: {}
       # -- Configmap for setting Onyx Env Vars for authentication
       auth: {}
       # -- Configmap for setting Onyx Env Vars related to web

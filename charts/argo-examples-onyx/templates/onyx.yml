@@ -56,12 +56,15 @@ spec:
             additionalLabels:
               release: {{ $appConfig.monitoring.label }}
         configMap:
-          vespa:
-            VESPA_CONFIG_SERVER_HOST: 'vespa-cfg'
-            VESPA_HOST: 'vespa-content'
+          {{- if default false $appConfig.config.configMap.global }}
+          global: {{ toYaml $appConfig.config.configMap.global | nindent 12 }}
+          {{- end }}
           {{- if default false $appConfig.config.configMap.web }}
           web: {{ toYaml $appConfig.config.configMap.web | nindent 12 }}
           {{- end }}
+          vespa:
+            VESPA_CONFIG_SERVER_HOST: 'vespa-cfg'
+            VESPA_HOST: 'vespa-content'
           {{- if or (default false $appConfig.config.configMap.auth) (ne $appConfig.auth.type "none") }}
           auth:
             {{- if eq $appConfig.auth.type "google" }}
