@@ -1,6 +1,6 @@
 # argo-examples-onyx
 
-![Version: 0.0.19](https://img.shields.io/badge/Version-0.0.19-informational?style=flat-square)
+![Version: 0.0.20](https://img.shields.io/badge/Version-0.0.20-informational?style=flat-square)
 
 ## Values
 
@@ -43,6 +43,7 @@
 | ollama.targetRevision | string | `"1.4.0"` | Set chart version/revision |
 | onyx.chartSource | string | `"helm"` | Set chart source. git/helm |
 | onyx.config.configMap.auth | object | `{}` | Configmap for setting Onyx Env Vars for authentication |
+| onyx.config.configMap.global | object | `{}` | Configmap for setting Onyx Env Vars to all pods |
 | onyx.config.configMap.web | object | `{}` | Configmap for setting Onyx Env Vars related to web |
 | onyx.config.index.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key | string | `"nvidia.com/device-plugin.config"` |  |
 | onyx.config.index.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator | string | `"In"` |  |
