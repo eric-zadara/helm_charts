@@ -38,11 +38,20 @@ spec:
         extraEnv:
           - name: "OLLAMA_KEEP_ALIVE"
             value: "-1"
+          - name: "OLLAMA_MODELS"
+            value: "/srv/ollama-models"
         resources: {{ toYaml $appConfig.resources | nindent 10 }}
         persistentVolume:
           enabled: false
-          size: 200Gi
         runtimeClassName: nvidia
         affinity: {{ toYaml $appConfig.affinity | nindent 10 }}
+        volumeMounts:
+          - mountPath: /srv/ollama-models
+            name: ollama-models
+        volumes:
+          - name: ollama-models
+            hostPath:
+              path: /srv/ollama-models
+              type: DirectoryOrCreate
 {{- end }}
 {{- end }}
