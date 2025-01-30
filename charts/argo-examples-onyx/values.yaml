@@ -90,7 +90,7 @@ onyx:
   # -- Set chart source. git/helm
   chartSource: helm
   # -- Set chart version/revision
-  targetRevision: 0.0.8
+  targetRevision: 0.0.9
   config:
     configMap:
       # -- Configmap for setting Onyx Env Vars to all pods
