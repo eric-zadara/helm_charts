@@ -54,7 +54,7 @@ ollama:
   # -- Enable ollama
   enabled: true
   # -- Set chart version/revision
-  targetRevision: 1.7.0
+  targetRevision: 1.8.0
   argocdApps:
     annotations:
       argocd.argoproj.io/sync-wave: "11"
@@ -90,7 +90,7 @@ onyx:
   # -- Set chart source. git/helm
   chartSource: helm
   # -- Set chart version/revision
-  targetRevision: 0.0.11
+  targetRevision: 0.0.12
   config:
     configMap:
       # -- Configmap for setting Onyx Env Vars to all pods
