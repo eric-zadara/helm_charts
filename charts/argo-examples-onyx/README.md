@@ -1,6 +1,6 @@
 # argo-examples-onyx
 
-![Version: 0.0.28](https://img.shields.io/badge/Version-0.0.28-informational?style=flat-square)
+![Version: 0.0.29](https://img.shields.io/badge/Version-0.0.29-informational?style=flat-square)
 
 ## Values
 
@@ -40,7 +40,7 @@
 | ollama.resources.requests."nvidia.com/gpu" | int | `8` |  |
 | ollama.resources.requests.cpu | int | `4` |  |
 | ollama.resources.requests.memory | string | `"15Gi"` |  |
-| ollama.targetRevision | string | `"1.12.0"` | Set chart version/revision |
+| ollama.targetRevision | string | `"1.15.0"` | Set chart version/revision |
 | onyx.chartSource | string | `"helm"` | Set chart source. git/helm |
 | onyx.config.configMap.auth | object | `{}` | Configmap for setting Onyx Env Vars for authentication |
 | onyx.config.configMap.global | object | `{}` | Configmap for setting Onyx Env Vars to all pods |
