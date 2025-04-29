@@ -1,6 +1,6 @@
 # argo-examples-onyx
 
-![Version: 0.0.29](https://img.shields.io/badge/Version-0.0.29-informational?style=flat-square)
+![Version: 0.0.30](https://img.shields.io/badge/Version-0.0.30-informational?style=flat-square)
 
 ## Values
 
@@ -34,6 +34,7 @@
 | ollama.argocdApps.annotations."argocd.argoproj.io/sync-wave" | string | `"11"` |  |
 | ollama.config.models | list | `["llama3.1:8b-instruct-q8_0"]` | Set list of models to be preloaded into ollama |
 | ollama.enabled | bool | `true` | Enable ollama |
+| ollama.extraEnv | list | `[{"name":"OLLAMA_KEEP_ALIVE","value":"-1"}]` | Pass env var configurations to ollama pods |
 | ollama.resources.limits."nvidia.com/gpu" | int | `8` |  |
 | ollama.resources.limits.cpu | int | `8` |  |
 | ollama.resources.limits.memory | string | `"20Gi"` |  |
