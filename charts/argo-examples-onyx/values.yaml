@@ -62,6 +62,10 @@ ollama:
     # -- Set list of models to be preloaded into ollama
     models:
       - llama3.1:8b-instruct-q8_0
+  # -- Pass env var configurations to ollama pods
+  extraEnv:
+    - name: "OLLAMA_KEEP_ALIVE"
+      value: "-1"
   resources:
     requests:
       cpu: 4

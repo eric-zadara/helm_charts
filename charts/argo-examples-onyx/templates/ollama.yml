@@ -36,8 +36,10 @@ spec:
               - {{ $appConfig.config.models | first }}
         replicaCount: {{ $appConfig.redundancy.replicas }}
         extraEnv:
-          - name: "OLLAMA_KEEP_ALIVE"
-            value: "-1"
+{{- range $appConfig.extraEnv }}
+          - name: "{{ .name }}"
+            value: "{{ .value }}"
+{{- end }}
           - name: "OLLAMA_MODELS"
             value: "/srv/ollama-models"
         resources: {{ toYaml $appConfig.resources | nindent 10 }}
