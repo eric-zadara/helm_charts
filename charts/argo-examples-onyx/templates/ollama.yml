@@ -1,5 +1,5 @@
 {{ $chartName := "ollama" }}
-{{ $repoURL := "https://otwld.github.io/ollama-helm/" }}
+{{ $repoURL := "https://helm.otwld.com/" }}
 {{ $appConfig := merge (index $.Values $chartName) $.Values.common }}
 {{- if ne $appConfig.enabled false }}
 {{ $argoConfig := merge (default $appConfig.argocdApps (dict)) $.Values.argocdApps }}
