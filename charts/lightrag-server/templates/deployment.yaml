@@ -51,31 +51,31 @@ spec:
               value: '9621'
 
             - name: SUMMARY_LANGUAGE
-              value: {{ .Values.lightrag.summary_language }}
+              value: {{ .Values.lightrag.summary_language | quote }}
             - name: TIMEOUT
-              value: {{ .Values.lightrag.timeout }}
+              value: {{ .Values.lightrag.timeout | quote }}
             - name: MAX_TOKENS
-              value: {{ .Values.lightrag.max_tokens }}
+              value: {{ .Values.lightrag.max_tokens | quote }}
 
             - name: LLM_BINDING
-              value: {{ .Values.lightrag.llm_binding }}
+              value: {{ .Values.lightrag.llm_binding | quote }}
             - name: LLM_MODEL
-              value: {{ .Values.lightrag.llm_model }}
+              value: {{ .Values.lightrag.llm_model | quote }}
             - name: LLM_BINDING_HOST
-              value: {{ .Values.lightrag.llm_binding_host }}
+              value: {{ .Values.lightrag.llm_binding_host | quote }}
             - name: LLM_BINDING_API_KEY
-              value: {{ .Values.lightrag.llm_binding_api_key }}
+              value: {{ .Values.lightrag.llm_binding_api_key | quote }}
 
             - name: EMBEDDING_BINDING
-              value: {{ .Values.lightrag.embedding_binding }}
+              value: {{ .Values.lightrag.embedding_binding | quote }}
             - name: EMBEDDING_MODEL
-              value: {{ .Values.lightrag.embedding_model }}
+              value: {{ .Values.lightrag.embedding_model | quote }}
             - name: EMBEDDING_DIM
-              value: {{ .Values.lightrag.embedding_dim }}
+              value: {{ .Values.lightrag.embedding_dim | quote }}
             - name: EMBEDDING_BINDING_HOST
-              value: {{ .Values.lightrag.embedding_binding_host }}
+              value: {{ .Values.lightrag.embedding_binding_host | quote }}
             - name: EMBEDDING_BINDING_API_KEY
-              value: {{ .Values.lightrag.embedding_binding_api_key }}
+              value: {{ .Values.lightrag.embedding_binding_api_key | quote }}
 
             # Storage assignments
             - name: LIGHTRAG_KV_STORAGE
