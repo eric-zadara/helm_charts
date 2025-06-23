@@ -1,0 +1,137 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations: {}
+  labels:
+    app: {{ default $.Release.Name $.Values.nameOverride }}
+    service: lightrag-server
+  name: {{ default $.Release.Name $.Values.nameOverride }}-web
+spec:
+  replicas: {{ default "1" .Values.deployment.replicaCount }}
+  revisionHistoryLimit: {{ default "2" .Values.deployment.revisionHistoryLimit }}
+  {{- if or .Values.deployment.updateStrategy.type .Values.deployment.updateStrategy.rollingUpdate }}
+  strategy: {{ .Values.deployment.updateStrategy | toYaml | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      app: {{ default $.Release.Name $.Values.nameOverride }}
+      service: lightrag-server
+  template:
+    metadata:
+      annotations: {}
+      labels:
+        app: {{ default $.Release.Name $.Values.nameOverride }}
+        service: lightrag-server
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - {{ default $.Release.Name $.Values.nameOverride }}
+              - key: service
+                operator: In
+                values:
+                - lightrag-server
+            topologyKey: "kubernetes.io/hostname"
+      containers:
+        - image: {{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}
+          name: lightrag-server
+          ports:
+            - name: 'http'
+              containerPort: 9621
+              protocol: TCP
+          env:
+            - name: HOST
+              value: '0.0.0.0'
+            - name: PORT
+              value: '9621'
+
+            - name: SUMMARY_LANGUAGE
+              value: {{ .Values.lightrag.summary_language }}
+            - name: TIMEOUT
+              value: {{ .Values.lightrag.timeout }}
+            - name: MAX_TOKENS
+              value: {{ .Values.lightrag.max_tokens }}
+
+            - name: LLM_BINDING
+              value: {{ .Values.lightrag.llm_binding }}
+            - name: LLM_MODEL
+              value: {{ .Values.lightrag.llm_model }}
+            - name: LLM_BINDING_HOST
+              value: {{ .Values.lightrag.llm_binding_host }}
+            - name: LLM_BINDING_API_KEY
+              value: {{ .Values.lightrag.llm_binding_api_key }}
+
+            - name: EMBEDDING_BINDING
+              value: {{ .Values.lightrag.embedding_binding }}
+            - name: EMBEDDING_MODEL
+              value: {{ .Values.lightrag.embedding_model }}
+            - name: EMBEDDING_DIM
+              value: {{ .Values.lightrag.embedding_dim }}
+            - name: EMBEDDING_BINDING_HOST
+              value: {{ .Values.lightrag.embedding_binding_host }}
+            - name: EMBEDDING_BINDING_API_KEY
+              value: {{ .Values.lightrag.embedding_binding_api_key }}
+
+            # Storage assignments
+            - name: LIGHTRAG_KV_STORAGE
+              value: RedisKVStorage
+            - name: LIGHTRAG_GRAPH_STORAGE
+              value: Neo4JStorage
+            - name: LIGHTRAG_VECTOR_STORAGE
+              value: PGVectorStorage
+            - name: LIGHTRAG_DOC_STATUS_STORAGE
+              value: PGDocStatusStorage
+
+            # Neo4j Config
+            - name: NEO4J_URI
+              value: neo4j://{{ default $.Release.Name $.Values.nameOverride }}-neo4j:7687
+            - name: NEO4J_USERNAME
+              value: 'neo4j'
+            - name: NEO4J_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default $.Release.Name $.Values.nameOverride }}-neo4j
+                  key: password
+
+            # Redis Config
+            - name: REDIS_URI
+              value: redis://{{ default $.Release.Name $.Values.nameOverride }}-redis-master:6379
+
+            # PSQL config
+            - name: POSTGRES_HOST
+              valueFrom:
+                secretKeyRef:
+                  key: host
+                  name: {{ default $.Release.Name $.Values.nameOverride }}-cnpg-app
+            - name: POSTGRES_PORT
+              valueFrom:
+                secretKeyRef:
+                  key: port
+                  name: {{ default $.Release.Name $.Values.nameOverride }}-cnpg-app
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  key: username
+                  name: {{ default $.Release.Name $.Values.nameOverride }}-cnpg-app
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: password
+                  name: {{ default $.Release.Name $.Values.nameOverride }}-cnpg-app
+            - name: POSTGRES_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  key: dbname
+                  name: {{ default $.Release.Name $.Values.nameOverride }}-cnpg-app
+{{- if .Values.deployment.resources }}
+          resources: {{ toYaml (.Values.deployment.resources) | nindent 12 }}
+{{- end }}
+      restartPolicy: Always
+{{- if .Values.deployment.tolerations }}
+      tolerations: {{ toYaml (.Values.deployment.tolerations) | nindent 8 }}
+{{- end }}

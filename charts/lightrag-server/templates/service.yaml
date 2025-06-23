@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ default $.Release.Name $.Values.nameOverride }}-svc
+spec:
+  selector:
+    app: {{ default $.Release.Name $.Values.nameOverride }}
+    service: lightrag-server
+  ports:
+    - name: http
+      port: 9621
+      protocol: TCP
+      targetPort: http
+  type: ClusterIP

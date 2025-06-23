@@ -1,0 +1,110 @@
+nameOverride: ''
+
+image:
+  repository: ghcr.io/hkuds/lightrag
+
+lightrag:
+  summary_language: English
+  timeout: 300
+  max_tokens: 16384
+
+  llm_binding: ollama
+  llm_model: 'qwen3:32b'
+  llm_binding_host: http://ollama.ollama.svc.cluster.local:11434
+  llm_binding_api_key: ''
+
+  embedding_binding: ollama
+  embedding_model: 'bge-m3:latest'
+  embedding_dim: 1024
+  embedding_binding_host: http://ollama.ollama.svc.cluster.local:11434
+  embedding_binding_api_key: ''
+
+ingress:
+  # -- Enable ingress
+  # @section -- Ingress configuration
+  enabled: false
+  # -- Set name of ingress controller
+  # @section -- Ingress configuration
+  ingressClassName: traefik
+  # -- Optional addition annotations for the ingress configuration
+  # @section -- Ingress configuration
+  annotations: {}
+    # cert-manager.io/cluster-issuer: selfsigned
+  # -- Set ingress domain name. Optional(If not specified, creates catch all with https disabled)
+  # @section -- Ingress configuration
+  hostname: ""
+  # -- Enable TLS
+  # @section -- Ingress configuration
+  tls: false
+
+deployment:
+  # -- Set number of replicas
+  # @section -- Deployment
+  replicaCount: 1 # Prefer 2
+  updateStrategy:
+    type: "RollingUpdate"
+  resources:
+    # -- Resource limits for web pods
+    # @section -- Resources
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+    # -- Resource requests for web pods
+    # @section -- Resources
+    requests:
+      cpu: 500m
+      memory: 1Gi
+
+redis:
+  # -- Enable preconfigured redis configuration
+  enabled: true
+  architecture: standalone # TODO Couldn't get sentinel to work
+  master:
+    revisionHistoryLimit: 2
+    resourcesPreset: medium
+  auth:
+    sentinel: false
+
+cnpg:
+  # -- Enable preconfigured cloudnative-pg psql configuration
+  enabled: true
+  type: postgresql
+  mode: standalone
+  backups:
+    enabled: false
+  cluster:
+    # -- Number of psql replicas. 1 is master, N-1 are replica
+    instances: 3
+    imageName: ghcr.io/eric-zadara/pgvector:17.4-0.8.0
+    postgresUID: 999
+    postgresGID: 999
+    #enableSuperuserAccess: true
+    affinity:
+      topologyKey: kubernetes.io/hostname
+    postgresql:
+      # -- Max psql connections. Default was 100
+      max_connections: '500'
+      # -- Max locks per transaction. Default was 64
+      max_locks_per_transaction: '128'
+    monitoring:
+      enabled: false
+      additionalLabels:
+        release: victoria-metrics-k8s-stack
+  pooler:
+    enabled: true
+    # -- Number of psql poolers
+    instances: 2
+    parameters:
+      # -- Pool size. Default was 25
+      default_pool_size: '50'
+      # -- Reservice pool size, default was 0/disabled
+      reserve_pool_size: '25'
+      # -- Max client connections, default was 1000
+      max_client_conn: '1000' # Default is 1000
+    monitoring:
+      enabled: false
+      additionalLabels:
+        release: victoria-metrics-k8s-stack
+
+neo4j:
+  enabled: true
