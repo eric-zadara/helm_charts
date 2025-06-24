@@ -39,7 +39,7 @@ spec:
             topologyKey: "kubernetes.io/hostname"
       initContainers:
         - name: init-pgv
-          image: {{ .Values.cnpg.imageName }}
+          image: {{ .Values.cnpg.cluster.imageName }}
           env:
             # PSQL config
             - name: POSTGRES_HOST
