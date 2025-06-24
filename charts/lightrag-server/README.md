@@ -1,6 +1,6 @@
 # lightrag-server
 
-![Version: 0.0.2](https://img.shields.io/badge/Version-0.0.2-informational?style=flat-square) ![AppVersion: 1.3.8](https://img.shields.io/badge/AppVersion-1.3.8-informational?style=flat-square)
+![Version: 0.0.3](https://img.shields.io/badge/Version-0.0.3-informational?style=flat-square) ![AppVersion: 1.3.8](https://img.shields.io/badge/AppVersion-1.3.8-informational?style=flat-square)
 
 ## Requirements
 
@@ -75,6 +75,7 @@
 | lightrag.timeout | int | `300` |  |
 | nameOverride | string | `""` |  |
 | neo4j.enabled | bool | `true` |  |
+| neo4j.service.type | string | `"ClusterIP"` |  |
 | redis.architecture | string | `"standalone"` |  |
 | redis.auth.sentinel | bool | `false` |  |
 | redis.enabled | bool | `true` | Enable preconfigured redis configuration |
