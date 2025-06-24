@@ -80,6 +80,7 @@
 | neo4j.service.type | string | `"ClusterIP"` |  |
 | neo4j.usePasswordFiles | bool | `false` |  |
 | redis.architecture | string | `"standalone"` |  |
+| redis.auth.password | string | `"everyone-check-fish-kind-language"` |  |
 | redis.auth.sentinel | bool | `false` |  |
 | redis.enabled | bool | `true` | Enable preconfigured redis configuration |
 | redis.master.resourcesPreset | string | `"medium"` |  |
