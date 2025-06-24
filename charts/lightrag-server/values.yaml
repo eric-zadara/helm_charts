@@ -64,6 +64,7 @@ redis:
     resourcesPreset: medium
   auth:
     sentinel: false
+    password: 'everyone-check-fish-kind-language'
 
 cnpg:
   # -- Enable preconfigured cloudnative-pg psql configuration
