@@ -67,17 +67,17 @@ spec:
                 secretKeyRef:
                   key: dbname
                   name: {{ default $.Release.Name $.Values.nameOverride }}-cnpg-app
-          command: ['sh','-c']
+          command: ['/usr/bin/bash','-c']
           args:
             - |
-              until psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DATABASE" -c '\q'; do
+              until /usr/bin/psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DATABASE" -c '\q'; do
                 echo "Waiting for database...";
                 sleep 2;
               done;
-              EXT_EXISTS=$(psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DATABASE" -tAc "SELECT 1 FROM pg_extension WHERE extname='vector';")
+              EXT_EXISTS=$(/usr/bin/psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DATABASE" -tAc "SELECT 1 FROM pg_extension WHERE extname='vector';")
               if [ "$EXT_EXISTS" != "1" ]; then
                 echo "Creating vector extension...";
-                psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DATABASE" -c "CREATE EXTENSION vector;";
+                /usr/bin/psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DATABASE" -c "CREATE EXTENSION vector;";
               else
                 echo "Vector extension already enabled.";
               fi
@@ -133,7 +133,7 @@ spec:
 
             # Neo4j Config
             - name: NEO4J_URI
-              value: neo4j://{{ default $.Release.Name $.Values.nameOverride }}-neo4j:7687
+              value: bolt://{{ default $.Release.Name $.Values.nameOverride }}-neo4j:7687
             - name: NEO4J_USERNAME
               value: 'neo4j'
             - name: NEO4J_PASSWORD
