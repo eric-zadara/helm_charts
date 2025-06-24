@@ -73,7 +73,7 @@
 | lightrag.llm_model | string | `"qwen3:32b"` |  |
 | lightrag.max_tokens | int | `16384` |  |
 | lightrag.summary_language | string | `"English"` |  |
-| lightrag.timeout | int | `300` |  |
+| lightrag.timeout | int | `600` |  |
 | nameOverride | string | `""` |  |
 | neo4j.auth.password | string | `"everyone-check-fish-kind-language"` |  |
 | neo4j.enabled | bool | `true` |  |
