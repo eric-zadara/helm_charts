@@ -57,7 +57,7 @@ spec:
                 secretKeyRef:
                   key: username
                   name: {{ default $.Release.Name $.Values.nameOverride }}-cnpg-app
-            - name: POSTGRES_PASSWORD
+            - name: PGPASSWORD
               valueFrom:
                 secretKeyRef:
                   key: password
