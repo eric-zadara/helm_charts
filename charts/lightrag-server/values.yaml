@@ -78,7 +78,7 @@ cnpg:
     imageName: ghcr.io/eric-zadara/pgvector:17.4-0.8.0
     postgresUID: 999
     postgresGID: 999
-    #enableSuperuserAccess: true
+    enableSuperuserAccess: true
     affinity:
       topologyKey: kubernetes.io/hostname
     postgresql:

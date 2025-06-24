@@ -117,12 +117,12 @@ spec:
               valueFrom:
                 secretKeyRef:
                   key: username
-                  name: {{ default $.Release.Name $.Values.nameOverride }}-cnpg-app
+                  name: {{ default $.Release.Name $.Values.nameOverride }}-cnpg-superuser
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: password
-                  name: {{ default $.Release.Name $.Values.nameOverride }}-cnpg-app
+                  name: {{ default $.Release.Name $.Values.nameOverride }}-cnpg-superuser
             - name: POSTGRES_DATABASE
               valueFrom:
                 secretKeyRef:
