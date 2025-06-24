@@ -5,7 +5,7 @@ metadata:
   labels:
     app: {{ default $.Release.Name $.Values.nameOverride }}
     service: lightrag-server
-  name: {{ default $.Release.Name $.Values.nameOverride }}-web
+  name: {{ default $.Release.Name $.Values.nameOverride }}
 spec:
   replicas: {{ default "1" .Values.deployment.replicaCount }}
   revisionHistoryLimit: {{ default "2" .Values.deployment.revisionHistoryLimit }}

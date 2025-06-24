@@ -108,3 +108,5 @@ cnpg:
 
 neo4j:
   enabled: true
+  service:
+    type: ClusterIP
