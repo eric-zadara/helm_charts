@@ -37,6 +37,50 @@ spec:
                 values:
                 - lightrag-server
             topologyKey: "kubernetes.io/hostname"
+      initContainers:
+        - name: init-pgv
+          image: {{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}
+          env:
+            # PSQL config
+            - name: POSTGRES_HOST
+              valueFrom:
+                secretKeyRef:
+                  key: host
+                  name: {{ default $.Release.Name $.Values.nameOverride }}-cnpg-app
+            - name: POSTGRES_PORT
+              valueFrom:
+                secretKeyRef:
+                  key: port
+                  name: {{ default $.Release.Name $.Values.nameOverride }}-cnpg-app
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  key: username
+                  name: {{ default $.Release.Name $.Values.nameOverride }}-cnpg-app
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: password
+                  name: {{ default $.Release.Name $.Values.nameOverride }}-cnpg-app
+            - name: POSTGRES_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  key: dbname
+                  name: {{ default $.Release.Name $.Values.nameOverride }}-cnpg-app
+          command: ['sh','-c']
+          args:
+            - |
+              until psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DATABASE" -c '\q'; do
+                echo "Waiting for database...";
+                sleep 2;
+              done;
+              EXT_EXISTS=$(psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DATABASE" -tAc "SELECT 1 FROM pg_extension WHERE extname='vector';")
+              if [ "$EXT_EXISTS" != "1" ]; then
+                echo "Creating vector extension...";
+                psql -h "$POSTGRES_HOST" -U "$POSTGRES_USER" -d "$POSTGRES_DATABASE" -c "CREATE EXTENSION vector;";
+              else
+                echo "Vector extension already enabled.";
+              fi
       containers:
         - image: {{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}
           name: lightrag-server
@@ -117,12 +161,12 @@ spec:
               valueFrom:
                 secretKeyRef:
                   key: username
-                  name: {{ default $.Release.Name $.Values.nameOverride }}-cnpg-superuser
+                  name: {{ default $.Release.Name $.Values.nameOverride }}-cnpg-app
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
                   key: password
-                  name: {{ default $.Release.Name $.Values.nameOverride }}-cnpg-superuser
+                  name: {{ default $.Release.Name $.Values.nameOverride }}-cnpg-app
             - name: POSTGRES_DATABASE
               valueFrom:
                 secretKeyRef:

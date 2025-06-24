@@ -108,5 +108,6 @@ cnpg:
 
 neo4j:
   enabled: true
+  usePasswordFiles: false
   service:
     type: ClusterIP
