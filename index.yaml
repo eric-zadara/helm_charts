@@ -386,6 +386,28 @@ entries:
   lightrag-server:
   - apiVersion: v2
     appVersion: 1.3.8
+    created: "2025-06-24T00:35:27.166345049Z"
+    dependencies:
+    - condition: redis.enabled
+      name: redis
+      repository: https://charts.bitnami.com/bitnami
+      version: 20.1.7
+    - alias: cnpg
+      condition: cnpg.enabled
+      name: cluster
+      repository: https://cloudnative-pg.github.io/charts
+      version: 0.0.11
+    - condition: neo4j.enabled
+      name: neo4j
+      repository: https://charts.bitnami.com/bitnami
+      version: 0.4.8
+    digest: 3364ed106b0b3c5d83b6f07cb4f6aca522a779aa2ef2bc898b0b5e0d43f7ecbb
+    name: lightrag-server
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/lightrag-server-0.0.3/lightrag-server-0.0.3.tgz
+    version: 0.0.3
+  - apiVersion: v2
+    appVersion: 1.3.8
     created: "2025-06-23T23:22:57.123806888Z"
     dependencies:
     - condition: redis.enabled
@@ -465,4 +487,4 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/zadara-aws-config-0.0.1/zadara-aws-config-0.0.1.tgz
     version: 0.0.1
-generated: "2025-06-23T23:22:57.123935328Z"
+generated: "2025-06-24T00:35:27.166498808Z"
