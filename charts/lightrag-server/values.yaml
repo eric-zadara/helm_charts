@@ -109,5 +109,7 @@ cnpg:
 neo4j:
   enabled: true
   usePasswordFiles: false
+  auth:
+    password: 'everyone-check-fish-kind-language'
   service:
     type: ClusterIP
