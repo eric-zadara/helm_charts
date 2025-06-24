@@ -75,6 +75,7 @@
 | lightrag.summary_language | string | `"English"` |  |
 | lightrag.timeout | int | `300` |  |
 | nameOverride | string | `""` |  |
+| neo4j.auth.password | string | `"everyone-check-fish-kind-language"` |  |
 | neo4j.enabled | bool | `true` |  |
 | neo4j.service.type | string | `"ClusterIP"` |  |
 | neo4j.usePasswordFiles | bool | `false` |  |
