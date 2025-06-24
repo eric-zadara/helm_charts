@@ -1,6 +1,6 @@
 # lightrag-server
 
-![Version: 0.0.3](https://img.shields.io/badge/Version-0.0.3-informational?style=flat-square) ![AppVersion: 1.3.8](https://img.shields.io/badge/AppVersion-1.3.8-informational?style=flat-square)
+![Version: 0.0.4](https://img.shields.io/badge/Version-0.0.4-informational?style=flat-square) ![AppVersion: 1.3.8](https://img.shields.io/badge/AppVersion-1.3.8-informational?style=flat-square)
 
 ## Requirements
 
@@ -41,6 +41,7 @@
 |-----|------|---------|-------------|
 | cnpg.backups.enabled | bool | `false` |  |
 | cnpg.cluster.affinity.topologyKey | string | `"kubernetes.io/hostname"` |  |
+| cnpg.cluster.enableSuperuserAccess | bool | `true` |  |
 | cnpg.cluster.imageName | string | `"ghcr.io/eric-zadara/pgvector:17.4-0.8.0"` |  |
 | cnpg.cluster.instances | int | `3` | Number of psql replicas. 1 is master, N-1 are replica |
 | cnpg.cluster.monitoring.additionalLabels.release | string | `"victoria-metrics-k8s-stack"` |  |
