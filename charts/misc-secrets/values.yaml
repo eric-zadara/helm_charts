@@ -4,17 +4,20 @@ namespaceOverride: ''
 insecure-opaque:
   example:
     enabled: false
+    annotations: {}
     data:
       mykey: "myvalue"
 # -- Insecure and generic TLS secret, will generate if undefined
 insecure-tls:
   example:
     enabled: false
+    annotations: {}
     data:
       key: "tlsPayload"
       crt: "crtPayload"
   exampleB64:
     enabled: false
+    annotations: {}
     data:
       keyB64: "tlsPayload"
       crtB64: "crtPayload"
@@ -22,5 +25,6 @@ insecure-tls:
 sealed:
   example:
     enabled: false
+    annotations: {}
     encryptedData:
       mykey: "encrypted payload from kubeseal"
