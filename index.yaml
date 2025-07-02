@@ -567,6 +567,14 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/lightrag-server-0.0.1/lightrag-server-0.0.1.tgz
     version: 0.0.1
+  mayastor-diskpools:
+  - apiVersion: v2
+    created: "2025-07-02T21:28:28.386387872Z"
+    digest: 4d897d4d035e4fcf3d0db6116d56c7e72c05f5a96c89d5d5a0be27b232a44a87
+    name: mayastor-diskpools
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/mayastor-diskpools-0.0.1/mayastor-diskpools-0.0.1.tgz
+    version: 0.0.1
   misc-secrets:
   - apiVersion: v2
     created: "2025-07-01T18:10:07.598875377Z"
@@ -611,4 +619,4 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/zadara-aws-config-0.0.1/zadara-aws-config-0.0.1.tgz
     version: 0.0.1
-generated: "2025-07-01T23:29:18.843349762Z"
+generated: "2025-07-02T21:28:28.38656233Z"
