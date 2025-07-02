@@ -1,8 +1,8 @@
 namespaceOverride: openebs
 # TODO document properly
-# config:
+# diskpools:
 #   <node-name>:
 #     enabled: true
 #     disks:
 #       - /dev/disk/by-path/etc
-config: {}
+diskpools: {}

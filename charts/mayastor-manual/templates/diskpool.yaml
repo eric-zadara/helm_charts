@@ -1,4 +1,4 @@
-{{- range $nodeName, $configData := .Values.config }}
+{{- range $nodeName, $configData := .Values.diskpools }}
 {{- if ne $configData.enabled false }}
 ---
 apiVersion: openebs.io/v1beta3

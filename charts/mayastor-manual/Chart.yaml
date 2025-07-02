@@ -1,4 +1,4 @@
 apiVersion: v2
-name: mayastor-diskpools
+name: mayastor-manual
 version: 0.0.1
 dependencies: []
