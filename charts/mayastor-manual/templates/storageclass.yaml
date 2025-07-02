@@ -9,10 +9,10 @@ provisioner: io.openebs.csi-mayastor
 reclaimPolicy: {{ default "Delete" $configData.reclaimPolicy }}
 volumeBindingMode: {{ default "WaitForFirstConsumer" $configData.volumeBindingMode }}
 parameters:
-  fsType: {{ default "ext4" }}
-  thin: {{ (default false $configData.thin) }}
-  allowVolumeExpansion: {{ (default true $configData.allowVolumeExpansion) }}
-  protocol: {{ default "nvmf" $configData.protocol }}
+  fsType: {{ default "ext4" $configData.fsType | quote }}
+  thin: {{ (default false $configData.thin) | quote }}
+  allowVolumeExpansion: {{ (default true $configData.allowVolumeExpansion) | quote }}
+  protocol: {{ default "nvmf" $configData.protocol | quote }}
   repl: {{ (default "3" $configData.repl) | quote }}
 {{- end }}
 {{- end }}
