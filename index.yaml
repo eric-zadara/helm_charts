@@ -577,6 +577,13 @@ entries:
     version: 0.0.1
   mayastor-manual:
   - apiVersion: v2
+    created: "2025-07-02T22:06:06.285812888Z"
+    digest: 2cbae1a912b60d81206b1532ef96bd204a0c67dce8965d7eec174fe4f88fa122
+    name: mayastor-manual
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/mayastor-manual-0.0.4/mayastor-manual-0.0.4.tgz
+    version: 0.0.4
+  - apiVersion: v2
     created: "2025-07-02T21:57:58.05553732Z"
     digest: ba691a2c7652c13fec86ae891198aa57eaf7301619258f39bbff6a01cf9a5cb7
     name: mayastor-manual
@@ -641,4 +648,4 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/zadara-aws-config-0.0.1/zadara-aws-config-0.0.1.tgz
     version: 0.0.1
-generated: "2025-07-02T21:57:58.055670832Z"
+generated: "2025-07-02T22:06:06.285946949Z"
