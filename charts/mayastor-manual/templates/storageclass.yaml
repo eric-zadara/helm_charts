@@ -1,0 +1,13 @@
+{{- range $className, $configData := .Values.storageClasses }}
+{{- if ne $configData.enabled false }}
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: {{ printf "%s" $className }}
+provisioner: io.openebs.csi-mayastor
+parameters:
+  protocol: {{ default "nvmf" $configData.protocol }}
+  repl: {{ (default "3" $configData.repl) | quote }}
+{{- end }}
+{{- end }}

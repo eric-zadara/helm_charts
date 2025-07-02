@@ -6,3 +6,11 @@ namespaceOverride: openebs
 #     disks:
 #       - /dev/disk/by-path/etc
 diskpools: {}
+# TODO document properly
+#
+# storageClasses:
+#   mayastor-2:
+#     enabled: true
+#     protocol: nvmf
+#     repl: 2
+storageClasses: {}
