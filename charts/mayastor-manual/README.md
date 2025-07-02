@@ -1,4 +1,4 @@
-# mayastor-diskpools
+# mayastor-manual
 
 ![Version: 0.0.1](https://img.shields.io/badge/Version-0.0.1-informational?style=flat-square)
 
@@ -6,7 +6,7 @@
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| config | object | `{}` |  |
+| diskpools | object | `{}` |  |
 | namespaceOverride | string | `"openebs"` |  |
 
 ----------------------------------------------
