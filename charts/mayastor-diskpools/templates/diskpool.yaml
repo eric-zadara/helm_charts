@@ -1,0 +1,13 @@
+{{- range $nodeName, $configData := .Values.config }}
+{{- if ne $configData.enabled false }}
+---
+apiVersion: openebs.io/v1beta3
+kind: DiskPool
+metadata:
+  name: {{ printf "dp-%s" $nodeName }}
+  namespace: {{ default $.Release.Namespace $.Values.namespaceOverride }}
+spec:
+  node: {{ $nodeName }}
+  disks: {{ toYaml $configData.disks | nindent 4 }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,8 @@
+namespaceOverride: openebs
+# TODO document properly
+# config:
+#   <node-name>:
+#     enabled: true
+#     disks:
+#       - /dev/disk/by-path/etc
+config: {}
