@@ -11,6 +11,8 @@ diskpools: {}
 # storageClasses:
 #   mayastor-2:
 #     enabled: true
+#     reclaimPolicy: Delete
+#     volumeBindingMode: WaitForFirstConsumer
 #     protocol: nvmf
 #     repl: 2
 storageClasses: {}

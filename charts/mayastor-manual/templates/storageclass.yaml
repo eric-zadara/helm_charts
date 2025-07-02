@@ -6,6 +6,8 @@ kind: StorageClass
 metadata:
   name: {{ printf "%s" $className }}
 provisioner: io.openebs.csi-mayastor
+reclaimPolicy: {{ default "Delete" $configData.reclaimPolicy }}
+volumeBindingMode: {{ default "WaitForFirstConsumer" $configData.volumeBindingMode }}
 parameters:
   protocol: {{ default "nvmf" $configData.protocol }}
   repl: {{ (default "3" $configData.repl) | quote }}
