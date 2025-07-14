@@ -66,6 +66,7 @@ ollama:
   extraEnv:
     - name: "OLLAMA_KEEP_ALIVE"
       value: "-1"
+  modelPath: "/srv/ollama-models"
   resources:
     requests:
       cpu: 4

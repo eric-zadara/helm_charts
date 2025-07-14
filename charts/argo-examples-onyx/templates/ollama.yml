@@ -41,19 +41,19 @@ spec:
             value: "{{ .value }}"
 {{- end }}
           - name: "OLLAMA_MODELS"
-            value: "/srv/ollama-models"
+            value: "{{ $appConfig.modelPath }}"
         resources: {{ toYaml $appConfig.resources | nindent 10 }}
         persistentVolume:
           enabled: false
         runtimeClassName: nvidia
         affinity: {{ toYaml $appConfig.affinity | nindent 10 }}
         volumeMounts:
-          - mountPath: /srv/ollama-models
+          - mountPath: {{ $appConfig.modelPath }}
             name: ollama-models
         volumes:
           - name: ollama-models
             hostPath:
-              path: /srv/ollama-models
+              path: {{ $appConfig.modelPath }}
               type: DirectoryOrCreate
 {{- end }}
 {{- end }}
