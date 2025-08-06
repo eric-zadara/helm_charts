@@ -54,7 +54,11 @@ ollama:
   # -- Enable ollama
   enabled: true
   # -- Set chart version/revision
-  targetRevision: 1.22.0
+  targetRevision: 1.26.0
+  # -- Overwrite default image
+  #image:
+  #  repository:
+  #  tag:
   argocdApps:
     annotations:
       argocd.argoproj.io/sync-wave: "11"

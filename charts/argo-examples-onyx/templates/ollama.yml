@@ -26,6 +26,9 @@ spec:
 {{- if $appConfig.helmConfig }}
 {{ toYaml $appConfig.helmConfig | indent 8 }}
 {{- else }}
+{{- if $appConfig.image }}
+        image: {{ toYaml $appConfig.image | nindent 10 }}
+{{- end }}
         ollama:
           gpu:
             enabled: true
