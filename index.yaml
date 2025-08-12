@@ -248,6 +248,13 @@ entries:
     version: 0.0.1
   argo-examples-operators:
   - apiVersion: v2
+    created: "2025-08-12T20:35:18.700619684Z"
+    digest: b569ab5a7771591dd34ffb5cc0dc80223e8c6151dfc730f8f51f71ee2c734075
+    name: argo-examples-operators
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/argo-examples-operators-0.0.13/argo-examples-operators-0.0.13.tgz
+    version: 0.0.13
+  - apiVersion: v2
     created: "2025-01-23T17:18:49.81610258Z"
     digest: 031877bef851b63541103a838dd082c11ee5fea3886d96020cad5475681a48ed
     name: argo-examples-operators
@@ -662,4 +669,4 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/zadara-aws-config-0.0.1/zadara-aws-config-0.0.1.tgz
     version: 0.0.1
-generated: "2025-08-06T15:01:37.983497033Z"
+generated: "2025-08-12T20:35:18.700841109Z"
