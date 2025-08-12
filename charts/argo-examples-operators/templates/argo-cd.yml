@@ -77,17 +77,17 @@ spec:
           autoscaling:
             enabled: true
             minReplicas: 2
-          {{- if $appConfig.repoServer.config.volumes }}
-          volumes: {{ toYaml $appConfig.repoServer.config.volumes | nindent 12 }}
+          {{- if $appConfig.config.repoServer.volumes }}
+          volumes: {{ toYaml $appConfig.config.repoServer.volumes | nindent 12 }}
           {{- end }}
-          {{- if $appConfig.repoServer.config.volumeMounts }}
-          volumeMounts: {{ toYaml $appConfig.repoServer.config.volumeMounts | nindent 12 }}
+          {{- if $appConfig.config.repoServer.volumeMounts }}
+          volumeMounts: {{ toYaml $appConfig.config.repoServer.volumeMounts | nindent 12 }}
           {{- end }}
-          {{- if $appConfig.repoServer.config.env }}
-          env: {{ toYaml $appConfig.repoServer.config.env | nindent 12 }}
+          {{- if $appConfig.config.repoServer.env }}
+          env: {{ toYaml $appConfig.config.repoServer.env | nindent 12 }}
           {{- end }}
-          {{- if $appConfig.repoServer.config.initContainers }}
-          initContainers: {{ toYaml $appConfig.repoServer.config.initContainers | nindent 12 }}
+          {{- if $appConfig.config.repoServer.initContainers }}
+          initContainers: {{ toYaml $appConfig.config.repoServer.initContainers | nindent 12 }}
           {{- end }}
         server:
           autoscaling:
