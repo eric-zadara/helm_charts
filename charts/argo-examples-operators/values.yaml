@@ -67,6 +67,12 @@ argo-cd:
     rbac: {}
     # -- Enable Argo's build in terminal
     execEnabled: false
+    # -- Partial configuration to repoServer to enable plugin downloading
+    repoServer:
+      volumes: []
+      volumeMounts: []
+      env: []
+      initContainers: []
 
 cert-manager:
   # -- Enable cert-manager
