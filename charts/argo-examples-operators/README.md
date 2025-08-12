@@ -1,6 +1,6 @@
 # argo-examples-operators
 
-![Version: 0.0.12](https://img.shields.io/badge/Version-0.0.12-informational?style=flat-square)
+![Version: 0.0.13](https://img.shields.io/badge/Version-0.0.13-informational?style=flat-square)
 
 ## Values
 
@@ -9,6 +9,7 @@
 | argo-cd.argocdApps.annotations."argocd.argoproj.io/sync-wave" | string | `"1"` |  |
 | argo-cd.config.execEnabled | bool | `false` | Enable Argo's build in terminal |
 | argo-cd.config.rbac | object | `{}` | Configure RBAC per ArgoCD's helm chart |
+| argo-cd.config.repoServer | object | `{"env":[],"initContainers":[],"volumeMounts":[],"volumes":[]}` | Partial configuration to repoServer to enable plugin downloading |
 | argo-cd.enabled | bool | `true` | Enable/Takeover argocd |
 | argo-cd.namespace | string | `"argocd"` | Override default target namespace |
 | argo-cd.redundancy.replicas | int | `2` |  |
