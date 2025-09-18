@@ -1,6 +1,6 @@
 # lightrag-server
 
-![Version: 0.0.8](https://img.shields.io/badge/Version-0.0.8-informational?style=flat-square) ![AppVersion: 1.3.8](https://img.shields.io/badge/AppVersion-1.3.8-informational?style=flat-square)
+![Version: 0.0.9](https://img.shields.io/badge/Version-0.0.9-informational?style=flat-square) ![AppVersion: 1.3.8](https://img.shields.io/badge/AppVersion-1.3.8-informational?style=flat-square)
 
 ## Requirements
 
@@ -83,6 +83,7 @@
 | redis.auth.password | string | `"everyone-check-fish-kind-language"` |  |
 | redis.auth.sentinel | bool | `false` |  |
 | redis.enabled | bool | `true` | Enable preconfigured redis configuration |
+| redis.image.repository | string | `"bitnamilegacy/redis"` |  |
 | redis.master.resourcesPreset | string | `"medium"` |  |
 | redis.master.revisionHistoryLimit | int | `2` |  |
 
