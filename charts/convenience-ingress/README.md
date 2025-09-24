@@ -1,6 +1,6 @@
 # convenience-ingress
 
-![Version: 0.0.1](https://img.shields.io/badge/Version-0.0.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square)
+![Version: 0.0.2](https://img.shields.io/badge/Version-0.0.2-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square)
 
 A customizable ingress chart that can create Ingress objects and optional Traefik Middleware
 
@@ -13,10 +13,11 @@ A customizable ingress chart that can create Ingress objects and optional Traefi
 | host | string | `""` | Ingress host (if not set, creates catch-all ingress for Traefik) |
 | ingressClassName | string | `""` | Ingress class name (for Kubernetes 1.18+) |
 | labels | object | `{}` | Ingress labels |
-| middleware | object | `{"addPrefix":{"enabled":false,"prefix":""},"annotations":{},"enabled":false,"labels":{},"middlewares":[],"name":"","replacePathRegex":{"enabled":false,"regex":"","replacement":""},"stripPrefix":{"enabled":false,"forceLower":false,"prefixes":[]}}` | Optional Traefik Middleware configuration |
+| middleware | object | `{"addPrefix":{"enabled":false,"prefix":""},"annotations":{},"apiVersion":"traefik.io/v1alpha1","enabled":false,"labels":{},"middlewares":[],"name":"","replacePathRegex":{"enabled":false,"regex":"","replacement":""},"stripPrefix":{"enabled":false,"forceLower":false,"prefixes":[]}}` | Optional Traefik Middleware configuration |
 | middleware.addPrefix | object | `{"enabled":false,"prefix":""}` | Legacy configuration for addPrefix (for backward compatibility) |
 | middleware.addPrefix.prefix | string | `""` | Prefix to add to the path |
 | middleware.annotations | object | `{}` | Middleware annotations |
+| middleware.apiVersion | string | `"traefik.io/v1alpha1"` | API version for Traefik Middleware (common values: traefik.containo.us/v1alpha1 or traefik.io/v1alpha1) |
 | middleware.enabled | bool | `false` | Enable Traefik Middleware creation |
 | middleware.labels | object | `{}` | Middleware labels |
 | middleware.middlewares | list | `[]` | Array of middleware configurations |
