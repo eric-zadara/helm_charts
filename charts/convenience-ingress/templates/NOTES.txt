@@ -25,6 +25,11 @@ Traefik Middleware has been enabled with the following configuration:
 {{- if .Values.middleware.replacePathRegex.enabled }}
   ReplacePathRegex: {{ .Values.middleware.replacePathRegex.regex }} -> {{ .Values.middleware.replacePathRegex.replacement }}
 {{- end }}
+
+NOTES:
+- Ensure Traefik ingress controller is installed with CRDs
+- The Middleware CRD (traefik.containo.us/v1alpha1) must be available in your cluster
+- If you get "no matches for kind Middleware" errors, install Traefik first
 {{- end }}
 {{- else }}
 Convenience Ingress is disabled (enabled: false)

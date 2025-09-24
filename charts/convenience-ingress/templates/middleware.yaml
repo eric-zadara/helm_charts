@@ -6,7 +6,7 @@
 {{- range .Values.middleware.middlewares }}
 {{- $middlewareName := printf "%s-%s" $middlewareBaseName .name }}
 ---
-apiVersion: traefik.containo.us/v1alpha1
+apiVersion: {{ $.Values.middleware.apiVersion }}
 kind: Middleware
 metadata:
   name: {{ $middlewareName }}
@@ -67,7 +67,7 @@ spec:
 {{- /* Legacy configuration for backward compatibility */}}
 {{- if eq .Values.middleware.stripPrefix.enabled true }}
 ---
-apiVersion: traefik.containo.us/v1alpha1
+apiVersion: {{ .Values.middleware.apiVersion }}
 kind: Middleware
 metadata:
   name: {{ $middlewareBaseName }}-stripprefix
@@ -96,7 +96,7 @@ spec:
 
 {{- if eq .Values.middleware.addPrefix.enabled true }}
 ---
-apiVersion: traefik.containo.us/v1alpha1
+apiVersion: {{ .Values.middleware.apiVersion }}
 kind: Middleware
 metadata:
   name: {{ $middlewareBaseName }}-addprefix
@@ -117,7 +117,7 @@ spec:
 
 {{- if eq .Values.middleware.replacePathRegex.enabled true }}
 ---
-apiVersion: traefik.containo.us/v1alpha1
+apiVersion: {{ .Values.middleware.apiVersion }}
 kind: Middleware
 metadata:
   name: {{ $middlewareBaseName }}-replacepathregex

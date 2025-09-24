@@ -51,6 +51,8 @@ middleware:
   annotations: {}
   # -- Middleware labels
   labels: {}
+  # -- API version for Traefik Middleware (common values: traefik.containo.us/v1alpha1 or traefik.io/v1alpha1)
+  apiVersion: "traefik.io/v1alpha1"
   # -- Array of middleware configurations
   middlewares: []
     # Example of stripPrefix middleware:
