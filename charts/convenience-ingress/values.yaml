@@ -1,0 +1,98 @@
+# Default values for convenience-ingress
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# -- Enable the ingress resource
+enabled: true
+
+# -- Ingress name (if not set, will use release name)
+nameOverride: ""
+
+# -- Ingress namespace (if not set, will use release namespace)
+namespaceOverride: ""
+
+# -- Ingress annotations
+annotations: {}
+  # kubernetes.io/ingress.class: nginx
+  # kubernetes.io/tls-acme: "true"
+
+# -- Ingress labels
+labels: {}
+  # app: myapp
+
+# -- Ingress class name (for Kubernetes 1.18+)
+ingressClassName: ""
+
+# -- Ingress host (if not set, creates catch-all ingress for Traefik)
+host: ""
+
+# -- TLS configuration
+tls: []
+  # - secretName: chart-example-tls
+  #   hosts:
+  #     - chart-example.local
+
+# -- Path and service mappings
+rules: []
+  # - path: /
+  #   pathType: Prefix
+  #   service:
+  #     name: chart-example-svc
+  #     port:
+  #       number: 80
+
+# -- Optional Traefik Middleware configuration
+middleware:
+  # -- Enable Traefik Middleware creation
+  enabled: false
+  # -- Middleware name (if not set, will use release name with '-middleware' suffix)
+  name: ""
+  # -- Middleware annotations
+  annotations: {}
+  # -- Middleware labels
+  labels: {}
+  # -- Array of middleware configurations
+  middlewares: []
+    # Example of stripPrefix middleware:
+    # - name: strip-api-prefix
+    #   type: stripPrefix
+    #   config:
+    #     prefixes:
+    #       - /api
+    #     forceLower: false
+    # Example of addPrefix middleware:
+    # - name: add-prefix
+    #   type: addPrefix
+    #   config:
+    #     prefix: /app
+    # Example of replacePathRegex middleware:
+    # - name: rewrite-path
+    #   type: replacePathRegex
+    #   config:
+    #     regex: "^/service1/(.*)"
+    #     replacement: "/$1"
+    # Example of redirectRegex middleware:
+    # - name: redirect-example
+    #   type: redirectRegex
+    #   config:
+    #     regex: "^http://example.com/(.*)"
+    #     replacement: "https://example.com/$1"
+  # -- Legacy configuration for stripPrefix (for backward compatibility)
+  stripPrefix:
+    enabled: false
+    # -- Prefixes to strip from the path
+    prefixes: []
+    # -- Whether to force strip the prefix even if not present
+    forceLower: false
+  # -- Legacy configuration for addPrefix (for backward compatibility)
+  addPrefix:
+    enabled: false
+    # -- Prefix to add to the path
+    prefix: ""
+  # -- Legacy configuration for replacePathRegex (for backward compatibility)
+  replacePathRegex:
+    enabled: false
+    # -- Regex to match in the path
+    regex: ""
+    # -- Replacement string for the path
+    replacement: ""

@@ -1,0 +1,37 @@
+{{- if .Values.enabled }}
+Convenience Ingress has been installed!
+
+Ingress resource: {{ include "convenience-ingress.fullname" . }}
+Namespace: {{ include "convenience-ingress.namespace" . }}
+Host: {{ .Values.host }}
+
+{{- if .Values.rules }}
+Configured paths:
+{{- range .Values.rules }}
+  - {{ .path }} -> {{ .service.name }}:{{ .service.port.number }}
+{{- end }}
+{{- else }}
+No paths configured. Please set .Values.rules to define path to service mappings.
+{{- end }}
+
+{{- if .Values.middleware.enabled }}
+Traefik Middleware has been enabled with the following configuration:
+{{- if .Values.middleware.stripPrefix.enabled }}
+  StripPrefix: {{ .Values.middleware.stripPrefix.prefixes }}
+{{- end }}
+{{- if .Values.middleware.addPrefix.enabled }}
+  AddPrefix: {{ .Values.middleware.addPrefix.prefix }}
+{{- end }}
+{{- if .Values.middleware.replacePathRegex.enabled }}
+  ReplacePathRegex: {{ .Values.middleware.replacePathRegex.regex }} -> {{ .Values.middleware.replacePathRegex.replacement }}
+{{- end }}
+{{- end }}
+{{- else }}
+Convenience Ingress is disabled (enabled: false)
+{{- end }}
+
+To configure this ingress to work with your existing application:
+1. Set the appropriate host value in .Values.host
+2. Define your path to service mappings in .Values.rules
+3. If needed, enable middleware by setting .Values.middleware.enabled = true
+4. Add any required annotations for your ingress controller

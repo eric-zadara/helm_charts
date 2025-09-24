@@ -1,0 +1,112 @@
+{{- if .Values.enabled }}
+{{- $fullName := include "convenience-ingress.fullname" . -}}
+{{- $namespace := include "convenience-ingress.namespace" . -}}
+{{- if semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion }}
+apiVersion: networking.k8s.io/v1
+{{- else if semverCompare ">=1.14-0" .Capabilities.KubeVersion.GitVersion }}
+apiVersion: networking.k8s.io/v1beta1
+{{- else }}
+apiVersion: extensions/v1beta1
+{{- end }}
+kind: Ingress
+metadata:
+  name: {{ $fullName }}
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "convenience-ingress.labels" . | nindent 4 }}
+    {{- with .Values.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  annotations:
+    {{- with .Values.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- if and .Values.middleware.enabled (or .Values.middleware.middlewares .Values.middleware.stripPrefix.enabled .Values.middleware.addPrefix.enabled .Values.middleware.replacePathRegex.enabled) }}
+    {{- $middlewareBaseName := include "convenience-ingress.middlewareName" . -}}
+    {{- $middlewareList := list -}}
+    {{- /* Add middlewares from the new array-based configuration */}}
+    {{- range .Values.middleware.middlewares -}}
+    {{- $middlewareFullName := printf "%s-%s@kubernetescrd" .name $.Release.Namespace -}}
+    {{- $middlewareList = append $middlewareList $middlewareFullName -}}
+    {{- end -}}
+    {{- /* Add legacy middlewares for backward compatibility */}}
+    {{- if .Values.middleware.stripPrefix.enabled -}}
+    {{- $middlewareList = append $middlewareList (printf "%s-stripprefix@kubernetescrd" $middlewareBaseName) -}}
+    {{- end -}}
+    {{- if .Values.middleware.addPrefix.enabled -}}
+    {{- $middlewareList = append $middlewareList (printf "%s-addprefix@kubernetescrd" $middlewareBaseName) -}}
+    {{- end -}}
+    {{- if .Values.middleware.replacePathRegex.enabled -}}
+    {{- $middlewareList = append $middlewareList (printf "%s-replacepathregex@kubernetescrd" $middlewareBaseName) -}}
+    {{- end -}}
+    {{- if $middlewareList }}
+    traefik.ingress.kubernetes.io/router.middlewares: {{ join "," $middlewareList | quote }}
+    {{- end }}
+    {{- end }}
+spec:
+  {{- if .Values.ingressClassName }}
+  ingressClassName: {{ .Values.ingressClassName }}
+  {{- end }}
+  {{- if .Values.tls }}
+  tls:
+    {{- range .Values.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      {{- with .secretName }}
+      secretName: {{ . }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- if .Values.rules }}
+    {{- range .Values.rules }}
+    {{- if $.Values.host }}
+    - host: {{ $.Values.host | quote }}
+      http:
+        paths:
+          - path: {{ .path }}
+            pathType: {{ .pathType | default "Prefix" }}
+            backend:
+              service:
+                name: {{ .service.name }}
+                port:
+                  number: {{ .service.port.number }}
+    {{- else }}
+    - http:
+        paths:
+          - path: {{ .path }}
+            pathType: {{ .pathType | default "Prefix" }}
+            backend:
+              service:
+                name: {{ .service.name }}
+                port:
+                  number: {{ .service.port.number }}
+    {{- end }}
+    {{- end }}
+    {{- else }}
+    {{- if .Values.host }}
+    - host: {{ .Values.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: chart-example-svc
+                port:
+                  number: 80
+    {{- else }}
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: chart-example-svc
+                port:
+                  number: 80
+    {{- end }}
+    {{- end }}
+{{- end }}

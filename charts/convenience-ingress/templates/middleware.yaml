@@ -1,0 +1,140 @@
+{{- if .Values.middleware.enabled }}
+{{- $namespace := include "convenience-ingress.namespace" . -}}
+{{- $middlewareBaseName := include "convenience-ingress.middlewareName" . -}}
+
+{{- /* New array-based middleware configuration */}}
+{{- range .Values.middleware.middlewares }}
+{{- $middlewareName := printf "%s-%s" $middlewareBaseName .name }}
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ $middlewareName }}
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "convenience-ingress.labels" $ | nindent 4 }}
+    {{- with $.Values.middleware.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with $.Values.middleware.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if eq .type "stripPrefix" }}
+  stripPrefix:
+    prefixes:
+      {{- range .config.prefixes }}
+      - {{ . | quote }}
+      {{- else }}
+      - /
+      {{- end }}
+    {{- if .config.forceLower }}
+    forceLower: {{ .config.forceLower }}
+    {{- end }}
+  {{- else if eq .type "addPrefix" }}
+  addPrefix:
+    prefix: {{ .config.prefix | quote }}
+  {{- else if eq .type "replacePathRegex" }}
+  replacePathRegex:
+    regex: {{ .config.regex | quote }}
+    replacement: {{ .config.replacement | quote }}
+  {{- else if eq .type "redirectRegex" }}
+  redirectRegex:
+    regex: {{ .config.regex | quote }}
+    replacement: {{ .config.replacement | quote }}
+  {{- else if eq .type "redirectScheme" }}
+  redirectScheme:
+    scheme: {{ .config.scheme | quote }}
+    {{- if .config.port }}
+    port: {{ .config.port | quote }}
+    {{- end }}
+    {{- if .config.permanent }}
+    permanent: {{ .config.permanent }}
+    {{- end }}
+  {{- else if eq .type "replacePath" }}
+  replacePath:
+    path: {{ .config.path | quote }}
+  {{- else if eq .type "stripPrefixRegex" }}
+  stripPrefixRegex:
+    regex:
+      {{- range .config.regex }}
+      - {{ . | quote }}
+      {{- end }}
+  {{- end }}
+{{- end }}
+
+{{- /* Legacy configuration for backward compatibility */}}
+{{- if eq .Values.middleware.stripPrefix.enabled true }}
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ $middlewareBaseName }}-stripprefix
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "convenience-ingress.labels" . | nindent 4 }}
+    {{- with .Values.middleware.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.middleware.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  stripPrefix:
+    prefixes:
+      {{- range .Values.middleware.stripPrefix.prefixes }}
+      - {{ . | quote }}
+      {{- else }}
+      - /
+      {{- end }}
+    {{- if .Values.middleware.stripPrefix.forceLower }}
+    forceLower: {{ .Values.middleware.stripPrefix.forceLower }}
+    {{- end }}
+{{- end }}
+
+{{- if eq .Values.middleware.addPrefix.enabled true }}
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ $middlewareBaseName }}-addprefix
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "convenience-ingress.labels" . | nindent 4 }}
+    {{- with .Values.middleware.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.middleware.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  addPrefix:
+    prefix: {{ .Values.middleware.addPrefix.prefix | quote }}
+{{- end }}
+
+{{- if eq .Values.middleware.replacePathRegex.enabled true }}
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ $middlewareBaseName }}-replacepathregex
+  namespace: {{ $namespace }}
+  labels:
+    {{- include "convenience-ingress.labels" . | nindent 4 }}
+    {{- with .Values.middleware.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.middleware.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replacePathRegex:
+    regex: {{ .Values.middleware.replacePathRegex.regex | quote }}
+    replacement: {{ .Values.middleware.replacePathRegex.replacement | quote }}
+{{- end }}
+
+{{- end }}
