@@ -362,6 +362,16 @@ entries:
     version: 0.0.1
   convenience-ingress:
   - apiVersion: v2
+    created: "2025-09-24T19:57:28.591104955Z"
+    description: A customizable ingress chart that can create Ingress objects and
+      optional Traefik Middleware
+    digest: eea6a214064d9ecc288ad9d8e5bd0ec593c8669bb0beb5954d915a25e09e86a9
+    name: convenience-ingress
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/convenience-ingress-0.0.3/convenience-ingress-0.0.3.tgz
+    version: 0.0.3
+  - apiVersion: v2
     created: "2025-09-24T19:22:09.08622517Z"
     description: A customizable ingress chart that can create Ingress objects and
       optional Traefik Middleware
@@ -726,4 +736,4 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/zadara-aws-config-0.0.1/zadara-aws-config-0.0.1.tgz
     version: 0.0.1
-generated: "2025-09-24T19:22:09.086393727Z"
+generated: "2025-09-24T19:57:28.591269724Z"
