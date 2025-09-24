@@ -60,36 +60,22 @@ spec:
     {{- end }}
   {{- end }}
   rules:
-    {{- if .Values.rules }}
-    {{- range .Values.rules }}
-    {{- if $.Values.host }}
-    - host: {{ $.Values.host | quote }}
-      http:
-        paths:
-          - path: {{ .path }}
-            pathType: {{ .pathType | default "Prefix" }}
-            backend:
-              service:
-                name: {{ .service.name }}
-                port:
-                  number: {{ .service.port.number }}
-    {{- else }}
-    - http:
-        paths:
-          - path: {{ .path }}
-            pathType: {{ .pathType | default "Prefix" }}
-            backend:
-              service:
-                name: {{ .service.name }}
-                port:
-                  number: {{ .service.port.number }}
-    {{- end }}
-    {{- end }}
-    {{- else }}
     {{- if .Values.host }}
+    {{- /* If host is specified, create a rule for that specific host with all paths */}}
     - host: {{ .Values.host | quote }}
       http:
         paths:
+          {{- if .Values.rules }}
+          {{- range .Values.rules }}
+          - path: {{ .path }}
+            pathType: {{ .pathType | default "Prefix" }}
+            backend:
+              service:
+                name: {{ .service.name }}
+                port:
+                  number: {{ .service.port.number }}
+          {{- end }}
+          {{- else }}
           - path: /
             pathType: Prefix
             backend:
@@ -97,9 +83,22 @@ spec:
                 name: chart-example-svc
                 port:
                   number: 80
+          {{- end }}
     {{- else }}
+    {{- /* If no host is specified, create a catch-all rule with all paths */}}
     - http:
         paths:
+          {{- if .Values.rules }}
+          {{- range .Values.rules }}
+          - path: {{ .path }}
+            pathType: {{ .pathType | default "Prefix" }}
+            backend:
+              service:
+                name: {{ .service.name }}
+                port:
+                  number: {{ .service.port.number }}
+          {{- end }}
+          {{- else }}
           - path: /
             pathType: Prefix
             backend:
@@ -107,6 +106,6 @@ spec:
                 name: chart-example-svc
                 port:
                   number: 80
-    {{- end }}
+          {{- end }}
     {{- end }}
 {{- end }}
