@@ -22,22 +22,26 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
     {{- if and .Values.middleware.enabled (or .Values.middleware.middlewares .Values.middleware.stripPrefix.enabled .Values.middleware.addPrefix.enabled .Values.middleware.replacePathRegex.enabled) }}
+    {{- $namespace := include "convenience-ingress.namespace" . -}}
     {{- $middlewareBaseName := include "convenience-ingress.middlewareName" . -}}
     {{- $middlewareList := list -}}
     {{- /* Add middlewares from the new array-based configuration */}}
     {{- range .Values.middleware.middlewares -}}
-    {{- $middlewareFullName := printf "%s-%s@kubernetescrd" .name $.Release.Namespace -}}
+    {{- $middlewareFullName := printf "%s-%s-%s@kubernetescrd" $.Release.Namespace $middlewareBaseName .name -}}
     {{- $middlewareList = append $middlewareList $middlewareFullName -}}
     {{- end -}}
     {{- /* Add legacy middlewares for backward compatibility */}}
     {{- if .Values.middleware.stripPrefix.enabled -}}
-    {{- $middlewareList = append $middlewareList (printf "%s-stripprefix@kubernetescrd" $middlewareBaseName) -}}
+    {{- $stripPrefixName := .Values.middleware.stripPrefixName | default (printf "%s-stripprefix" $middlewareBaseName) -}}
+    {{- $middlewareList = append $middlewareList (printf "%s-%s@kubernetescrd" $namespace $stripPrefixName) -}}
     {{- end -}}
     {{- if .Values.middleware.addPrefix.enabled -}}
-    {{- $middlewareList = append $middlewareList (printf "%s-addprefix@kubernetescrd" $middlewareBaseName) -}}
+    {{- $addPrefixName := .Values.middleware.addPrefixName | default (printf "%s-addprefix" $middlewareBaseName) -}}
+    {{- $middlewareList = append $middlewareList (printf "%s-%s@kubernetescrd" $namespace $addPrefixName) -}}
     {{- end -}}
     {{- if .Values.middleware.replacePathRegex.enabled -}}
-    {{- $middlewareList = append $middlewareList (printf "%s-replacepathregex@kubernetescrd" $middlewareBaseName) -}}
+    {{- $replacePathRegexName := .Values.middleware.replacePathRegexName | default (printf "%s-replacepathregex" $middlewareBaseName) -}}
+    {{- $middlewareList = append $middlewareList (printf "%s-%s@kubernetescrd" $namespace $replacePathRegexName) -}}
     {{- end -}}
     {{- if $middlewareList }}
     traefik.ingress.kubernetes.io/router.middlewares: {{ join "," $middlewareList | quote }}

@@ -2,4 +2,4 @@ apiVersion: v2
 name: convenience-ingress
 description: A customizable ingress chart that can create Ingress objects and optional Traefik Middleware
 type: application
-version: 0.0.3
+version: 0.0.4

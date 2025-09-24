@@ -66,11 +66,12 @@ spec:
 
 {{- /* Legacy configuration for backward compatibility */}}
 {{- if eq .Values.middleware.stripPrefix.enabled true }}
+{{- $stripPrefixName := .Values.middleware.stripPrefixName | default (printf "%s-stripprefix" $middlewareBaseName) -}}
 ---
 apiVersion: {{ .Values.middleware.apiVersion }}
 kind: Middleware
 metadata:
-  name: {{ $middlewareBaseName }}-stripprefix
+  name: {{ $stripPrefixName }}
   namespace: {{ $namespace }}
   labels:
     {{- include "convenience-ingress.labels" . | nindent 4 }}
@@ -95,11 +96,12 @@ spec:
 {{- end }}
 
 {{- if eq .Values.middleware.addPrefix.enabled true }}
+{{- $addPrefixName := .Values.middleware.addPrefixName | default (printf "%s-addprefix" $middlewareBaseName) -}}
 ---
 apiVersion: {{ .Values.middleware.apiVersion }}
 kind: Middleware
 metadata:
-  name: {{ $middlewareBaseName }}-addprefix
+  name: {{ $addPrefixName }}
   namespace: {{ $namespace }}
   labels:
     {{- include "convenience-ingress.labels" . | nindent 4 }}
@@ -116,11 +118,12 @@ spec:
 {{- end }}
 
 {{- if eq .Values.middleware.replacePathRegex.enabled true }}
+{{- $replacePathRegexName := .Values.middleware.replacePathRegexName | default (printf "%s-replacepathregex" $middlewareBaseName) -}}
 ---
 apiVersion: {{ .Values.middleware.apiVersion }}
 kind: Middleware
 metadata:
-  name: {{ $middlewareBaseName }}-replacepathregex
+  name: {{ $replacePathRegexName }}
   namespace: {{ $namespace }}
   labels:
     {{- include "convenience-ingress.labels" . | nindent 4 }}

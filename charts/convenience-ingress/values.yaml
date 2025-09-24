@@ -45,8 +45,14 @@ rules: []
 middleware:
   # -- Enable Traefik Middleware creation
   enabled: false
-  # -- Middleware name (if not set, will use release name with '-middleware' suffix)
+  # -- Middleware base name (if not set, will use release name with '-middleware' suffix)
   name: ""
+  # -- Specific name for the stripPrefix middleware (if not set, will use middleware name with '-stripprefix' suffix)
+  stripPrefixName: ""
+  # -- Specific name for the addPrefix middleware (if not set, will use middleware name with '-addprefix' suffix) 
+  addPrefixName: ""
+  # -- Specific name for the replacePathRegex middleware (if not set, will use middleware name with '-replacepathregex' suffix)
+  replacePathRegexName: ""
   # -- Middleware annotations
   annotations: {}
   # -- Middleware labels
