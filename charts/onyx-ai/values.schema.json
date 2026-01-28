@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "onyx-ai values",
+  "description": "JSON Schema for onyx-ai Helm chart values",
+  "type": "object",
+  "required": [],
+  "additionalProperties": true,
+  "properties": {
+    "variant": {
+      "type": "string",
+      "enum": ["onyx", "onyx-foss"],
+      "default": "onyx",
+      "description": "Which Onyx variant to deploy (affects container images)"
+    },
+    "global": {
+      "type": "object",
+      "description": "Global values accessible to all charts",
+      "additionalProperties": true,
+      "properties": {
+        "storageClass": {
+          "type": "string",
+          "default": "",
+          "description": "Storage class for persistent volumes (empty = cluster default)"
+        }
+      }
+    },
+    "onyx": {
+      "type": "object",
+      "description": "Upstream Onyx chart configuration (passthrough). See https://github.com/onyx-dot-app/onyx for options.",
+      "additionalProperties": true
+    }
+  }
+}

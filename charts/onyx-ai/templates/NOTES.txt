@@ -1,0 +1,72 @@
+{{- $fullName := include "onyx-ai.fullname" . -}}
+
+╔═══════════════════════════════════════════════════════════════════╗
+║                    Onyx has been deployed!                        ║
+╚═══════════════════════════════════════════════════════════════════╝
+
+Release: {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+Chart Version: {{ .Chart.Version }}
+App Version: {{ .Chart.AppVersion }}
+Variant: {{ .Values.variant | default "onyx" }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+STATUS CHECK
+============
+
+To check the status of all pods:
+
+  kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+
+To watch pods come up:
+
+  kubectl get pods -n {{ .Release.Namespace }} -w
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ACCESSING ONYX
+==============
+
+{{- if .Values.onyx.nginx.enabled }}
+
+Onyx is accessible via the nginx LoadBalancer service:
+
+  kubectl get svc -n {{ .Release.Namespace }} {{ .Release.Name }}-nginx-controller
+
+{{- else }}
+
+NOTE: The upstream nginx ingress is disabled.
+
+{{- if .Values.onyx.ingress.enabled }}
+
+Onyx is accessible via the configured ingress at:
+  {{ .Values.onyx.ingress.api.host | default "onyx.local" }}
+
+{{- else }}
+
+To access Onyx, configure an ingress controller or use port-forwarding:
+
+  # Port-forward the API server
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ .Release.Name }}-onyx-api-server 8080:8080
+
+  # Port-forward the web server
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ .Release.Name }}-onyx-web-server 3000:3000
+
+Then access the web UI at: http://localhost:3000
+
+{{- end }}
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CONFIGURATION
+=============
+
+LLM providers are configured through the Onyx admin interface after
+deployment, not via Helm values. The GEN_AI_* environment variables
+are deprecated.
+
+For more information, visit: https://docs.onyx.app/
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

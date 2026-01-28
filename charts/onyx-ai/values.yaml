@@ -1,0 +1,97 @@
+# onyx-ai values
+# Convenience Helm chart wrapping Onyx with HA defaults
+#
+# Values under `onyx:` are passed directly to the upstream Onyx chart.
+# See: https://github.com/onyx-dot-app/onyx/blob/main/deployment/helm/charts/onyx/values.yaml
+#
+# IMPORTANT: Upstream uses aliases in Chart.yaml:
+#   - `postgresql:` (not `cloudnative-pg:`) for the CNPG cluster
+#   - `nginx:` (not `ingress-nginx:`) for the ingress controller
+# Always use the alias names when overriding subchart values.
+
+# ------------------------------------------------------------------------------
+# Convenience Chart Values (onyx-ai specific)
+# ------------------------------------------------------------------------------
+
+# Variant selection - affects container images in later phases
+# Options: "onyx" (default) or "onyx-foss"
+variant: "onyx"
+
+# Global values accessible to all charts
+global:
+  # Storage class for persistent volumes (empty = use cluster default)
+  storageClass: ""
+
+# ------------------------------------------------------------------------------
+# Onyx Subchart Values (passthrough to upstream)
+# ------------------------------------------------------------------------------
+# All values under `onyx:` are passed directly to the upstream Onyx chart.
+# Reference upstream values.yaml for full options:
+# https://github.com/onyx-dot-app/onyx/blob/main/deployment/helm/charts/onyx/values.yaml
+
+onyx:
+  # Global settings (upstream)
+  global:
+    version: "latest"
+    pullPolicy: "IfNotPresent"
+
+  # ---------------------------------------------------------------------------
+  # Components to DISABLE (replaced by our configuration in later phases)
+  # ---------------------------------------------------------------------------
+
+  # Phase 7: Replaced by Traefik ingress
+  nginx:
+    enabled: false
+
+  # Phase 5: Replaced by external S3 (GarageFS/AWS S3/etc.)
+  minio:
+    enabled: false
+
+  # ---------------------------------------------------------------------------
+  # Components to RETAIN with defaults
+  # ---------------------------------------------------------------------------
+
+  # Phase 3: Will be configured for HA via CNPG
+  # Note: `postgresql:` is an alias for cloudnative-pg in upstream Chart.yaml
+  postgresql:
+    enabled: true
+
+  # Vespa search engine - required for Onyx
+  vespa:
+    enabled: true
+
+  # Redis for task queue - using upstream OT Container Kit Redis
+  redis:
+    enabled: true
+
+  # OpenSearch - optional alternative to Vespa, disabled by default upstream
+  opensearch:
+    enabled: false
+
+  # Code Interpreter - beta feature, disabled by default
+  codeInterpreter:
+    enabled: false
+
+  # Slackbot - not needed by default
+  slackbot:
+    enabled: false
+
+  # ---------------------------------------------------------------------------
+  # Application Defaults
+  # ---------------------------------------------------------------------------
+
+  # Phase 6: Will be increased to 2 for HA
+  api:
+    replicaCount: 1
+
+  # Phase 6: Will be increased to 2 for HA
+  webserver:
+    replicaCount: 1
+
+  # ---------------------------------------------------------------------------
+  # Ingress (managed by wrapper chart in Phase 7)
+  # ---------------------------------------------------------------------------
+
+  # We manage ingress via Traefik IngressRoute in the wrapper chart
+  ingress:
+    enabled: false
