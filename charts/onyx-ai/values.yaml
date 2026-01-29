@@ -13,12 +13,15 @@
 # Convenience Chart Values (onyx-ai specific)
 # ------------------------------------------------------------------------------
 
-# Variant selection - affects container images in later phases
-# Options: "onyx" (default) or "onyx-foss"
-variant: "onyx"
-
 # Global values accessible to all charts
 global:
+  # Variant: onyx (default), onyx-foss (explicit FOSS intent), or custom (manual image config)
+  # Note: onyx and onyx-foss use same onyxdotapp/* images; EE features require separate licensing
+  variant: "onyx"
+  # Registry prefix for air-gapped deployments (e.g., "my-registry.example.com/mirror")
+  imageRegistry: ""
+  # Pull secrets for private registries
+  imagePullSecrets: []
   # Storage class for persistent volumes (empty = use cluster default)
   storageClass: ""
 

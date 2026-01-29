@@ -6,17 +6,33 @@
   "required": [],
   "additionalProperties": true,
   "properties": {
-    "variant": {
-      "type": "string",
-      "enum": ["onyx", "onyx-foss"],
-      "default": "onyx",
-      "description": "Which Onyx variant to deploy (affects container images)"
-    },
     "global": {
       "type": "object",
       "description": "Global values accessible to all charts",
       "additionalProperties": true,
       "properties": {
+        "variant": {
+          "type": "string",
+          "enum": ["onyx", "onyx-foss", "custom"],
+          "default": "onyx",
+          "description": "Deployment variant: onyx (default), onyx-foss (explicit FOSS), or custom (manual image config)"
+        },
+        "imageRegistry": {
+          "type": "string",
+          "default": "",
+          "description": "Optional registry prefix for air-gapped deployments (e.g., my-registry.example.com/mirror)"
+        },
+        "imagePullSecrets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" }
+            }
+          },
+          "default": [],
+          "description": "Image pull secrets for private registries"
+        },
         "storageClass": {
           "type": "string",
           "default": "",

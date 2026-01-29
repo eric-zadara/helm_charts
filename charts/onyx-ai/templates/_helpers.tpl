@@ -60,3 +60,60 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+Validate the global variant setting.
+Fails with clear error message if invalid.
+Usage: {{ include "onyx-ai.validateVariant" . }}
+*/}}
+{{- define "onyx-ai.validateVariant" -}}
+{{- $variant := .Values.global.variant | default "onyx" -}}
+{{- $validVariants := list "onyx" "onyx-foss" "custom" -}}
+{{- if not (has $variant $validVariants) -}}
+{{- fail (printf "Invalid variant '%s'. Valid options: onyx, onyx-foss, custom" $variant) -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Get the image repository for a component based on variant.
+Args (passed as dict):
+  - ctx: the root context (.)
+  - component: one of "backend", "web-server", "model-server", "code-interpreter"
+  - override: optional explicit repository override (takes precedence)
+Returns: fully qualified image repository (with registry prefix if set)
+
+Usage: {{ include "onyx-ai.imageRepository" (dict "ctx" . "component" "backend") }}
+*/}}
+{{- define "onyx-ai.imageRepository" -}}
+{{- $variant := .ctx.Values.global.variant | default "onyx" -}}
+{{- $registry := .ctx.Values.global.imageRegistry | default "" -}}
+{{- $override := .override | default "" -}}
+{{- /* Return override if provided */ -}}
+{{- if $override -}}
+  {{- if $registry -}}
+    {{- printf "%s/%s" $registry $override -}}
+  {{- else -}}
+    {{- $override -}}
+  {{- end -}}
+{{- else -}}
+  {{- /* Lookup from variant mapping */ -}}
+  {{- $repos := dict
+      "backend" (dict "onyx" "onyxdotapp/onyx-backend" "onyx-foss" "onyxdotapp/onyx-backend" "custom" "")
+      "web-server" (dict "onyx" "onyxdotapp/onyx-web-server" "onyx-foss" "onyxdotapp/onyx-web-server" "custom" "")
+      "model-server" (dict "onyx" "onyxdotapp/onyx-model-server" "onyx-foss" "onyxdotapp/onyx-model-server" "custom" "")
+      "code-interpreter" (dict "onyx" "onyxdotapp/code-interpreter" "onyx-foss" "onyxdotapp/code-interpreter" "custom" "")
+  -}}
+  {{- $componentRepos := index $repos .component -}}
+  {{- $repo := index $componentRepos $variant -}}
+  {{- /* Custom variant with no repo = error */ -}}
+  {{- if and (eq $variant "custom") (not $repo) -}}
+    {{- fail (printf "Custom variant requires explicit image repository for component '%s'. Set onyx.<component>.image.repository in values." .component) -}}
+  {{- end -}}
+  {{- /* Apply registry prefix if set */ -}}
+  {{- if and $registry $repo -}}
+    {{- printf "%s/%s" $registry $repo -}}
+  {{- else -}}
+    {{- $repo -}}
+  {{- end -}}
+{{- end -}}
+{{- end -}}
