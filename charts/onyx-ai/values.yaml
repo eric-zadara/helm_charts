@@ -94,6 +94,78 @@ externalPostgresql:
   password: ""
 
 # ------------------------------------------------------------------------------
+# Redis Configuration (Phase 4)
+# ------------------------------------------------------------------------------
+# Redis for Celery task queue. Three modes available:
+#   1. Default: OT Container Kit Redis (standalone, via upstream subchart)
+#   2. HA: Spotahome Redis Operator (requires operator pre-installed)
+#   3. External: Connect to existing Redis (AWS ElastiCache, Azure Cache, etc.)
+#
+# Priority: externalRedis.host > redis.ha.enabled > redis.enabled (default)
+
+redis:
+  # Enable default OT Container Kit Redis (upstream subchart)
+  # Set to false when using HA mode or external Redis
+  enabled: true
+
+  # HA mode using Spotahome Redis Operator (RedisFailover CRD)
+  # Requires: Spotahome Redis Operator pre-installed in cluster
+  # When enabled, redis.enabled should be set to false
+  ha:
+    enabled: false
+    # Redis instances (followers)
+    replicas: 3
+    # Sentinel instances (for failover coordination)
+    sentinels: 3
+    # Resource limits for Redis pods
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    # Resource limits for Sentinel pods
+    sentinelResources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+    # Storage configuration
+    storage:
+      # Persistence for Redis data
+      enabled: true
+      size: 2Gi
+      storageClass: ""  # Empty = use global.storageClass or cluster default
+    # Custom Redis configuration (optional)
+    customConfig: {}
+
+  # Database number for general Redis operations
+  database: 0
+
+# ------------------------------------------------------------------------------
+# External Redis Configuration
+# ------------------------------------------------------------------------------
+# Use when both redis.enabled: false AND redis.ha.enabled: false.
+# Connect to existing Redis instance (AWS ElastiCache, Azure Cache, etc.)
+
+externalRedis:
+  host: ""
+  port: 6379
+  # Credentials - use existingSecret (recommended) or inline password
+  existingSecret: ""  # Secret with 'redis_password' key (matches OT Redis pattern)
+  password: ""        # Only if existingSecret is empty
+  # Database number
+  database: 0
+  # TLS configuration
+  tls:
+    enabled: false
+    # Secret containing CA certificate (optional)
+    secretName: ""
+
+# ------------------------------------------------------------------------------
 # Onyx Subchart Values (passthrough to upstream)
 # ------------------------------------------------------------------------------
 # All values under `onyx:` are passed directly to the upstream Onyx chart.
@@ -135,9 +207,46 @@ onyx:
   vespa:
     enabled: true
 
-  # Redis for task queue - using upstream OT Container Kit Redis
+  # ---------------------------------------------------------------------------
+  # Phase 4: Redis for Celery task queue
+  # ---------------------------------------------------------------------------
+  # This controls the upstream OT Container Kit Redis subchart.
+  # The wrapper chart's redis.enabled controls whether this is active.
+  # See redis: section (above onyx:) for wrapper-level Redis configuration.
+  #
+  # For HA Redis: Set redis.ha.enabled: true (above) and this will be disabled.
+  # For external Redis: Set externalRedis.host (above) and this will be disabled.
   redis:
     enabled: true
+    redisStandalone:
+      # Service naming: {release}-master
+      # This creates the service that REDIS_HOST points to
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+      redisSecret:
+        secretName: onyx-redis
+        secretKey: redis_password
+    externalConfig:
+      enabled: true
+      data: |
+        appendonly no
+        save ""
+        maxmemory 400mb
+        maxmemory-policy allkeys-lru
+        timeout 0
+        tcp-keepalive 300
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 2Gi
 
   # OpenSearch - optional alternative to Vespa, disabled by default upstream
   opensearch:

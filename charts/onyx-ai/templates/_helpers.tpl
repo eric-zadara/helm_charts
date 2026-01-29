@@ -232,3 +232,161 @@ Usage: {{ include "onyx-ai.postgresql.validate" . }}
   {{- end -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+================================================================================
+Redis Helper Functions (Phase 4)
+================================================================================
+*/}}
+
+{{/*
+Get Redis host based on configuration mode.
+Priority: External > HA > Default OT Redis
+
+For each mode:
+- External: Uses externalRedis.host directly
+- HA (Spotahome): Uses rfs-{release}-redis-ha (Sentinel service publishes master)
+- Default (OT Redis): Uses {release}-master
+
+Note: Onyx does NOT use Sentinel protocol natively - it uses direct redis:// URLs.
+For HA mode, we connect to the Sentinel-managed Redis service, not the Sentinel protocol.
+
+Usage: {{ include "onyx-ai.redis.host" . }}
+*/}}
+{{- define "onyx-ai.redis.host" -}}
+{{- if .Values.externalRedis.host -}}
+  {{- /* External Redis mode */ -}}
+  {{- .Values.externalRedis.host -}}
+{{- else if .Values.redis.ha.enabled -}}
+  {{- /* Spotahome Redis HA mode - rfr service for Redis pods */ -}}
+  {{- /* Note: rfs-{name} is Sentinel, rfr-{name} is Redis */ -}}
+  {{- /* Onyx needs direct Redis connection, not Sentinel protocol */ -}}
+  {{- printf "rfr-%s-redis-ha" .Release.Name -}}
+{{- else -}}
+  {{- /* Default OT Container Kit Redis: {release}-master */ -}}
+  {{- printf "%s-master" .Release.Name -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Get Redis port.
+External Redis can configure custom port, all others use 6379.
+
+Usage: {{ include "onyx-ai.redis.port" . }}
+*/}}
+{{- define "onyx-ai.redis.port" -}}
+{{- if .Values.externalRedis.host -}}
+  {{- .Values.externalRedis.port | default 6379 -}}
+{{- else -}}
+  {{- /* Both OT Redis and Spotahome HA use 6379 */ -}}
+  {{- 6379 -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Get Redis secret name based on configuration mode.
+- External: externalRedis.existingSecret or wrapper-generated secret
+- HA: Wrapper-generated secret (onyx-ai-redis-ha)
+- Default: onyx-redis (upstream OT Redis secret from auth.redis)
+
+Usage: {{ include "onyx-ai.redis.secretName" . }}
+*/}}
+{{- define "onyx-ai.redis.secretName" -}}
+{{- if .Values.externalRedis.host -}}
+  {{- if .Values.externalRedis.existingSecret -}}
+    {{- .Values.externalRedis.existingSecret -}}
+  {{- else -}}
+    {{- printf "%s-external-redis" (include "onyx-ai.fullname" .) -}}
+  {{- end -}}
+{{- else if .Values.redis.ha.enabled -}}
+  {{- /* Spotahome HA mode - we create a secret for Redis password */ -}}
+  {{- printf "%s-redis-ha" (include "onyx-ai.fullname" .) -}}
+{{- else -}}
+  {{- /* OT Redis uses secret name from upstream auth.redis */ -}}
+  {{- "onyx-redis" -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Get Redis secret key name.
+The key name within the secret that contains the password.
+- OT Redis and External: redis_password (matches upstream pattern)
+- HA: redis_password (for consistency)
+
+Usage: {{ include "onyx-ai.redis.secretKey" . }}
+*/}}
+{{- define "onyx-ai.redis.secretKey" -}}
+{{- "redis_password" -}}
+{{- end -}}
+
+{{/*
+Get Redis database number.
+Used for REDIS_DB_NUMBER environment variable.
+
+Usage: {{ include "onyx-ai.redis.database" . }}
+*/}}
+{{- define "onyx-ai.redis.database" -}}
+{{- if .Values.externalRedis.host -}}
+  {{- .Values.externalRedis.database | default 0 -}}
+{{- else -}}
+  {{- .Values.redis.database | default 0 -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Check if Redis TLS should be enabled.
+Only applicable for external Redis connections.
+
+Usage: {{ include "onyx-ai.redis.tlsEnabled" . }}
+*/}}
+{{- define "onyx-ai.redis.tlsEnabled" -}}
+{{- if and .Values.externalRedis.host .Values.externalRedis.tls.enabled -}}
+  {{- "true" -}}
+{{- else -}}
+  {{- "false" -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Validate Redis configuration.
+Fails if multiple exclusive modes are enabled or required fields are missing.
+
+Usage: {{ include "onyx-ai.redis.validate" . }}
+*/}}
+{{- define "onyx-ai.redis.validate" -}}
+{{- $modes := 0 -}}
+{{- $modeNames := list -}}
+{{- /* Count active modes - check each independently */ -}}
+{{- if .Values.redis.enabled -}}
+  {{- $modes = add $modes 1 -}}
+  {{- $modeNames = append $modeNames "redis.enabled (OT Redis)" -}}
+{{- end -}}
+{{- if .Values.redis.ha.enabled -}}
+  {{- $modes = add $modes 1 -}}
+  {{- $modeNames = append $modeNames "redis.ha.enabled (Spotahome HA)" -}}
+{{- end -}}
+{{- if .Values.externalRedis.host -}}
+  {{- $modes = add $modes 1 -}}
+  {{- $modeNames = append $modeNames "externalRedis.host (External)" -}}
+{{- end -}}
+{{- /* Validate exactly one mode is active */ -}}
+{{- if eq $modes 0 -}}
+  {{- fail "No Redis mode is active. Enable one of: redis.enabled, redis.ha.enabled, or set externalRedis.host" -}}
+{{- end -}}
+{{- if gt $modes 1 -}}
+  {{- fail (printf "Multiple Redis modes active: %s. Only one mode can be active at a time." (join ", " $modeNames)) -}}
+{{- end -}}
+{{- /* Validate external Redis has credentials */ -}}
+{{- if .Values.externalRedis.host -}}
+  {{- if and (not .Values.externalRedis.existingSecret) (not .Values.externalRedis.password) -}}
+    {{- fail "externalRedis.existingSecret or externalRedis.password is required when externalRedis.host is set" -}}
+  {{- end -}}
+{{- end -}}
+{{- /* Validate HA mode has minimum sentinels for quorum */ -}}
+{{- if .Values.redis.ha.enabled -}}
+  {{- $sentinels := .Values.redis.ha.sentinels | default 3 -}}
+  {{- if lt (int $sentinels) 3 -}}
+    {{- fail "redis.ha.sentinels must be at least 3 for Sentinel quorum" -}}
+  {{- end -}}
+{{- end -}}
+{{- end -}}

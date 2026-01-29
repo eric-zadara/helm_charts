@@ -167,6 +167,132 @@
         }
       }
     },
+    "redis": {
+      "type": "object",
+      "description": "Wrapper-level Redis configuration (controls OT Redis subchart and HA mode)",
+      "additionalProperties": true,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable OT Container Kit Redis subchart. Set false when using HA or external Redis."
+        },
+        "ha": {
+          "type": "object",
+          "description": "Spotahome Redis Operator HA mode (requires operator pre-installed)",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false,
+              "description": "Enable Redis HA via Spotahome Redis Operator"
+            },
+            "replicas": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 3,
+              "description": "Number of Redis replicas"
+            },
+            "sentinels": {
+              "type": "integer",
+              "minimum": 3,
+              "default": 3,
+              "description": "Number of Sentinel instances (minimum 3 for quorum)"
+            },
+            "resources": {
+              "type": "object",
+              "description": "Resource requests and limits for Redis pods"
+            },
+            "sentinelResources": {
+              "type": "object",
+              "description": "Resource requests and limits for Sentinel pods"
+            },
+            "storage": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "default": true,
+                  "description": "Enable persistent storage for Redis"
+                },
+                "size": {
+                  "type": "string",
+                  "pattern": "^[0-9]+[KMGT]i$",
+                  "default": "2Gi",
+                  "description": "Storage size for Redis data"
+                },
+                "storageClass": {
+                  "type": "string",
+                  "default": "",
+                  "description": "Storage class (empty = use global.storageClass or cluster default)"
+                }
+              }
+            },
+            "customConfig": {
+              "type": "object",
+              "description": "Custom Redis configuration parameters"
+            }
+          }
+        },
+        "database": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 15,
+          "default": 0,
+          "description": "Redis database number (0-15)"
+        }
+      }
+    },
+    "externalRedis": {
+      "type": "object",
+      "description": "External Redis configuration (used when redis.enabled and redis.ha.enabled are both false)",
+      "additionalProperties": true,
+      "properties": {
+        "host": {
+          "type": "string",
+          "default": "",
+          "description": "External Redis host"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535,
+          "default": 6379,
+          "description": "External Redis port"
+        },
+        "existingSecret": {
+          "type": "string",
+          "default": "",
+          "description": "Secret containing 'redis_password' key"
+        },
+        "password": {
+          "type": "string",
+          "default": "",
+          "description": "Redis password (only if existingSecret is empty)"
+        },
+        "database": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 15,
+          "default": 0,
+          "description": "Redis database number"
+        },
+        "tls": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false,
+              "description": "Enable TLS for Redis connection"
+            },
+            "secretName": {
+              "type": "string",
+              "default": "",
+              "description": "Secret containing CA certificate"
+            }
+          }
+        }
+      }
+    },
     "onyx": {
       "type": "object",
       "description": "Upstream Onyx chart configuration (passthrough). See https://github.com/onyx-dot-app/onyx for options.",
