@@ -8,6 +8,7 @@ on:
       - 'charts/**'
       - 'ct.yaml'
       - '.github/workflows/test.yml'
+  workflow_dispatch: {}
 
 jobs:
   detect-changes:
