@@ -137,14 +137,47 @@ jobs:
         if: steps.process.outputs.released != ''
         run: |
           if ls .cr-release-packages/*.tgz 1>/dev/null 2>&1; then
-            cr index \
-              --owner "${{ github.repository_owner }}" \
-              --git-repo "$(basename ${{ github.repository }})" \
-              --token "${{ secrets.GITHUB_TOKEN }}" \
-              --push
+            owner="${{ github.repository_owner }}"
+            repo="$(basename ${{ github.repository }})"
+
+            # Checkout gh-pages branch
+            git fetch origin gh-pages
+            git worktree add gh-pages-branch origin/gh-pages
+
+            # Copy existing index as base for merge
+            cp gh-pages-branch/index.yaml .cr-release-packages/index.yaml 2>/dev/null || true
+
+            # Generate updated index, merging new charts with existing
+            helm repo index .cr-release-packages \
+              --url "https://github.com/${owner}/${repo}/releases/download" \
+              --merge .cr-release-packages/index.yaml 2>/dev/null || \
+            helm repo index .cr-release-packages \
+              --url "https://github.com/${owner}/${repo}/releases/download"
+
+            # Fix URLs to point to correct release assets
+            # helm repo index generates URLs like /releases/download/chart-0.1.0.tgz
+            # but GitHub releases need /releases/download/<tag>/chart-0.1.0.tgz
+            for tgz in .cr-release-packages/*.tgz; do
+              filename=$(basename "$tgz")
+              chart_name=$(echo "$filename" | sed 's/-[0-9].*//')
+              version=$(echo "$filename" | sed "s/${chart_name}-//" | sed 's/.tgz//')
+              tag="${chart_name}-${version}"
+              # Update URL in index.yaml
+              sed -i "s|releases/download/${filename}|releases/download/${tag}/${filename}|g" .cr-release-packages/index.yaml
+            done
+
+            # Copy updated index to gh-pages branch
+            cp .cr-release-packages/index.yaml gh-pages-branch/index.yaml
+
+            # Commit and push
+            cd gh-pages-branch
+            git add index.yaml
+            git commit -m "Update index.yaml with new charts" || echo "No changes to commit"
+            git push origin HEAD:gh-pages
+
+            cd ..
+            git worktree remove gh-pages-branch
           fi
-        env:
-          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
 
       - name: Report status
         if: always()
