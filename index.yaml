@@ -401,6 +401,17 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/convenience-ingress-0.0.1/convenience-ingress-0.0.1.tgz
     version: 0.0.1
+  gateway-api:
+  - apiVersion: v2
+    appVersion: 1.4.1
+    created: "2026-01-29T19:19:38.603050532Z"
+    description: Gateway API CRDs for Kubernetes (standard channel)
+    digest: bf16fb15e0acc23251a727e1cf7c47bf2fb18c619aaf3c483e5622d33fe977c7
+    name: gateway-api
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/gateway-api-0.1.0/gateway-api-0.1.0.tgz
+    version: 0.1.0
   grafana-dashboards:
   - apiVersion: v2
     created: "2024-12-11T23:26:35.219855484Z"
@@ -451,6 +462,29 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/grafana-dashboards-0.0.1/grafana-dashboards-0.0.1.tgz
     version: 0.0.1
+  inference-extension-crds:
+  - apiVersion: v2
+    appVersion: 1.3.0
+    created: "2026-01-29T19:19:38.603680601Z"
+    description: Gateway API Inference Extension CRDs (InferencePool, InferenceModel)
+    digest: dd714ef10f074d3c5ae39196b6decdf433fbc1c48d3dab20093011d591de2522
+    name: inference-extension-crds
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/inference-extension-crds-0.1.0/inference-extension-crds-0.1.0.tgz
+    version: 0.1.0
+  inference-gateway:
+  - apiVersion: v2
+    appVersion: 1.3.0
+    created: "2026-01-29T19:19:38.604912996Z"
+    description: Inference Gateway - KV-cache aware routing via Gateway API Inference
+      Extension (EPP)
+    digest: 6fa379815f8318b4dab1a4bb927624c76928b3c3e6be6fb5a808b9859870137e
+    name: inference-gateway
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/inference-gateway-0.1.0/inference-gateway-0.1.0.tgz
+    version: 0.1.0
   k3s-helmchartconfig:
   - apiVersion: v2
     created: "2024-10-31T17:20:21.616119036Z"
@@ -466,6 +500,28 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/k3s-helmchartconfig-0.0.1/k3s-helmchartconfig-0.0.1.tgz
     version: 0.0.1
+  knative-serving-crds:
+  - apiVersion: v2
+    appVersion: 1.20.1
+    created: "2026-01-29T19:19:38.606503735Z"
+    description: Knative Serving CRDs for serverless workloads
+    digest: 16efced6e3b613c1fc42239d27f5ef3be3065c430fb25e6eb32478b8ba0d2363
+    name: knative-serving-crds
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/knative-serving-crds-0.1.0/knative-serving-crds-0.1.0.tgz
+    version: 0.1.0
+  kserve-crds:
+  - apiVersion: v2
+    appVersion: 0.16.0
+    created: "2026-01-29T19:19:38.611882609Z"
+    description: KServe CRDs for model serving (InferenceService, ServingRuntime)
+    digest: 73479dc10e21858cd267dac83054ef4ac9c6c9c8f84f62a5842d8d5544ce10d6
+    name: kserve-crds
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/kserve-crds-0.1.0/kserve-crds-0.1.0.tgz
+    version: 0.1.0
   lightrag-server:
   - apiVersion: v2
     appVersion: 1.3.8
@@ -665,6 +721,17 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/lightrag-server-0.0.1/lightrag-server-0.0.1.tgz
     version: 0.0.1
+  litellm-proxy:
+  - apiVersion: v2
+    appVersion: v1.80.15-stable.1
+    created: "2026-01-29T19:19:38.612824555Z"
+    description: LiteLLM Proxy - Multi-tenant API gateway for LLM inference
+    digest: e5116aab58226fa9f3a63e740e1adc1bab40ab4a480eddedc9d57756c2e98a24
+    name: litellm-proxy
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/litellm-proxy-0.1.0/litellm-proxy-0.1.0.tgz
+    version: 0.1.0
   mayastor-diskpools:
   - apiVersion: v2
     created: "2025-07-02T21:28:28.386387872Z"
@@ -724,6 +791,36 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/misc-secrets-0.0.1/misc-secrets-0.0.1.tgz
     version: 0.0.1
+  model-serving:
+  - apiVersion: v2
+    appVersion: 0.16.0
+    created: "2026-01-29T19:19:38.61422393Z"
+    description: 'Multi-runtime model serving: vLLM (GPU), llama.cpp (CPU), and Ollama
+      (GPU/CPU) ServingRuntimes with InferenceService templates for LLM inference'
+    digest: 9730d27548bb678ca660d40139a7625d1a21c7d8f7c45ed4dc4c21e2a64c3ae4
+    name: model-serving
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/model-serving-0.1.0/model-serving-0.1.0.tgz
+    version: 0.1.0
+  networking-layer:
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-01-29T19:19:38.628734887Z"
+    dependencies:
+    - alias: envoyGateway
+      condition: envoyGateway.enabled
+      name: gateway-helm
+      repository: oci://docker.io/envoyproxy
+      version: 1.6.3
+    description: Gateway API ingress (Envoy Gateway) and Knative networking (Kourier)
+      for LLM inference platform
+    digest: 5e63054db3641e5781bd050fa4e21a01b593cb27fbc1e0a3c5014c0f770615ab
+    name: networking-layer
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/networking-layer-0.1.1/networking-layer-0.1.1.tgz
+    version: 0.1.1
   zadara-aws-config:
   - apiVersion: v2
     created: "2024-10-31T17:20:21.778433109Z"
@@ -746,4 +843,4 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/zadara-aws-config-0.0.1/zadara-aws-config-0.0.1.tgz
     version: 0.0.1
-generated: "2025-09-24T21:16:12.029259723Z"
+generated: "2026-01-29T19:19:38.600433901Z"
