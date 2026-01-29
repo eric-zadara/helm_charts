@@ -1,0 +1,16 @@
+apiVersion: v2
+name: networking-layer
+description: Gateway API ingress (Envoy Gateway) and Knative networking (Kourier) for LLM inference platform
+type: application
+version: 0.1.1
+appVersion: "1.0.0"
+
+# Required: Gateway API CRDs must be installed (Phase 1)
+# Required: Knative Serving CRDs must be installed (Phase 1) for Kourier
+
+dependencies:
+  - name: gateway-helm
+    version: "1.6.3"
+    repository: oci://docker.io/envoyproxy
+    alias: envoyGateway
+    condition: envoyGateway.enabled

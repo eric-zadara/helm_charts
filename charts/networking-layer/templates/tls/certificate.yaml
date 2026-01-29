@@ -1,0 +1,50 @@
+{{- if and .Values.tls.enabled .Values.tls.certManager.enabled }}
+# cert-manager Certificate for TLS termination at Gateway
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "networking-layer.fullname" . }}-tls
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "networking-layer.labels" . | nindent 4 }}
+spec:
+  # Secret name that Gateway will reference for TLS termination
+  secretName: {{ .Values.tls.secretName | default (printf "%s-tls" (include "networking-layer.fullname" .)) }}
+
+  # Certificate duration and renewal
+  duration: {{ .Values.tls.certManager.duration | default "2160h" }}
+  renewBefore: {{ .Values.tls.certManager.renewBefore | default "360h" }}
+
+  # Subject information - hostname required for TLS
+  {{- if .Values.gateway.hostname }}
+  commonName: {{ .Values.gateway.hostname | quote }}
+  dnsNames:
+    - {{ .Values.gateway.hostname | quote }}
+    {{- if contains "*" .Values.gateway.hostname }}
+    # For wildcard certs, also include base domain
+    - {{ .Values.gateway.hostname | trimPrefix "*." | quote }}
+    {{- end }}
+  {{- else }}
+  # No hostname specified - cert-manager will fail without dnsNames
+  # Operator must set gateway.hostname when using cert-manager
+  dnsNames: []
+  {{- end }}
+
+  # Private key settings
+  privateKey:
+    algorithm: RSA
+    size: 2048
+    rotationPolicy: Always
+
+  # Issuer reference - using ClusterIssuer for cluster-wide scope
+  issuerRef:
+    name: {{ .Values.tls.certManager.clusterIssuer | default "letsencrypt-prod" }}
+    kind: ClusterIssuer
+    group: cert-manager.io
+
+  # Usage for TLS server authentication
+  usages:
+    - server auth
+    - digital signature
+    - key encipherment
+{{- end }}

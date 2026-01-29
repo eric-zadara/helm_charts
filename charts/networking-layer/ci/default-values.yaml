@@ -1,0 +1,22 @@
+# CI test values for networking-layer chart
+# Disable components requiring CRDs/operators not available in CI
+
+# Envoy Gateway subchart requires Gateway API CRDs
+envoyGateway:
+  enabled: false
+
+# Kourier requires Knative Serving CRDs
+kourier:
+  enabled: false
+
+# Gateway requires GatewayClass from Envoy Gateway
+gateway:
+  name: ""
+
+# TLS requires cert-manager
+tls:
+  enabled: false
+
+# Knative ConfigMaps require Knative Serving namespace
+knative:
+  enabled: false

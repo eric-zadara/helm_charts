@@ -1,0 +1,158 @@
+# -- Envoy Gateway configuration
+envoyGateway:
+  # -- Enable Envoy Gateway deployment
+  enabled: true
+
+  # -- Enable X-Request-ID header preservation for request correlation
+  # When true, creates an EnvoyProxy resource that configures Envoy to:
+  # - Preserve external X-Request-ID headers (not override with generated ones)
+  # - Generate X-Request-ID if not present in request
+  # - Include request ID in tracing context
+  preserveRequestId: true
+
+  # -- External Gateway reference (used when enabled=false)
+  external:
+    # -- Namespace of existing Gateway
+    namespace: ""
+    # -- Name of existing Gateway
+    name: ""
+    # -- GatewayClass name for HTTPRoutes
+    gatewayClassName: ""
+
+# -- Gateway resource configuration
+gateway:
+  # -- Gateway name (defaults to release-fullname)
+  name: ""
+  # -- Hostname for Gateway listeners (required for TLS)
+  hostname: ""
+  # -- Redirect HTTP to HTTPS when TLS enabled
+  redirectHttps: false
+  # -- Additional Gateway annotations
+  annotations: {}
+
+# -- GatewayClass configuration
+gatewayClass:
+  # -- GatewayClass name
+  name: "llm-gateway"
+
+# -- ext-proc configuration (real ext-proc provided by inference-gateway chart in Phase 7)
+extProc:
+  # -- Create stub EnvoyExtensionPolicy (set to true only if inference-gateway chart is not deployed)
+  stub: false
+
+# -- Kourier configuration
+kourier:
+  # -- Enable Kourier deployment
+  enabled: true
+  # -- External Kourier reference (when enabled=false)
+  external:
+    serviceName: ""
+    namespace: ""
+  # -- Kourier service type (ClusterIP for internal-only per architecture)
+  service:
+    type: ClusterIP
+  # -- Kourier controller configuration
+  controller:
+    # -- Controller image
+    image: "gcr.io/knative-releases/knative.dev/net-kourier/cmd/kourier:v1.20.0"
+    # -- Controller replicas
+    replicas: 1
+    # -- Controller resource requests/limits
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+  # -- Kourier gateway (Envoy data plane) configuration
+  gateway:
+    # -- Gateway image
+    image: "docker.io/envoyproxy/envoy:v1.31-latest"
+    # -- Gateway replicas
+    replicas: 1
+    # -- Gateway resource requests/limits
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 1000m
+        memory: 512Mi
+
+# -- TLS configuration
+tls:
+  # -- Enable TLS termination
+  enabled: false
+  # -- TLS secret name (created by cert-manager or pre-existing)
+  secretName: ""
+  # -- cert-manager integration
+  certManager:
+    # -- Use cert-manager for certificate provisioning
+    enabled: false
+    # -- ClusterIssuer name
+    clusterIssuer: "letsencrypt-prod"
+    # -- Certificate duration
+    duration: "2160h"  # 90 days
+    # -- Renew before expiry
+    renewBefore: "360h"  # 15 days
+  # -- Pre-existing secret reference (alternative to cert-manager)
+  existingSecret: ""
+
+# -- Load balancer configuration
+loadBalancer:
+  # -- Cloud provider type (aws, gcp, azure, bare-metal)
+  provider: "aws"
+  # -- AWS-specific annotations (when provider=aws)
+  aws:
+    scheme: "internet-facing"  # or "internal"
+    nlbTargetType: "ip"
+    crossZoneEnabled: true
+    healthCheckProtocol: "HTTP"
+    healthCheckPath: "/healthz"
+  # -- Custom annotations (merged with provider defaults)
+  annotations: {}
+
+# -- external-dns integration
+externalDns:
+  # -- Enable external-dns annotations
+  enabled: false
+  # -- Hostname for DNS record
+  hostname: ""
+
+# -- Knative Serving configuration
+knative:
+  # -- Enable Knative ConfigMaps (config-autoscaler, config-features)
+  enabled: true
+
+  # -- Autoscaler configuration (config-autoscaler ConfigMap)
+  autoscaler:
+    # -- Enable scale-to-zero globally
+    enableScaleToZero: true
+    # -- Grace period for scale-to-zero (time for network programming)
+    scaleToZeroGracePeriod: "30s"
+    # -- Minimum time last pod stays after scale-to-zero decision
+    # Increased from default 0s to accommodate GPU node autoscaler delays
+    scaleToZeroPodRetentionPeriod: "60s"
+    # -- Time window for averaging concurrency/RPS (stable window)
+    stableWindow: "60s"
+    # -- Delay before applying scale-down decision
+    # LLM workloads benefit from longer delay due to expensive cold starts
+    scaleDownDelay: "300s"
+    # -- Default minimum replicas (0 for scale-to-zero)
+    minScale: "0"
+    # -- Maximum rate for scaling up (pods per minute)
+    # Conservative for GPU workloads to avoid over-provisioning
+    maxScaleUpRate: "2.0"
+    # -- Maximum rate for scaling down (ratio)
+    maxScaleDownRate: "1.5"
+    # -- Default concurrency target per pod
+    containerConcurrencyTargetDefault: "10"
+    # -- Target utilization percentage before scaling
+    containerConcurrencyTargetPercentage: "70"
+
+  # -- Feature flags (config-features ConfigMap)
+  features:
+    # -- Enable terminationGracePeriodSeconds on Knative Services
+    # Required for graceful LLM inference shutdown (long-running requests)
+    terminationGracePeriodSeconds: "Enabled"
