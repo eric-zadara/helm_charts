@@ -1,10 +1,9 @@
 # charts/litellm-proxy/values.yaml
 
-## @section Image Configuration
-
-# -- Docker image repository (database variant includes Prisma support)
+# -- Docker image configuration
+# @section -- Image Configuration
 image:
-  # -- Docker image repository
+  # -- Docker image repository (database variant includes Prisma support)
   repository: "ghcr.io/berriai/litellm-database"
   # -- Image tag (pin to specific stable version for reproducibility)
   tag: "v1.80.15-stable.1"
@@ -12,19 +11,23 @@ image:
   pullPolicy: IfNotPresent
 
 # -- Image pull secrets for private registries
+# @section -- Image Configuration
 imagePullSecrets: []
 
 # -- Number of LiteLLM proxy replicas
+# @section -- Image Configuration
 replicaCount: 2
 
 # -- Override chart name
+# @section -- Image Configuration
 nameOverride: ""
+
 # -- Override full release name
+# @section -- Image Configuration
 fullnameOverride: ""
 
-## @section Authentication
-
 # -- Master key configuration for admin API authentication
+# @section -- Authentication
 masterKey:
   # -- Create a Kubernetes Secret from the value below (set false to use existing)
   create: false
@@ -38,6 +41,7 @@ masterKey:
 # -- Salt key for encrypting API credentials stored in PostgreSQL.
 # WARNING: Never change after initial deployment with data -- existing encrypted
 # data becomes unreadable if the salt key changes.
+# @section -- Authentication
 saltKey:
   # -- Create a Kubernetes Secret from the value below (set false to use existing)
   create: false
@@ -48,11 +52,10 @@ saltKey:
   # -- Salt key value (only used if create=true)
   value: ""
 
-## @section Database Connection
-
 # -- Database connection (PostgreSQL via CNPG).
 # Deploy CNPG cluster: helm install postgresql cnpg/cluster
 # Service name follows: <release>-pooler-rw
+# @section -- Database Connection
 database:
   # -- PostgreSQL host (PgBouncer service)
   host: "postgresql-pooler-rw"
@@ -71,10 +74,9 @@ database:
   # -- Connection timeout in seconds
   connectionTimeout: 60
 
-## @section Cache Configuration
-
 # -- Cache and rate limiting connection (Valkey).
 # Deploy Valkey: helm install valkey bitnami/valkey --set sentinel.enabled=true
+# @section -- Cache Configuration
 cache:
   # -- Enable Valkey integration for caching and distributed rate limiting
   enabled: true
@@ -97,9 +99,8 @@ cache:
   # -- Key within password secret
   passwordSecretKey: "valkey-password"
 
-## @section LiteLLM Configuration
-
 # -- LiteLLM proxy configuration (generates litellm_config.yaml)
+# @section -- LiteLLM Configuration
 litellm:
   # -- Model list (array of model definitions routed to KServe endpoints).
   # Each entry creates a model accessible via /v1/chat/completions.
@@ -153,9 +154,8 @@ litellm:
     # -- Enable pre-call checks (context window, model availability)
     enable_pre_call_checks: true
 
-## @section Logging
-
 # -- Request logging configuration
+# @section -- Logging
 logging:
   # -- Store prompts/responses in spend_logs (false for privacy)
   storePrompts: false
@@ -166,18 +166,16 @@ logging:
   # -- Retention cleanup interval
   retentionInterval: "1d"
 
-## @section Service Configuration
-
 # -- Service configuration
+# @section -- Service Configuration
 service:
   # -- Service type
   type: ClusterIP
   # -- Service port (LiteLLM default)
   port: 4000
 
-## @section HTTPRoute Configuration
-
 # -- HTTPRoute configuration (Envoy Gateway integration)
+# @section -- HTTPRoute Configuration
 httpRoute:
   # -- Enable HTTPRoute creation
   enabled: true
@@ -192,9 +190,8 @@ httpRoute:
   # -- Route path prefix
   pathPrefix: "/"
 
-## @section Health Checks
-
 # -- Health check configuration
+# @section -- Health Checks
 healthCheck:
   # -- Use separate health check app/port (recommended for production).
   # Prevents health check timeouts under heavy load.
@@ -218,9 +215,8 @@ healthCheck:
     timeoutSeconds: 5
     failureThreshold: 3
 
-## @section Migration Job
-
 # -- Migration job configuration (Prisma schema migration as Helm pre-install/pre-upgrade hook)
+# @section -- Migration Job
 migrationJob:
   # -- Enable Prisma migration job
   enabled: true
@@ -229,9 +225,8 @@ migrationJob:
   # -- TTL after completion (seconds)
   ttlSecondsAfterFinished: 120
 
-## @section Resources and Scaling
-
 # -- Resource requirements
+# @section -- Resources and Scaling
 resources:
   requests:
     cpu: "500m"
@@ -241,6 +236,7 @@ resources:
     memory: "2Gi"
 
 # -- HPA configuration
+# @section -- Resources and Scaling
 autoscaling:
   # -- Enable HPA
   enabled: false
@@ -254,6 +250,7 @@ autoscaling:
   targetMemoryUtilizationPercentage: ""
 
 # -- PodDisruptionBudget configuration
+# @section -- Resources and Scaling
 podDisruptionBudget:
   # -- Enable PDB
   enabled: false
@@ -261,11 +258,11 @@ podDisruptionBudget:
   minAvailable: 1
 
 # -- Termination grace period (allows in-flight requests to complete)
+# @section -- Resources and Scaling
 terminationGracePeriodSeconds: 90
 
-## @section Observability
-
 # -- Prometheus ServiceMonitor
+# @section -- Observability
 serviceMonitor:
   # -- Enable ServiceMonitor creation
   enabled: false
@@ -275,31 +272,37 @@ serviceMonitor:
   scrapeTimeout: "10s"
 
 # -- Grafana dashboard configuration
+# @section -- Observability
 dashboards:
   # -- Enable dashboard ConfigMap creation (requires Grafana sidecar)
   enabled: false
   # -- Grafana folder annotation for dashboard organization
   folderAnnotation: "LLM Platform"
 
-## @section Pod Configuration
-
 # -- Node selector constraints
+# @section -- Pod Configuration
 nodeSelector: {}
 
 # -- Tolerations for pod scheduling
+# @section -- Pod Configuration
 tolerations: []
 
 # -- Affinity rules for pod scheduling
+# @section -- Pod Configuration
 affinity: {}
 
 # -- Additional pod annotations
+# @section -- Pod Configuration
 podAnnotations: {}
 
 # -- Additional pod labels
+# @section -- Pod Configuration
 podLabels: {}
 
 # -- Extra environment variables as key-value pairs
+# @section -- Pod Configuration
 extraEnv: {}
 
 # -- Extra environment variable sources (secretRef, configMapRef)
+# @section -- Pod Configuration
 extraEnvFrom: []
