@@ -485,6 +485,75 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/inference-gateway-0.1.0/inference-gateway-0.1.0.tgz
     version: 0.1.0
+  inference-infrastructure:
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-01-29T19:21:02.027446532Z"
+    dependencies:
+    - condition: networking-layer.enabled
+      name: networking-layer
+      repository: https://eric-zadara.github.io/helm_charts/
+      version: 0.1.1
+    - condition: litellm-proxy.enabled
+      name: litellm-proxy
+      repository: https://eric-zadara.github.io/helm_charts/
+      version: 0.1.0
+    description: Infrastructure layer for LLM inference platform - networking and
+      API proxy
+    digest: bd80e5455f8e28bd709c1bbfe9e7fd40fdf4afd1310dbd043fdce92942d1b077
+    name: inference-infrastructure
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/inference-infrastructure-0.3.0/inference-infrastructure-0.3.0.tgz
+    version: 0.3.0
+  inference-operators:
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-01-29T19:21:02.036869351Z"
+    dependencies:
+    - condition: gateway-api.enabled
+      name: gateway-api
+      repository: https://eric-zadara.github.io/helm_charts/
+      version: 0.1.0
+    - condition: knative-serving-crds.enabled
+      name: knative-serving-crds
+      repository: https://eric-zadara.github.io/helm_charts/
+      version: 0.1.0
+    - condition: kserve-crds.enabled
+      name: kserve-crds
+      repository: https://eric-zadara.github.io/helm_charts/
+      version: 0.1.0
+    - condition: inference-extension-crds.enabled
+      name: inference-extension-crds
+      repository: https://eric-zadara.github.io/helm_charts/
+      version: 0.1.0
+    description: CRDs and operator foundations for LLM inference platform
+    digest: b8dd5b58ab7c1e3be47fc98dcc61e11ef5db95bebbec5131113f72d7c5ab8958
+    name: inference-operators
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/inference-operators-0.1.0/inference-operators-0.1.0.tgz
+    version: 0.1.0
+  inference-stack:
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-01-29T19:21:02.038880596Z"
+    dependencies:
+    - condition: model-serving.enabled
+      name: model-serving
+      repository: https://eric-zadara.github.io/helm_charts/
+      version: 0.1.0
+    - condition: inference-gateway.enabled
+      name: inference-gateway
+      repository: https://eric-zadara.github.io/helm_charts/
+      version: 0.1.0
+    description: Model serving and routing layer for LLM inference platform
+    digest: eba5b7458c0139cb1b768009447268324785628d25a7b9356d2dfb020fdd23b3
+    name: inference-stack
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/inference-stack-0.1.0/inference-stack-0.1.0.tgz
+    version: 0.1.0
   k3s-helmchartconfig:
   - apiVersion: v2
     created: "2024-10-31T17:20:21.616119036Z"
@@ -843,4 +912,4 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/zadara-aws-config-0.0.1/zadara-aws-config-0.0.1.tgz
     version: 0.0.1
-generated: "2026-01-29T19:19:38.600433901Z"
+generated: "2026-01-29T19:21:02.014005089Z"
