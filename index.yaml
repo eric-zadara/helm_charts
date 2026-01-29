@@ -793,6 +793,16 @@ entries:
   litellm-proxy:
   - apiVersion: v2
     appVersion: v1.80.15-stable.1
+    created: "2026-01-29T20:36:18.756367169Z"
+    description: LiteLLM Proxy - Multi-tenant API gateway for LLM inference
+    digest: da7e9dbc3435efb685133b7b78ff5bba3fce3a89331f8989d67a9b981dda329f
+    name: litellm-proxy
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/litellm-proxy-0.1.1/litellm-proxy-0.1.1.tgz
+    version: 0.1.1
+  - apiVersion: v2
+    appVersion: v1.80.15-stable.1
     created: "2026-01-29T19:19:38.612824555Z"
     description: LiteLLM Proxy - Multi-tenant API gateway for LLM inference
     digest: e5116aab58226fa9f3a63e740e1adc1bab40ab4a480eddedc9d57756c2e98a24
@@ -912,4 +922,4 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/zadara-aws-config-0.0.1/zadara-aws-config-0.0.1.tgz
     version: 0.0.1
-generated: "2026-01-29T19:21:02.014005089Z"
+generated: "2026-01-29T20:36:18.755345692Z"
