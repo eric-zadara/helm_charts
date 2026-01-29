@@ -1,0 +1,2 @@
+# CI test values for inference-extension-crds chart
+# CRD charts install with defaults - no special values needed for CI testing

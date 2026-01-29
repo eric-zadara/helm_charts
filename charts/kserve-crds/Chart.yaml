@@ -1,0 +1,6 @@
+apiVersion: v2
+name: kserve-crds
+description: KServe CRDs for model serving (InferenceService, ServingRuntime)
+type: application
+version: 0.1.0
+appVersion: "0.16.0"

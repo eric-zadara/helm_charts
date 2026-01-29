@@ -1,0 +1,2 @@
+# CI test values for kserve-crds chart
+# CRD charts install with defaults - no special values needed for CI testing

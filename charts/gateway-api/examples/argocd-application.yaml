@@ -1,0 +1,36 @@
+# ArgoCD Application for Gateway API CRDs
+# Sync-wave 0: First CRDs to install (no dependencies)
+#
+# Usage:
+#   1. Update repoURL to your Git repository
+#   2. Update targetRevision to your branch/tag
+#   3. Apply: kubectl apply -f argocd-application.yaml
+#
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gateway-api-crds
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/your-org/llm-platform.git
+    targetRevision: main
+    path: charts/gateway-api
+    helm:
+      valueFiles:
+        - values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: false  # Never auto-prune CRDs
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+      - CreateNamespace=false
