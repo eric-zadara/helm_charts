@@ -1,0 +1,339 @@
+{{- $fullName := include "litellm-proxy.fullname" . -}}
+
+=== LiteLLM Proxy - Multi-Tenant API Gateway ===
+
+DEPLOYMENT STATUS
+-----------------
+
+  Replicas: {{ .Values.replicaCount }}
+  Image:    {{ .Values.image.repository }}:{{ .Values.image.tag }}
+  Service:  {{ $fullName }} (port {{ .Values.service.port }})
+
+Verify deployment:
+
+  # Check pods are running
+  kubectl get pods -l app.kubernetes.io/name=litellm-proxy -n {{ .Release.Namespace }}
+
+  # Check service
+  kubectl get svc {{ $fullName }} -n {{ .Release.Namespace }}
+
+  # View deployment status
+  kubectl rollout status deployment/{{ $fullName }} -n {{ .Release.Namespace }}
+
+{{- if .Values.migrationJob.enabled }}
+
+DATABASE MIGRATION
+------------------
+
+A Prisma migration job runs as a pre-install/pre-upgrade hook.
+
+  # Check migration job status
+  kubectl get jobs -l app.kubernetes.io/component=migration -n {{ .Release.Namespace }}
+
+  # View migration logs
+  kubectl logs job/{{ $fullName }}-migration -n {{ .Release.Namespace }}
+
+  # If migration failed, check database connectivity:
+  kubectl logs job/{{ $fullName }}-migration -n {{ .Release.Namespace }} | grep -i "error\|fail"
+
+{{- end }}
+
+DATABASE CONNECTION
+-------------------
+
+  Host: {{ .Values.database.host }}
+  Port: {{ .Values.database.port }}
+  Database: {{ .Values.database.name }}
+  User: {{ .Values.database.user }}
+  Password Secret: {{ .Values.database.passwordSecretName }} (key: {{ .Values.database.passwordSecretKey }})
+  Pool Limit: {{ .Values.database.connectionPoolLimit }} per worker
+
+  # Check LiteLLM database connectivity from logs
+  kubectl logs -l app.kubernetes.io/name=litellm-proxy -n {{ .Release.Namespace }} --tail=20 | grep -i database
+
+HEALTH CHECK
+------------
+
+{{- if .Values.healthCheck.separateApp }}
+
+Separate health app enabled on port {{ .Values.healthCheck.separatePort }} (recommended for production).
+This prevents health check timeouts under heavy inference load.
+
+  # Port-forward to main API port
+  kubectl port-forward svc/{{ $fullName }} 4000:{{ .Values.service.port }} -n {{ .Release.Namespace }}
+
+  # Check health endpoint (via separate health app)
+  curl http://localhost:4000/health/readiness
+
+  # Port-forward directly to health port
+  kubectl port-forward deploy/{{ $fullName }} 8001:{{ .Values.healthCheck.separatePort }} -n {{ .Release.Namespace }}
+  curl http://localhost:8001/health/readiness
+
+{{- else }}
+
+Health endpoint on main API port:
+
+  kubectl port-forward svc/{{ $fullName }} 4000:{{ .Values.service.port }} -n {{ .Release.Namespace }}
+  curl http://localhost:4000/health/readiness
+
+{{- end }}
+
+API KEY MANAGEMENT
+------------------
+
+LiteLLM uses a master key for admin operations and per-team/per-user API keys.
+
+  # Port-forward to LiteLLM
+  kubectl port-forward svc/{{ $fullName }} 4000:{{ .Values.service.port }} -n {{ .Release.Namespace }}
+
+  # Retrieve the master key
+  MASTER_KEY=$(kubectl get secret {{ include "litellm-proxy.masterKeySecretName" . }} -n {{ .Release.Namespace }} -o jsonpath='{.data.{{ .Values.masterKey.existingSecretKey }}}' | base64 -d)
+
+  # Create a team
+  curl -X POST http://localhost:4000/team/new \
+    -H "Authorization: Bearer $MASTER_KEY" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "team_alias": "my-team",
+      "max_budget": 100,
+      "rpm_limit": 100,
+      "tpm_limit": 1000000
+    }'
+
+  # Generate an API key for a team (use team_id from above response)
+  curl -X POST http://localhost:4000/key/generate \
+    -H "Authorization: Bearer $MASTER_KEY" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "team_id": "TEAM_ID_FROM_ABOVE",
+      "key_alias": "my-app-key",
+      "max_budget": 50
+    }'
+
+TESTING INFERENCE
+-----------------
+
+  # Port-forward (if not already active)
+  kubectl port-forward svc/{{ $fullName }} 4000:{{ .Values.service.port }} -n {{ .Release.Namespace }}
+
+  # List available models
+  curl http://localhost:4000/v1/models \
+    -H "Authorization: Bearer YOUR_API_KEY"
+
+  # Test chat completion (OpenAI-compatible)
+  curl -X POST http://localhost:4000/v1/chat/completions \
+    -H "Authorization: Bearer YOUR_API_KEY" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "model": "MODEL_NAME",
+      "messages": [{"role": "user", "content": "Hello, how are you?"}],
+      "max_tokens": 100
+    }'
+
+  # Test with streaming
+  curl -X POST http://localhost:4000/v1/chat/completions \
+    -H "Authorization: Bearer YOUR_API_KEY" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "model": "MODEL_NAME",
+      "messages": [{"role": "user", "content": "Tell me a joke"}],
+      "stream": true
+    }'
+
+{{- if .Values.httpRoute.enabled }}
+
+HTTPROUTE (Envoy Gateway Integration)
+--------------------------------------
+
+An HTTPRoute has been created to route external traffic via Envoy Gateway.
+
+  # Check HTTPRoute status
+  kubectl get httproute {{ $fullName }} -n {{ .Release.Namespace }}
+
+  # Describe for detailed status and conditions
+  kubectl describe httproute {{ $fullName }} -n {{ .Release.Namespace }}
+
+  # Get Envoy Gateway external IP/hostname
+  GATEWAY_IP=$(kubectl get svc -n envoy-gateway-system \
+    -l gateway.envoyproxy.io/owning-gateway-name \
+    -o jsonpath='{.items[0].status.loadBalancer.ingress[0].hostname}')
+
+  # Test via external gateway (no port-forward needed)
+  curl http://$GATEWAY_IP/v1/models \
+    -H "Authorization: Bearer YOUR_API_KEY"
+
+  # Test chat completion via gateway
+  curl -X POST http://$GATEWAY_IP/v1/chat/completions \
+    -H "Authorization: Bearer YOUR_API_KEY" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "model": "MODEL_NAME",
+      "messages": [{"role": "user", "content": "Hello"}]
+    }'
+
+{{- end }}
+
+TRAFFIC FLOW
+-------------
+
+  External Request
+       |
+       v
+  NLB (AWS Network Load Balancer)
+       |
+       v
+  Envoy Gateway (Phase 4)
+       |
+       v
+  LiteLLM Proxy (this chart) -- authenticates, rate-limits, routes
+       |
+       v
+  KServe InferenceService (Phase 5)
+       |
+       v
+  vLLM Runtime (GPU inference)
+
+  Internal path:
+  LiteLLM -> http://<model>-predictor.<namespace>.svc.cluster.local/v1/chat/completions
+
+RATE LIMITING VERIFICATION
+--------------------------
+
+Rate limits are enforced per-key and per-team via distributed Valkey (Phase 3).
+
+  # Generate a key with rate limits
+  curl -X POST http://localhost:4000/key/generate \
+    -H "Authorization: Bearer $MASTER_KEY" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "team_id": "TEAM_ID",
+      "max_parallel_requests": 2,
+      "tpm_limit": 1000,
+      "rpm_limit": 10
+    }'
+
+  # Send requests exceeding RPM limit to verify 429 response
+  for i in $(seq 1 15); do
+    echo "Request $i:"
+    curl -s -o /dev/null -w "%{http_code}" \
+      -X POST http://localhost:4000/v1/chat/completions \
+      -H "Authorization: Bearer YOUR_RATE_LIMITED_KEY" \
+      -H "Content-Type: application/json" \
+      -d '{"model": "MODEL_NAME", "messages": [{"role": "user", "content": "Hi"}]}'
+    echo ""
+  done
+  # Expect HTTP 429 after ~10 requests within 1 minute
+
+{{- if .Values.serviceMonitor.enabled }}
+
+PROMETHEUS METRICS
+------------------
+
+A ServiceMonitor has been created for Prometheus scraping.
+
+  Scrape interval: {{ .Values.serviceMonitor.interval }}
+  Scrape timeout:  {{ .Values.serviceMonitor.scrapeTimeout }}
+  Metrics path:    /metrics
+  Port:            http ({{ .Values.service.port }})
+
+  # View raw metrics
+  kubectl port-forward svc/{{ $fullName }} 4000:{{ .Values.service.port }} -n {{ .Release.Namespace }}
+  curl http://localhost:4000/metrics
+
+  # Verify ServiceMonitor is discovered by Prometheus
+  kubectl get servicemonitor {{ $fullName }} -n {{ .Release.Namespace }}
+
+  Key metrics to watch:
+  - litellm_total_requests         (total request count)
+  - litellm_request_duration       (request latency histogram)
+  - litellm_llm_api_failed_calls   (failed upstream calls)
+  - litellm_deployment_latency     (per-model latency)
+  - litellm_remaining_team_budget  (budget consumption)
+
+{{- end }}
+
+{{- if .Values.autoscaling.enabled }}
+
+HORIZONTAL POD AUTOSCALER
+-------------------------
+
+HPA is enabled with the following configuration:
+
+  Min replicas: {{ .Values.autoscaling.minReplicas }}
+  Max replicas: {{ .Values.autoscaling.maxReplicas }}
+  {{- if .Values.autoscaling.targetCPUUtilizationPercentage }}
+  CPU target:   {{ .Values.autoscaling.targetCPUUtilizationPercentage }}%
+  {{- end }}
+  {{- if .Values.autoscaling.targetMemoryUtilizationPercentage }}
+  Memory target: {{ .Values.autoscaling.targetMemoryUtilizationPercentage }}%
+  {{- end }}
+
+  # Check HPA status
+  kubectl get hpa {{ $fullName }} -n {{ .Release.Namespace }}
+
+  # Watch scaling events
+  kubectl describe hpa {{ $fullName }} -n {{ .Release.Namespace }}
+
+{{- end }}
+
+{{- if .Values.podDisruptionBudget.enabled }}
+
+POD DISRUPTION BUDGET
+---------------------
+
+PDB is configured to maintain minimum availability during disruptions.
+
+  Min available: {{ .Values.podDisruptionBudget.minAvailable }}
+
+  # Check PDB status
+  kubectl get pdb {{ $fullName }} -n {{ .Release.Namespace }}
+
+{{- end }}
+
+TROUBLESHOOTING
+---------------
+
+Migration Job failures:
+  kubectl logs job/{{ $fullName }}-migration -n {{ .Release.Namespace }}
+  - Verify database host is reachable from this namespace
+  - Check password secret exists: kubectl get secret {{ .Values.database.passwordSecretName }} -n {{ .Release.Namespace }}
+
+Pod CrashLoopBackOff:
+  kubectl logs deploy/{{ $fullName }} -n {{ .Release.Namespace }} --previous
+  - DATABASE_URL errors: verify database.host and password secret
+  - Master key errors: verify masterKey secret exists and contains valid key
+  - Salt key errors: verify saltKey secret exists
+
+Rate limits not enforced:
+  - Verify EXPERIMENTAL_MULTI_INSTANCE_RATE_LIMITING=true in pod env
+  - Check Valkey connectivity: kubectl exec deploy/{{ $fullName }} -- env | grep REDIS
+  - Ensure cache.enabled=true and cache.sentinel.enabled=true
+
+Health probe failures under load:
+  - Verify healthCheck.separateApp=true (currently: {{ .Values.healthCheck.separateApp }})
+  - Separate health port isolates probes from inference traffic
+  - Check: kubectl describe pod -l app.kubernetes.io/name=litellm-proxy -n {{ .Release.Namespace }}
+
+Metrics showing low values or missing:
+  - Verify PROMETHEUS_MULTIPROC_DIR is set and writable
+  - Check env: kubectl exec deploy/{{ $fullName }} -- env | grep PROMETHEUS
+  - Confirm litellm_settings.callbacks includes "prometheus"
+
+Cache not working:
+  - Check Valkey sentinel connectivity
+  - Verify litellm_settings.cache=true in values
+  - Check logs for Redis/Sentinel connection errors
+
+REQUIREMENTS
+------------
+
+This chart requires the following to be installed and accessible:
+
+  - PostgreSQL accessible (CNPG cluster with pooler)
+  - Valkey accessible for caching/rate limiting (bitnami/valkey with Sentinel)
+  - Master key secret created (masterKey.existingSecret: {{ .Values.masterKey.existingSecret | default "<not set>" }})
+  - Salt key secret created (saltKey.existingSecret: {{ .Values.saltKey.existingSecret | default "<not set>" }})
+  - (Optional) Envoy Gateway for external access (networking-layer chart)
+  - (Optional) KServe InferenceService endpoints for model routing (model-serving chart)
+
+=======================================================================

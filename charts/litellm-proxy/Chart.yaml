@@ -1,0 +1,14 @@
+apiVersion: v2
+name: litellm-proxy
+description: "LiteLLM Proxy - Multi-tenant API gateway for LLM inference"
+type: application
+version: 0.1.0
+appVersion: "v1.80.15-stable.1"
+
+# Prerequisites (must be installed before this chart):
+# - PostgreSQL via CNPG with PgBouncer pooler
+# - Valkey with Sentinel for HA
+# - KServe InferenceService endpoints for model routing (model-serving chart)
+#
+# No subchart dependencies - standalone chart that connects to
+# existing infrastructure via values.yaml configuration.

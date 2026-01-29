@@ -1,0 +1,179 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "litellm-proxy.fullname" . }}
+  labels:
+    {{- include "litellm-proxy.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "litellm-proxy.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "litellm-proxy.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      containers:
+        - name: litellm
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - "/bin/sh"
+            - "-c"
+            - |
+              export DATABASE_URL="postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}"
+              exec litellm --config /etc/litellm/config.yaml --port 4000 --num_workers 4
+          env:
+            # -- Database connection components
+            - name: PGHOST
+              value: {{ .Values.database.host | quote }}
+            - name: PGPORT
+              value: {{ .Values.database.port | quote }}
+            - name: PGDATABASE
+              value: {{ .Values.database.name | quote }}
+            - name: PGUSER
+              value: {{ .Values.database.user | quote }}
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.passwordSecretName }}
+                  key: {{ .Values.database.passwordSecretKey }}
+            # -- Secrets
+            - name: PROXY_MASTER_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "litellm-proxy.masterKeySecretName" . }}
+                  key: {{ .Values.masterKey.existingSecretKey }}
+            - name: LITELLM_SALT_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "litellm-proxy.saltKeySecretName" . }}
+                  key: {{ .Values.saltKey.existingSecretKey }}
+            # -- Cache/Redis
+            {{- if .Values.cache.enabled }}
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.cache.passwordSecretName }}
+                  key: {{ .Values.cache.passwordSecretKey }}
+            {{- end }}
+            # -- Production settings
+            - name: LITELLM_LOG
+              value: "ERROR"
+            - name: LITELLM_MODE
+              value: "PRODUCTION"
+            - name: DISABLE_SCHEMA_UPDATE
+              value: "true"
+            - name: DATABASE_CONNECTION_POOL_LIMIT
+              value: {{ .Values.database.connectionPoolLimit | quote }}
+            - name: DATABASE_CONNECTION_TIMEOUT
+              value: {{ .Values.database.connectionTimeout | quote }}
+            # -- Health and metrics
+            {{- if .Values.healthCheck.separateApp }}
+            - name: SEPARATE_HEALTH_APP
+              value: "1"
+            - name: SEPARATE_HEALTH_PORT
+              value: {{ .Values.healthCheck.separatePort | quote }}
+            {{- end }}
+            - name: PROMETHEUS_MULTIPROC_DIR
+              value: "/prometheus_multiproc"
+            # -- Multi-instance rate limiting
+            {{- if .Values.cache.enabled }}
+            - name: EXPERIMENTAL_MULTI_INSTANCE_RATE_LIMITING
+              value: "true"
+            {{- end }}
+            # -- Logging
+            - name: STORE_MODEL_IN_DB
+              value: "True"
+            {{- if not .Values.logging.storePrompts }}
+            - name: LITELLM_DONT_STORE_PROMPTS
+              value: "True"
+            {{- end }}
+            {{- if .Values.logging.disableSpendLogs }}
+            - name: DISABLE_SPEND_LOGS
+              value: "True"
+            {{- end }}
+            # -- Extra env vars
+            {{- range $key, $value := .Values.extraEnv }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          {{- with .Values.extraEnvFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: 4000
+              protocol: TCP
+            {{- if .Values.healthCheck.separateApp }}
+            - name: health
+              containerPort: {{ .Values.healthCheck.separatePort }}
+              protocol: TCP
+            {{- end }}
+          startupProbe:
+            httpGet:
+              path: /health/readiness
+              port: {{ if .Values.healthCheck.separateApp }}health{{ else }}http{{ end }}
+            initialDelaySeconds: {{ .Values.healthCheck.startup.initialDelaySeconds }}
+            periodSeconds: {{ .Values.healthCheck.startup.periodSeconds }}
+            timeoutSeconds: {{ .Values.healthCheck.startup.timeoutSeconds }}
+            failureThreshold: {{ .Values.healthCheck.startup.failureThreshold }}
+          livenessProbe:
+            httpGet:
+              path: /health/liveliness
+              port: {{ if .Values.healthCheck.separateApp }}health{{ else }}http{{ end }}
+            periodSeconds: {{ .Values.healthCheck.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.healthCheck.liveness.timeoutSeconds }}
+            failureThreshold: {{ .Values.healthCheck.liveness.failureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: /health/readiness
+              port: {{ if .Values.healthCheck.separateApp }}health{{ else }}http{{ end }}
+            periodSeconds: {{ .Values.healthCheck.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.healthCheck.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.healthCheck.readiness.failureThreshold }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/litellm
+              readOnly: true
+            - name: prometheus-data
+              mountPath: /prometheus_multiproc
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "litellm-proxy.fullname" . }}-config
+        - name: prometheus-data
+          emptyDir: {}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

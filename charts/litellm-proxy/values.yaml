@@ -1,0 +1,325 @@
+# charts/litellm-proxy/values.yaml
+
+# -- Image configuration
+image:
+  # -- Docker image repository (database variant includes Prisma support)
+  repository: "ghcr.io/berriai/litellm-database"
+  # -- Image tag (pin to specific stable version for reproducibility)
+  tag: "v1.80.15-stable.1"
+  # -- Image pull policy
+  pullPolicy: IfNotPresent
+
+# -- Image pull secrets for private registries
+imagePullSecrets: []
+
+# -- Number of LiteLLM proxy replicas
+replicaCount: 2
+
+# -- Override chart name
+nameOverride: ""
+# -- Override full release name
+fullnameOverride: ""
+
+# -- Master key configuration for admin API authentication
+masterKey:
+  # -- Create a Kubernetes Secret from the value below (set false to use existing)
+  create: false
+  # -- Name of an existing secret containing the master key
+  existingSecret: ""
+  # -- Key within the existing secret
+  existingSecretKey: "master-key"
+  # -- Master key value (only used if create=true; should start with "sk-")
+  value: ""
+
+# -- Salt key for encrypting API credentials stored in PostgreSQL
+# WARNING: Never change after initial deployment with data -- existing encrypted
+# data becomes unreadable if the salt key changes.
+saltKey:
+  # -- Create a Kubernetes Secret from the value below (set false to use existing)
+  create: false
+  # -- Name of an existing secret containing the salt key
+  existingSecret: ""
+  # -- Key within the existing secret
+  existingSecretKey: "salt-key"
+  # -- Salt key value (only used if create=true)
+  value: ""
+
+# -- Database connection (PostgreSQL via CNPG)
+database:
+  # -- PostgreSQL host (PgBouncer service)
+  # Deploy CNPG cluster: helm install postgresql cnpg/cluster
+  # Service name follows: <release>-pooler-rw
+  host: "postgresql-pooler-rw"
+  # -- PostgreSQL port
+  port: 5432
+  # -- Database name
+  name: "app"
+  # -- Database user
+  user: "app"
+  # -- Secret containing PostgreSQL password
+  # Secret name follows: <release>-app (CNPG convention)
+  passwordSecretName: "postgresql-app"
+  # -- Key within password secret
+  passwordSecretKey: "password"
+  # -- Connection pool limit per worker process
+  # Formula: PgBouncer_max_client_conn / (num_workers x num_pods)
+  connectionPoolLimit: 10
+  # -- Connection timeout in seconds
+  connectionTimeout: 60
+
+# -- Cache and rate limiting connection (Valkey)
+cache:
+  # -- Enable Valkey integration for caching and distributed rate limiting
+  enabled: true
+  # -- Sentinel HA configuration
+  sentinel:
+    # -- Enable Sentinel discovery for automatic failover
+    enabled: true
+    # -- Sentinel host (Valkey service)
+    # Deploy Valkey: helm install valkey bitnami/valkey --set sentinel.enabled=true
+    # Service name follows: <release>
+    host: "valkey"
+    # -- Sentinel port
+    port: 26379
+    # -- Sentinel service name (master group name)
+    serviceName: "mymaster"
+  # -- Direct connection host (used when sentinel.enabled=false)
+  host: ""
+  # -- Direct connection port (used when sentinel.enabled=false)
+  port: 6379
+  # -- Secret containing Valkey password
+  # Secret name follows: <release> (bitnami convention)
+  passwordSecretName: "valkey"
+  # -- Key within password secret
+  passwordSecretKey: "valkey-password"
+
+# -- LiteLLM proxy configuration (generates litellm_config.yaml)
+litellm:
+  # -- Model list (array of model definitions routed to KServe endpoints)
+  # Each entry creates a model accessible via /v1/chat/completions
+  modelList: []
+  #
+  # ROUTING PATTERNS:
+  #
+  # Option 1: Direct to KServe predictor (simple, no KV-cache routing)
+  # - modelName: "llama-70b-direct"
+  #   litellmParams:
+  #     model: "hosted_vllm/meta-llama/Llama-3.3-70B-Instruct"
+  #     apiBase: "http://llama-70b-predictor.llm-platform.svc.cluster.local"
+  #   modelInfo:
+  #     id: "llama-70b-direct"
+  #
+  # Option 2: Through Internal Gateway (KV-cache aware routing - RECOMMENDED)
+  # Requires: inference-gateway chart with InferencePool + HTTPRoute enabled
+  # - modelName: "llama-70b"
+  #   litellmParams:
+  #     model: "hosted_vllm/meta-llama/Llama-3.3-70B-Instruct"
+  #     # Route through Internal Gateway -> EPP -> InferencePool
+  #     apiBase: "http://inference-gateway.llm-platform.svc.cluster.local"
+  #   modelInfo:
+  #     id: "llama-70b"
+  #
+  # Option 3: With rate limits per model
+  # - modelName: "llama-70b-limited"
+  #   litellmParams:
+  #     model: "hosted_vllm/meta-llama/Llama-3.3-70B-Instruct"
+  #     apiBase: "http://inference-gateway.llm-platform.svc.cluster.local"
+  #     rpm: 100
+  #     tpm: 1000000
+
+  # -- General settings (merged into config.yaml general_settings)
+  generalSettings:
+    # -- Batch spend writes every N seconds (reduces DB load)
+    proxy_batch_write_at: 60
+    # -- Allow requests if DB is temporarily unavailable
+    allow_requests_on_db_unavailable: true
+    # -- Request timeout in seconds
+    request_timeout: 600
+    # -- Disable verbose error logs in DB (recommended for production)
+    disable_error_logs: true
+
+  # -- LiteLLM settings (merged into config.yaml litellm_settings)
+  litellmSettings:
+    # -- Enable response caching
+    cache: true
+    # -- Cache parameters (infrastructure wiring added automatically from cache.* values)
+    cache_params:
+      type: "redis"
+      # -- Cache TTL in seconds
+      ttl: 600
+      # -- Cache key namespace
+      namespace: "litellm.caching"
+      # -- Cache mode: "default_off" requires per-request opt-in, "default_on" caches all
+      mode: "default_off"
+      # Sentinel/direct connection is configured automatically from cache.sentinel values
+    # -- Enable JSON structured logging
+    # When enabled, LiteLLM outputs logs in JSON format with these fields:
+    # - request_id: from X-Request-ID header (for end-to-end correlation)
+    # - timestamp, level, message: standard log fields
+    # - model, team, team_alias: routing context
+    # - latency, token_counts: performance metrics
+    # Correlation flow: X-Request-ID -> LiteLLM request_id -> EPP -> vLLM
+    json_logs: true
+    # -- Disable verbose output (recommended for production)
+    set_verbose: false
+    # -- Prometheus callbacks for metrics export
+    callbacks:
+      - "prometheus"
+    # -- Fallback chains (model group name -> fallback model groups)
+    fallbacks: []
+    # Example:
+    # - "llama-70b": ["llama-8b"]
+    # -- Turn off message content logging (privacy)
+    turn_off_message_logging: false
+    # -- Number of retries on failure
+    num_retries: 2
+
+  # -- Router settings (merged into config.yaml router_settings)
+  routerSettings:
+    # -- Routing strategy
+    routing_strategy: "simple-shuffle"
+    # -- Model group aliases (supports hidden models)
+    model_group_alias: {}
+    # Example:
+    #   "gpt-4": "llama-70b"
+    #   "internal-model":
+    #     model: "llama-70b"
+    #     hidden: true
+    # -- Enable pre-call checks (context window, model availability)
+    enable_pre_call_checks: true
+
+# -- Request logging configuration
+logging:
+  # -- Store prompts/responses in spend_logs (false for privacy)
+  storePrompts: false
+  # -- Disable spend logs entirely (saves DB space, lose UI usage view)
+  disableSpendLogs: false
+  # -- Spend log retention period (e.g., "30d", "90d")
+  retentionPeriod: "30d"
+  # -- Retention cleanup interval
+  retentionInterval: "1d"
+
+# -- Service configuration
+service:
+  # -- Service type
+  type: ClusterIP
+  # -- Service port (LiteLLM default)
+  port: 4000
+
+# -- HTTPRoute configuration (Envoy Gateway integration from Phase 4)
+httpRoute:
+  # -- Enable HTTPRoute creation
+  enabled: true
+  # -- Gateway reference
+  gateway:
+    # -- Gateway name (defaults to networking-layer gateway)
+    name: ""
+    # -- Gateway namespace (defaults to release namespace)
+    namespace: ""
+  # -- Route hostname (optional, for host-based routing)
+  hostname: ""
+  # -- Route path prefix
+  pathPrefix: "/"
+
+# -- Health check configuration
+healthCheck:
+  # -- Use separate health check app/port (recommended for production)
+  # Prevents health check timeouts under heavy load (Pitfall #4)
+  separateApp: true
+  # -- Separate health check port
+  separatePort: 8001
+  # -- Startup probe (allows time for LiteLLM initialization)
+  startup:
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 30  # 30 * 10s = 5 minutes max startup
+  # -- Liveness probe
+  liveness:
+    periodSeconds: 15
+    timeoutSeconds: 5
+    failureThreshold: 3
+  # -- Readiness probe
+  readiness:
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+# -- Migration job configuration (Prisma schema migration as Helm pre-install/pre-upgrade hook)
+migrationJob:
+  # -- Enable Prisma migration job
+  enabled: true
+  # -- Job retry limit
+  backoffLimit: 4
+  # -- TTL after completion (seconds)
+  ttlSecondsAfterFinished: 120
+
+# -- Resource requirements
+resources:
+  requests:
+    cpu: "500m"
+    memory: "512Mi"
+  limits:
+    cpu: "2000m"
+    memory: "2Gi"
+
+# -- HPA configuration (disabled by default per CONTEXT.md)
+autoscaling:
+  # -- Enable HPA
+  enabled: false
+  # -- Minimum replicas
+  minReplicas: 2
+  # -- Maximum replicas
+  maxReplicas: 10
+  # -- Target CPU utilization percentage
+  targetCPUUtilizationPercentage: 80
+  # -- Target memory utilization percentage (optional, empty to disable)
+  targetMemoryUtilizationPercentage: ""
+
+# -- PodDisruptionBudget configuration (disabled by default per CONTEXT.md)
+podDisruptionBudget:
+  # -- Enable PDB
+  enabled: false
+  # -- Minimum available pods during disruptions
+  minAvailable: 1
+
+# -- Prometheus ServiceMonitor
+serviceMonitor:
+  # -- Enable ServiceMonitor creation
+  enabled: false
+  # -- Scrape interval
+  interval: "15s"
+  # -- Scrape timeout
+  scrapeTimeout: "10s"
+
+# -- Termination grace period (allows in-flight requests to complete)
+terminationGracePeriodSeconds: 90
+
+# -- Node selector constraints
+nodeSelector: {}
+
+# -- Tolerations for pod scheduling
+tolerations: []
+
+# -- Affinity rules for pod scheduling
+affinity: {}
+
+# -- Additional pod annotations
+podAnnotations: {}
+
+# -- Additional pod labels
+podLabels: {}
+
+# -- Extra environment variables as key-value pairs
+# These are added to the LiteLLM container as env vars
+extraEnv: {}
+
+# -- Extra environment variable sources (secretRef, configMapRef)
+extraEnvFrom: []
+
+# -- Grafana dashboard configuration
+dashboards:
+  # -- Enable dashboard ConfigMap creation (requires Grafana sidecar)
+  enabled: false
+  # -- Grafana folder annotation for dashboard organization
+  folderAnnotation: "LLM Platform"

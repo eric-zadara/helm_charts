@@ -1,0 +1,65 @@
+# CI test values for litellm-proxy chart
+# Enable minimal deployment without external dependencies
+#
+# DEPLOYMENT PATTERN:
+# For real deployments:
+#   1. Deploy PostgreSQL (CNPG):
+#      helm install postgresql cnpg/cluster -n llm-platform --set pooler.enabled=true
+#
+#   2. Deploy Valkey:
+#      helm install valkey bitnami/valkey -n llm-platform --set sentinel.enabled=true
+#
+#   3. Deploy litellm-proxy (defaults work with release names above):
+#      helm install litellm ./charts/litellm-proxy -n llm-platform \
+#        --set masterKey.existingSecret=litellm-master-key \
+#        --set saltKey.existingSecret=litellm-salt-key
+
+# Single replica for CI
+replicaCount: 1
+
+# Create secrets for CI testing
+masterKey:
+  create: true
+  value: "sk-test-key-for-ci-validation"
+
+saltKey:
+  create: true
+  value: "test-salt-key-for-ci-validation"
+
+# Database config for template rendering (CI uses mock values)
+# Real deployments use: postgresql-pooler-rw (default)
+database:
+  host: "localhost"
+  port: 5432
+  name: "litellm"
+  user: "litellm"
+  passwordSecretName: "litellm-db-password"
+  passwordSecretKey: "password"
+
+# Disable cache (requires Valkey)
+cache:
+  enabled: false
+
+# Disable migration job (requires database)
+migrationJob:
+  enabled: false
+
+# Disable HTTPRoute (requires Gateway API CRDs)
+httpRoute:
+  enabled: false
+
+# Disable ServiceMonitor (requires Prometheus Operator CRDs)
+serviceMonitor:
+  enabled: false
+
+# Disable HPA (not needed for CI)
+autoscaling:
+  enabled: false
+
+# Disable PDB (not needed for CI)
+podDisruptionBudget:
+  enabled: false
+
+# Disable Grafana dashboards (requires Grafana)
+dashboards:
+  enabled: false

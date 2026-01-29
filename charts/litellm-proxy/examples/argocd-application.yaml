@@ -1,0 +1,75 @@
+# ArgoCD Application for LiteLLM Proxy
+# Sync-wave 50: After model-serving runtimes, provides API gateway
+#
+# Prerequisites:
+#   - Database (PostgreSQL) deployed (wave 20)
+#   - Cache (Valkey) deployed (wave 20)
+#   - Networking layer deployed (wave 30)
+#   - Master key secret created (see prerequisites below)
+#
+# Before deploying, create required secrets:
+#   kubectl create secret generic litellm-master-key \
+#     --from-literal=master-key='sk-your-master-key-here' \
+#     -n llm-platform
+#
+#   kubectl create secret generic litellm-salt-key \
+#     --from-literal=salt-key='your-random-salt-key' \
+#     -n llm-platform
+#
+# Service Name Patterns:
+#   Short names (default): Work within the same namespace. Recommended for most deployments.
+#   FQDN format: Required for cross-namespace access. Use pattern:
+#     <service>.<namespace>.svc.cluster.local
+#   Examples:
+#     Short: postgresql-pooler-rw
+#     FQDN:  postgresql-pooler-rw.llm-platform.svc.cluster.local
+#
+# Usage:
+#   1. Update repoURL to your Git repository
+#   2. Update targetRevision to your branch/tag
+#   3. Create required secrets (above)
+#   4. Apply: kubectl apply -f argocd-application.yaml
+#
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: litellm-proxy
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "50"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/your-org/llm-platform.git
+    targetRevision: main
+    path: charts/litellm-proxy
+    helm:
+      valueFiles:
+        - values.yaml
+      # Required: Configure database and cache connection
+      # Default values assume standalone PostgreSQL and Valkey deployed with recommended release names.
+      # Adjust if using different release names or cross-namespace deployment.
+      parameters:
+        - name: database.host
+          value: postgresql-pooler-rw
+        - name: database.passwordSecretName
+          value: postgresql-app
+        - name: cache.sentinel.host
+          value: valkey
+        - name: cache.passwordSecretName
+          value: valkey
+        - name: masterKey.existingSecret
+          value: litellm-master-key
+        - name: saltKey.existingSecret
+          value: litellm-salt-key
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: llm-platform
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

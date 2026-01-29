@@ -1,0 +1,100 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "litellm-proxy.fullname" . }}-config
+  labels:
+    {{- include "litellm-proxy.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    model_list:
+    {{- range .Values.litellm.modelList }}
+      - model_name: {{ .modelName | quote }}
+        litellm_params:
+          model: {{ .litellmParams.model | quote }}
+          api_base: {{ .litellmParams.apiBase | quote }}
+          {{- with .litellmParams.apiKey }}
+          api_key: {{ . | quote }}
+          {{- end }}
+          {{- with .litellmParams.rpm }}
+          rpm: {{ . }}
+          {{- end }}
+          {{- with .litellmParams.tpm }}
+          tpm: {{ . }}
+          {{- end }}
+          {{- with .litellmParams.extraParams }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+        {{- with .modelInfo }}
+        model_info:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+    {{- end }}
+
+    general_settings:
+      master_key: os.environ/PROXY_MASTER_KEY
+      database_url: os.environ/DATABASE_URL
+      {{- with .Values.litellm.generalSettings }}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
+
+    litellm_settings:
+      {{- with .Values.litellm.litellmSettings }}
+      {{- /* Render all settings EXCEPT cache/cache_params which need special Sentinel wiring */ -}}
+      {{- $settings := deepCopy . }}
+      {{- $_ := unset $settings "cache_params" }}
+      {{- $_ := unset $settings "cache" }}
+      {{- if $settings }}
+      {{- toYaml $settings | nindent 6 }}
+      {{- end }}
+      {{- end }}
+      {{- if .Values.cache.enabled }}
+      cache: true
+      cache_params:
+        type: "redis"
+        {{- if .Values.cache.sentinel.enabled }}
+        service_name: {{ .Values.cache.sentinel.serviceName | quote }}
+        sentinel_nodes:
+          - - {{ .Values.cache.sentinel.host | quote }}
+            - {{ .Values.cache.sentinel.port }}
+        {{- else }}
+        host: {{ .Values.cache.host | quote }}
+        port: {{ .Values.cache.port }}
+        {{- end }}
+        password: os.environ/REDIS_PASSWORD
+        {{- with .Values.litellm.litellmSettings.cache_params }}
+        {{- $params := deepCopy . }}
+        {{- /* Remove keys already handled by infrastructure wiring */ -}}
+        {{- $_ := unset $params "type" }}
+        {{- $_ := unset $params "host" }}
+        {{- $_ := unset $params "port" }}
+        {{- $_ := unset $params "password" }}
+        {{- $_ := unset $params "service_name" }}
+        {{- $_ := unset $params "sentinel_nodes" }}
+        {{- if $params }}
+        {{- toYaml $params | nindent 8 }}
+        {{- end }}
+        {{- end }}
+      {{- end }}
+
+    router_settings:
+      {{- if .Values.cache.enabled }}
+      {{- /* Wire Valkey connection for distributed rate limiting state */ -}}
+      {{- if .Values.cache.sentinel.enabled }}
+      redis_host: {{ .Values.cache.sentinel.host | quote }}
+      redis_port: {{ .Values.cache.sentinel.port | quote }}
+      {{- else }}
+      redis_host: {{ .Values.cache.host | quote }}
+      redis_port: {{ .Values.cache.port | quote }}
+      {{- end }}
+      redis_password: os.environ/REDIS_PASSWORD
+      {{- end }}
+      {{- with .Values.litellm.routerSettings }}
+      {{- /* Render router settings, skipping redis fields already handled by cache wiring */ -}}
+      {{- $settings := deepCopy . }}
+      {{- $_ := unset $settings "redis_host" }}
+      {{- $_ := unset $settings "redis_port" }}
+      {{- $_ := unset $settings "redis_password" }}
+      {{- if $settings }}
+      {{- toYaml $settings | nindent 6 }}
+      {{- end }}
+      {{- end }}

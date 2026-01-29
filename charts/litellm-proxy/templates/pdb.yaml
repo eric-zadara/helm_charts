@@ -1,0 +1,13 @@
+{{- if .Values.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "litellm-proxy.fullname" . }}
+  labels:
+    {{- include "litellm-proxy.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "litellm-proxy.selectorLabels" . | nindent 6 }}
+{{- end }}

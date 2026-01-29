@@ -1,0 +1,26 @@
+{{- if .Values.httpRoute.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "litellm-proxy.fullname" . }}
+  labels:
+    {{- include "litellm-proxy.labels" . | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ .Values.httpRoute.gateway.name | default "networking-layer-gateway" }}
+      {{- with .Values.httpRoute.gateway.namespace }}
+      namespace: {{ . }}
+      {{- end }}
+  {{- with .Values.httpRoute.hostname }}
+  hostnames:
+    - {{ . | quote }}
+  {{- end }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: {{ .Values.httpRoute.pathPrefix | default "/" }}
+      backendRefs:
+        - name: {{ include "litellm-proxy.fullname" . }}
+          port: {{ .Values.service.port }}
+{{- end }}
