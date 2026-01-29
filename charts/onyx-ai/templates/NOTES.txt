@@ -70,3 +70,52 @@ are deprecated.
 For more information, visit: https://docs.onyx.app/
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{{- if or .Values.objectStorage.existingSecret .Values.objectStorage.accessKey }}
+
+OBJECT STORAGE CONFIGURATION
+============================
+{{- if .Values.objectStorage.existingSecret }}
+
+Using existing S3 credentials secret: {{ .Values.objectStorage.existingSecret }}
+{{- else if .Values.objectStorage.accessKey }}
+
+Created S3 credentials secret: {{ include "onyx-ai.fullname" . }}-external-objectstorage
+{{- end }}
+
+{{- if not .Values.objectStorage.useIAM }}
+
+IMPORTANT: S3 credentials require dual-configuration in values.yaml.
+
+WHY: Helm values.yaml cannot contain template expressions (like {{ "{{" }} include {{ "}}" }}).
+Templates are evaluated at render time, but values.yaml is parsed BEFORE rendering.
+Therefore, existingSecret cannot be auto-computed from objectStorage settings.
+
+To wire S3 credentials to Onyx pods, ensure your values include:
+
+  onyx:
+    auth:
+      objectstorage:
+        enabled: true
+{{- if .Values.objectStorage.existingSecret }}
+        existingSecret: "{{ .Values.objectStorage.existingSecret }}"
+{{- else if .Values.objectStorage.accessKey }}
+        existingSecret: "{{ include "onyx-ai.fullname" . }}-external-objectstorage"
+{{- end }}
+
+{{- if .Values.objectStorage.accessKey }}
+Example command to upgrade with correct wiring:
+
+  helm upgrade {{ .Release.Name }} {{ .Chart.Name }} \
+    --set onyx.auth.objectstorage.existingSecret="{{ include "onyx-ai.fullname" . }}-external-objectstorage" \
+    [other values...]
+{{- end }}
+{{- end }}
+
+{{- if .Values.objectStorage.useIAM }}
+
+IAM Mode: S3 credentials are not configured. Ensure pods have IAM role access.
+Set onyx.auth.objectstorage.enabled=false in your values.
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{{- end }}

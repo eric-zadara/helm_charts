@@ -390,3 +390,125 @@ Usage: {{ include "onyx-ai.redis.validate" . }}
   {{- end -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+================================================================================
+Object Storage Helper Functions (Phase 5)
+================================================================================
+*/}}
+
+{{/*
+Get S3 endpoint URL.
+Returns empty string for AWS S3 (boto3 uses default), or configured endpoint for self-hosted.
+
+Usage: {{ include "onyx-ai.objectStorage.endpoint" . }}
+*/}}
+{{- define "onyx-ai.objectStorage.endpoint" -}}
+{{- .Values.objectStorage.endpoint | default "" -}}
+{{- end -}}
+
+{{/*
+Get S3 bucket name.
+Always required - validated by onyx-ai.objectStorage.validate.
+
+Usage: {{ include "onyx-ai.objectStorage.bucket" . }}
+*/}}
+{{- define "onyx-ai.objectStorage.bucket" -}}
+{{- .Values.objectStorage.bucket | default "onyx-file-store" -}}
+{{- end -}}
+
+{{/*
+Get S3 object key prefix.
+
+Usage: {{ include "onyx-ai.objectStorage.prefix" . }}
+*/}}
+{{- define "onyx-ai.objectStorage.prefix" -}}
+{{- .Values.objectStorage.prefix | default "onyx-files" -}}
+{{- end -}}
+
+{{/*
+Get AWS region.
+Returns empty if not set (suitable for self-hosted S3).
+
+Usage: {{ include "onyx-ai.objectStorage.region" . }}
+*/}}
+{{- define "onyx-ai.objectStorage.region" -}}
+{{- .Values.objectStorage.region | default "" -}}
+{{- end -}}
+
+{{/*
+Get S3 secret name based on configuration mode.
+Returns:
+- Empty string when useIAM is true (no credentials needed)
+- existingSecret when provided
+- Auto-generated secret name when inline credentials provided
+
+Usage: {{ include "onyx-ai.objectStorage.secretName" . }}
+*/}}
+{{- define "onyx-ai.objectStorage.secretName" -}}
+{{- if .Values.objectStorage.useIAM -}}
+  {{- /* IAM mode - no secret needed */ -}}
+  {{- "" -}}
+{{- else if .Values.objectStorage.existingSecret -}}
+  {{- .Values.objectStorage.existingSecret -}}
+{{- else if .Values.objectStorage.accessKey -}}
+  {{- /* Inline credentials - use auto-generated secret */ -}}
+  {{- printf "%s-external-objectstorage" (include "onyx-ai.fullname" .) -}}
+{{- else -}}
+  {{- /* No credentials configured - validation will catch this */ -}}
+  {{- "" -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Check if object storage credentials are needed (not IAM mode).
+Returns "true" or "false" as string.
+
+Usage: {{ include "onyx-ai.objectStorage.needsCredentials" . }}
+*/}}
+{{- define "onyx-ai.objectStorage.needsCredentials" -}}
+{{- if .Values.objectStorage.useIAM -}}
+  {{- "false" -}}
+{{- else -}}
+  {{- "true" -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Get SSL verification setting.
+Returns "true" or "false" as string for S3_VERIFY_SSL env var.
+
+Usage: {{ include "onyx-ai.objectStorage.sslVerify" . }}
+*/}}
+{{- define "onyx-ai.objectStorage.sslVerify" -}}
+{{- if .Values.objectStorage.tls.verify -}}
+  {{- "true" -}}
+{{- else -}}
+  {{- "false" -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Validate object storage configuration.
+Fails if:
+- Bucket name is empty
+- Not IAM mode and no credentials provided (neither existingSecret nor inline)
+
+Usage: {{ include "onyx-ai.objectStorage.validate" . }}
+*/}}
+{{- define "onyx-ai.objectStorage.validate" -}}
+{{- /* Validate bucket name is provided */ -}}
+{{- if not .Values.objectStorage.bucket -}}
+  {{- fail "objectStorage.bucket is required" -}}
+{{- end -}}
+{{- /* Validate credentials when not using IAM */ -}}
+{{- if not .Values.objectStorage.useIAM -}}
+  {{- if and (not .Values.objectStorage.existingSecret) (not .Values.objectStorage.accessKey) -}}
+    {{- fail "objectStorage.existingSecret or objectStorage.accessKey/secretKey required (or set useIAM: true for IAM role authentication)" -}}
+  {{- end -}}
+  {{- /* Warn if accessKey provided without secretKey */ -}}
+  {{- if and .Values.objectStorage.accessKey (not .Values.objectStorage.secretKey) -}}
+    {{- fail "objectStorage.secretKey is required when objectStorage.accessKey is provided" -}}
+  {{- end -}}
+{{- end -}}
+{{- end -}}

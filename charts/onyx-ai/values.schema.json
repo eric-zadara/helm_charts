@@ -293,6 +293,63 @@
         }
       }
     },
+    "objectStorage": {
+      "type": "object",
+      "description": "External S3-compatible storage configuration",
+      "additionalProperties": false,
+      "properties": {
+        "endpoint": {
+          "type": "string",
+          "default": "",
+          "description": "S3 endpoint URL with protocol (e.g., https://s3.example.com). Leave empty for AWS S3."
+        },
+        "bucket": {
+          "type": "string",
+          "default": "onyx-file-store",
+          "description": "S3 bucket name (required, must pre-exist)"
+        },
+        "prefix": {
+          "type": "string",
+          "default": "onyx-files",
+          "description": "Object key prefix within bucket"
+        },
+        "region": {
+          "type": "string",
+          "default": "",
+          "description": "AWS region (only for AWS S3, optional)"
+        },
+        "existingSecret": {
+          "type": "string",
+          "default": "",
+          "description": "Secret with 's3_aws_access_key_id' and 's3_aws_secret_access_key' keys"
+        },
+        "accessKey": {
+          "type": "string",
+          "default": "",
+          "description": "S3 access key (only if existingSecret is empty)"
+        },
+        "secretKey": {
+          "type": "string",
+          "default": "",
+          "description": "S3 secret key (only if existingSecret is empty)"
+        },
+        "useIAM": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use IAM/IRSA for authentication (no static credentials)"
+        },
+        "tls": {
+          "type": "object",
+          "properties": {
+            "verify": {
+              "type": "boolean",
+              "default": true,
+              "description": "Verify SSL certificates (set false for self-signed)"
+            }
+          }
+        }
+      }
+    },
     "onyx": {
       "type": "object",
       "description": "Upstream Onyx chart configuration (passthrough). See https://github.com/onyx-dot-app/onyx for options.",

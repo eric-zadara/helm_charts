@@ -166,6 +166,54 @@ externalRedis:
     secretName: ""
 
 # ------------------------------------------------------------------------------
+# Object Storage Configuration (Phase 5)
+# ------------------------------------------------------------------------------
+# External S3-compatible storage for Onyx file uploads.
+# Supports AWS S3, GarageFS, MinIO, or any S3-compatible endpoint.
+# Note: Bucket must pre-exist; chart does not create buckets.
+#
+# IMPORTANT: S3 env vars are wired to pods via the env-configmap (created by
+# this chart, overriding upstream). Credentials are wired via onyx.auth.objectstorage.
+# See onyx.auth.objectstorage section below for credential configuration.
+
+objectStorage:
+  # Endpoint URL - full URL including protocol
+  # Leave empty for AWS S3 (uses default AWS endpoint)
+  # Set for self-hosted: "http://garage.storage.svc:3900" or "https://minio.example.com"
+  endpoint: ""
+
+  # Bucket name (required)
+  bucket: "onyx-file-store"
+
+  # Object key prefix (optional)
+  prefix: "onyx-files"
+
+  # AWS region - only needed for AWS S3 (optional)
+  region: ""
+
+  # Credentials - use existingSecret (recommended) or inline values
+  # Secret must contain 's3_aws_access_key_id' and 's3_aws_secret_access_key' keys
+  # IMPORTANT: Also set onyx.auth.objectstorage.existingSecret to the same value!
+  existingSecret: ""
+
+  # Inline credentials (only if existingSecret is empty)
+  # When set, creates secret: {release}-external-objectstorage
+  # IMPORTANT: Also set onyx.auth.objectstorage.existingSecret to "{release}-external-objectstorage"!
+  accessKey: ""
+  secretKey: ""
+
+  # IAM/IRSA mode - set true when using AWS IAM roles (EKS with IRSA)
+  # When true, no credentials are configured (pods use IAM role)
+  # IMPORTANT: Also set onyx.auth.objectstorage.enabled: false when using IAM!
+  useIAM: false
+
+  # TLS configuration
+  tls:
+    # Verify SSL certificates (default: true)
+    # Set false for self-signed certs on self-hosted S3 (not recommended for production)
+    verify: true
+
+# ------------------------------------------------------------------------------
 # Onyx Subchart Values (passthrough to upstream)
 # ------------------------------------------------------------------------------
 # All values under `onyx:` are passed directly to the upstream Onyx chart.
@@ -247,6 +295,68 @@ onyx:
           resources:
             requests:
               storage: 2Gi
+
+  # ---------------------------------------------------------------------------
+  # Phase 5: Object Storage Credentials (auth.objectstorage passthrough)
+  # ---------------------------------------------------------------------------
+  # The upstream Onyx chart injects S3 credentials via auth.objectstorage.
+  # Configure existingSecret to point to either:
+  #   - Your pre-existing secret (same as objectStorage.existingSecret)
+  #   - The auto-generated secret: "{release}-external-objectstorage"
+  #     (created when objectStorage.accessKey is set)
+  #
+  # For IAM/IRSA mode: Set enabled: false (no credentials needed)
+  #
+  # The secret must contain keys:
+  #   - s3_aws_access_key_id
+  #   - s3_aws_secret_access_key
+  #
+  # WHY MANUAL CONFIGURATION IS REQUIRED:
+  # Helm values.yaml cannot contain template expressions - they are evaluated
+  # at render time, not in values.yaml. So existingSecret cannot be auto-computed.
+  # This is a Helm limitation, not a chart bug.
+  #
+  # IMPORTANT: This section must be kept in sync with objectStorage.* settings!
+  # Examples:
+  #
+  # 1. Using existingSecret:
+  #    objectStorage:
+  #      existingSecret: "my-s3-secret"
+  #    onyx:
+  #      auth:
+  #        objectstorage:
+  #          enabled: true
+  #          existingSecret: "my-s3-secret"  # Same as above!
+  #
+  # 2. Using inline credentials (accessKey/secretKey):
+  #    objectStorage:
+  #      accessKey: "AKIA..."
+  #      secretKey: "..."
+  #    onyx:
+  #      auth:
+  #        objectstorage:
+  #          enabled: true
+  #          existingSecret: "myrelease-onyx-ai-external-objectstorage"
+  #          # Format: {release}-{chart}-external-objectstorage
+  #
+  # 3. Using IAM/IRSA:
+  #    objectStorage:
+  #      useIAM: true
+  #    onyx:
+  #      auth:
+  #        objectstorage:
+  #          enabled: false  # No credentials needed
+  auth:
+    objectstorage:
+      # Set to false when using IAM/IRSA mode
+      enabled: true
+      # Secret name - MUST match objectStorage.existingSecret or the auto-generated name
+      # Leave empty for now; set it when configuring objectStorage
+      existingSecret: ""
+      # Key mappings (match upstream defaults - do not change)
+      secretKeys:
+        S3_AWS_ACCESS_KEY_ID: s3_aws_access_key_id
+        S3_AWS_SECRET_ACCESS_KEY: s3_aws_secret_access_key
 
   # OpenSearch - optional alternative to Vespa, disabled by default upstream
   opensearch:
