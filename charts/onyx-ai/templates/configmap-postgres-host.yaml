@@ -1,0 +1,30 @@
+{{/*
+ConfigMap for PostgreSQL host override.
+This ConfigMap provides POSTGRES_HOST pointing to:
+- PgBouncer pooler when cnpg.pooler.enabled
+- External PostgreSQL when cnpg.enabled is false
+- Direct PostgreSQL service when CNPG is enabled but pooler is disabled
+
+The upstream Onyx chart sets POSTGRES_HOST to {release}-postgresql-rw directly.
+This ConfigMap allows overriding that when using pooler or external PostgreSQL.
+
+To use this override, applications should include this ConfigMap in their envFrom
+AFTER the main env-configmap, so this value takes precedence.
+This integration is handled in Phase 6 (Application HA).
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "onyx-ai.fullname" . }}-postgres-config
+  labels:
+    {{- include "onyx-ai.labels" . | nindent 4 }}
+    app.kubernetes.io/component: database-config
+data:
+  # PostgreSQL connection configuration
+  # Used to override upstream POSTGRES_HOST when using pooler or external database
+  POSTGRES_HOST: {{ include "onyx-ai.postgresql.host" . | quote }}
+  POSTGRES_PORT: {{ include "onyx-ai.postgresql.port" . | quote }}
+  {{- if not .Values.cnpg.enabled }}
+  # External PostgreSQL database name
+  POSTGRES_DB: {{ .Values.externalPostgresql.database | default "postgres" | quote }}
+  {{- end }}

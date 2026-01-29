@@ -117,3 +117,118 @@ Usage: {{ include "onyx-ai.imageRepository" (dict "ctx" . "component" "backend")
   {{- end -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+================================================================================
+PostgreSQL Helper Functions (Phase 3)
+================================================================================
+*/}}
+
+{{/*
+Get PostgreSQL host based on configuration.
+Returns pooler service when pooler is enabled, direct PostgreSQL service otherwise,
+or external host when CNPG is disabled.
+
+cnpg/cluster chart naming convention:
+  - Cluster name: {release}-postgresql-cluster (from alias)
+  - RW service: {release}-postgresql-cluster-rw
+  - Pooler service: {release}-postgresql-cluster-rw (pooler named "rw")
+
+Usage: {{ include "onyx-ai.postgresql.host" . }}
+*/}}
+{{- define "onyx-ai.postgresql.host" -}}
+{{- if not .Values.cnpg.enabled -}}
+  {{- /* External PostgreSQL mode */ -}}
+  {{- required "externalPostgresql.host is required when cnpg.enabled is false" .Values.externalPostgresql.host -}}
+{{- else if .Values.cnpg.pooler.enabled -}}
+  {{- /* CNPG with PgBouncer pooler - pooler named "rw" creates same service name */ -}}
+  {{- printf "%s-postgresql-cluster-rw" .Release.Name -}}
+{{- else -}}
+  {{- /* CNPG direct connection (no pooler) */ -}}
+  {{- printf "%s-postgresql-cluster-rw" .Release.Name -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Get PostgreSQL port.
+Returns 5432 for CNPG (both pooler and direct), or external port when configured.
+
+Usage: {{ include "onyx-ai.postgresql.port" . }}
+*/}}
+{{- define "onyx-ai.postgresql.port" -}}
+{{- if not .Values.cnpg.enabled -}}
+  {{- .Values.externalPostgresql.port | default 5432 -}}
+{{- else -}}
+  {{- /* CNPG always uses 5432 */ -}}
+  {{- 5432 -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Get PostgreSQL app secret name (for application connections).
+CNPG generates: {cluster-name}-app with username, password, host, port, dbname, uri keys.
+For external: use existingSecret or wrapper-generated secret.
+
+cnpg/cluster chart naming: {release}-postgresql-cluster-app
+
+Usage: {{ include "onyx-ai.postgresql.secretName" . }}
+*/}}
+{{- define "onyx-ai.postgresql.secretName" -}}
+{{- if not .Values.cnpg.enabled -}}
+  {{- if .Values.externalPostgresql.existingSecret -}}
+    {{- .Values.externalPostgresql.existingSecret -}}
+  {{- else -}}
+    {{- printf "%s-external-postgresql" (include "onyx-ai.fullname" .) -}}
+  {{- end -}}
+{{- else -}}
+  {{- /* CNPG app secret follows convention: {cluster-name}-app */ -}}
+  {{- printf "%s-postgresql-cluster-app" .Release.Name -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Get PostgreSQL superuser secret name (for migrations/admin).
+Only applicable for CNPG mode.
+
+cnpg/cluster chart naming: {release}-postgresql-cluster-superuser
+
+Usage: {{ include "onyx-ai.postgresql.superuserSecretName" . }}
+*/}}
+{{- define "onyx-ai.postgresql.superuserSecretName" -}}
+{{- if .Values.cnpg.enabled -}}
+  {{- /* CNPG superuser secret follows convention: {cluster-name}-superuser */ -}}
+  {{- printf "%s-postgresql-cluster-superuser" .Release.Name -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Get PostgreSQL database name.
+CNPG default database is 'app'. External uses configured value.
+
+Usage: {{ include "onyx-ai.postgresql.database" . }}
+*/}}
+{{- define "onyx-ai.postgresql.database" -}}
+{{- if not .Values.cnpg.enabled -}}
+  {{- .Values.externalPostgresql.database | default "postgres" -}}
+{{- else -}}
+  {{- /* CNPG default database is 'app' */ -}}
+  {{- "app" -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Validate PostgreSQL configuration.
+Fails if cnpg is disabled but external PostgreSQL is not properly configured.
+
+Usage: {{ include "onyx-ai.postgresql.validate" . }}
+*/}}
+{{- define "onyx-ai.postgresql.validate" -}}
+{{- if not .Values.cnpg.enabled -}}
+  {{- if not .Values.externalPostgresql.host -}}
+    {{- fail "externalPostgresql.host is required when cnpg.enabled is false" -}}
+  {{- end -}}
+  {{- if and (not .Values.externalPostgresql.existingSecret) (not .Values.externalPostgresql.username) -}}
+    {{- fail "externalPostgresql.existingSecret or externalPostgresql.username is required when cnpg.enabled is false" -}}
+  {{- end -}}
+{{- end -}}
+{{- end -}}

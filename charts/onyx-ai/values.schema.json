@@ -40,10 +40,254 @@
         }
       }
     },
+    "cnpg": {
+      "type": "object",
+      "description": "CloudNative-PG PostgreSQL cluster configuration",
+      "additionalProperties": true,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable CNPG-managed PostgreSQL. Set false to use externalPostgresql."
+        },
+        "instances": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 3,
+          "description": "Number of PostgreSQL instances (1 primary + N-1 replicas)"
+        },
+        "storage": {
+          "type": "object",
+          "properties": {
+            "size": {
+              "type": "string",
+              "pattern": "^[0-9]+[KMGT]i$",
+              "default": "20Gi",
+              "description": "Storage size for each PostgreSQL instance"
+            },
+            "storageClass": {
+              "type": "string",
+              "default": "",
+              "description": "Storage class (empty = use global.storageClass or cluster default)"
+            }
+          }
+        },
+        "resources": {
+          "type": "object",
+          "description": "Resource requests and limits for PostgreSQL pods"
+        },
+        "pooler": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true,
+              "description": "Enable PgBouncer connection pooler"
+            },
+            "instances": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 2,
+              "description": "Number of PgBouncer pooler instances"
+            },
+            "poolMode": {
+              "type": "string",
+              "enum": ["transaction", "session", "statement"],
+              "default": "transaction",
+              "description": "PgBouncer pool mode (transaction recommended for web apps)"
+            },
+            "parameters": {
+              "type": "object",
+              "description": "PgBouncer parameters (default_pool_size, max_client_conn)"
+            }
+          }
+        },
+        "backup": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false,
+              "description": "Enable scheduled backups to S3"
+            },
+            "schedule": {
+              "type": "string",
+              "default": "0 0 * * *",
+              "description": "Cron schedule for backups"
+            },
+            "retentionPolicy": {
+              "type": "string",
+              "default": "7d",
+              "description": "Backup retention policy"
+            },
+            "s3": {
+              "type": "object",
+              "description": "S3 configuration for backup storage"
+            }
+          }
+        }
+      }
+    },
+    "externalPostgresql": {
+      "type": "object",
+      "description": "External PostgreSQL configuration (used when cnpg.enabled: false)",
+      "additionalProperties": true,
+      "properties": {
+        "host": {
+          "type": "string",
+          "default": "",
+          "description": "PostgreSQL host"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535,
+          "default": 5432,
+          "description": "PostgreSQL port"
+        },
+        "database": {
+          "type": "string",
+          "default": "postgres",
+          "description": "Database name"
+        },
+        "existingSecret": {
+          "type": "string",
+          "default": "",
+          "description": "Secret containing 'username' and 'password' keys"
+        },
+        "username": {
+          "type": "string",
+          "default": "",
+          "description": "PostgreSQL username (only if existingSecret is empty)"
+        },
+        "password": {
+          "type": "string",
+          "default": "",
+          "description": "PostgreSQL password (only if existingSecret is empty)"
+        }
+      }
+    },
     "onyx": {
       "type": "object",
       "description": "Upstream Onyx chart configuration (passthrough). See https://github.com/onyx-dot-app/onyx for options.",
       "additionalProperties": true
+    },
+    "postgresql-cluster": {
+      "type": "object",
+      "description": "Values passed to cnpg/cluster subchart (active when cnpg.enabled: true)",
+      "properties": {
+        "type": {
+          "type": "string",
+          "default": "postgresql",
+          "description": "Database type"
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["standalone", "replica", "recovery"],
+          "default": "standalone",
+          "description": "Cluster mode"
+        },
+        "version": {
+          "type": "object",
+          "properties": {
+            "postgresql": {
+              "type": "string",
+              "default": "16",
+              "description": "PostgreSQL major version"
+            }
+          }
+        },
+        "cluster": {
+          "type": "object",
+          "properties": {
+            "instances": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 3,
+              "description": "Number of PostgreSQL instances (1 primary + N-1 replicas)"
+            },
+            "storage": {
+              "type": "object",
+              "properties": {
+                "size": {
+                  "type": "string",
+                  "default": "20Gi",
+                  "description": "Storage size per instance"
+                },
+                "storageClass": {
+                  "type": "string",
+                  "default": "",
+                  "description": "Storage class (empty = cluster default)"
+                }
+              }
+            },
+            "resources": {
+              "type": "object",
+              "description": "Kubernetes resource requests/limits"
+            },
+            "enableSuperuserAccess": {
+              "type": "boolean",
+              "default": true,
+              "description": "Enable superuser access (required for migrations)"
+            },
+            "postgresql": {
+              "type": "object",
+              "properties": {
+                "parameters": {
+                  "type": "object",
+                  "description": "PostgreSQL configuration parameters"
+                },
+                "pg_hba": {
+                  "type": "array",
+                  "description": "pg_hba.conf rules"
+                }
+              }
+            }
+          }
+        },
+        "poolers": {
+          "type": "array",
+          "description": "PgBouncer pooler configurations",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Pooler name (e.g., rw, ro)"
+              },
+              "type": {
+                "type": "string",
+                "enum": ["rw", "ro"],
+                "description": "Pooler type (read-write or read-only)"
+              },
+              "poolMode": {
+                "type": "string",
+                "enum": ["transaction", "session", "statement"],
+                "description": "PgBouncer pool mode"
+              },
+              "instances": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Number of pooler instances"
+              },
+              "parameters": {
+                "type": "object",
+                "description": "PgBouncer parameters"
+              }
+            }
+          }
+        },
+        "backups": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false,
+              "description": "Enable automated backups"
+            }
+          }
+        }
+      }
     }
   }
 }

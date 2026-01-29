@@ -26,6 +26,74 @@ global:
   storageClass: ""
 
 # ------------------------------------------------------------------------------
+# CNPG PostgreSQL Configuration (Phase 3)
+# ------------------------------------------------------------------------------
+# CloudNative-PG cluster for HA PostgreSQL. Requires CNPG operator pre-installed.
+# Set cnpg.enabled: false to use external PostgreSQL instead.
+
+cnpg:
+  # Enable CNPG-managed PostgreSQL (set false to use externalPostgresql)
+  enabled: true
+
+  # Cluster sizing
+  instances: 3  # 1 primary + 2 replicas (minimum 2 for HA)
+
+  # Storage configuration
+  storage:
+    size: 20Gi
+    storageClass: ""  # Empty = use global.storageClass or cluster default
+
+  # PostgreSQL resource limits
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+
+  # PgBouncer connection pooler
+  pooler:
+    enabled: true
+    instances: 2
+    # Pool mode: transaction (recommended for web apps) or session
+    poolMode: transaction
+    parameters:
+      default_pool_size: "25"
+      max_client_conn: "1000"
+
+  # Backup configuration (optional)
+  backup:
+    enabled: false
+    # Cron schedule for scheduled backups
+    schedule: "0 0 * * *"  # Daily at midnight UTC
+    # Retention policy (e.g., "7d", "30d")
+    retentionPolicy: "7d"
+    # S3 configuration for backup storage (separate from Onyx object storage)
+    s3:
+      bucket: ""
+      region: ""
+      endpoint: ""
+      # Use existingSecret for credentials (recommended)
+      # Secret must contain AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
+      existingSecret: ""
+
+# ------------------------------------------------------------------------------
+# External PostgreSQL Configuration
+# ------------------------------------------------------------------------------
+# Use when cnpg.enabled: false. Connect to existing PostgreSQL instance.
+
+externalPostgresql:
+  host: ""
+  port: 5432
+  database: "postgres"
+  # Credentials - use existingSecret (recommended) or inline values
+  existingSecret: ""  # Secret with 'username' and 'password' keys
+  # Inline credentials (only if existingSecret is empty)
+  username: ""
+  password: ""
+
+# ------------------------------------------------------------------------------
 # Onyx Subchart Values (passthrough to upstream)
 # ------------------------------------------------------------------------------
 # All values under `onyx:` are passed directly to the upstream Onyx chart.
@@ -54,10 +122,14 @@ onyx:
   # Components to RETAIN with defaults
   # ---------------------------------------------------------------------------
 
-  # Phase 3: Will be configured for HA via CNPG
-  # Note: `postgresql:` is an alias for cloudnative-pg in upstream Chart.yaml
+  # ---------------------------------------------------------------------------
+  # Phase 3: Disable upstream CNPG operator reliance
+  # ---------------------------------------------------------------------------
+  # We use our own cnpg/cluster subchart (alias: postgresql-cluster) instead.
+  # The upstream postgresql: alias controls the CNPG operator chart, which we
+  # don't need since the operator is already installed cluster-wide.
   postgresql:
-    enabled: true
+    enabled: false  # Disabled - using postgresql-cluster subchart instead
 
   # Vespa search engine - required for Onyx
   vespa:
@@ -97,4 +169,57 @@ onyx:
 
   # We manage ingress via Traefik IngressRoute in the wrapper chart
   ingress:
+    enabled: false
+
+# ------------------------------------------------------------------------------
+# CNPG Cluster Chart Values (alias: postgresql-cluster)
+# ------------------------------------------------------------------------------
+# Passthrough to cnpg/cluster subchart. Structure matches chart expectations.
+# Only active when cnpg.enabled: true (via dependency condition).
+#
+# Key mappings from cnpg.* (our interface) to postgresql-cluster.* (chart interface):
+#   cnpg.instances             -> postgresql-cluster.cluster.instances
+#   cnpg.storage.size          -> postgresql-cluster.cluster.storage.size
+#   cnpg.storage.storageClass  -> postgresql-cluster.cluster.storage.storageClass
+#   cnpg.resources             -> postgresql-cluster.cluster.resources
+#   cnpg.pooler.enabled        -> controls whether poolers[] is populated
+#   cnpg.pooler.instances      -> postgresql-cluster.poolers[0].instances
+#   cnpg.pooler.poolMode       -> postgresql-cluster.poolers[0].poolMode
+#   cnpg.pooler.parameters     -> postgresql-cluster.poolers[0].parameters
+#   cnpg.backup.enabled        -> postgresql-cluster.backups.enabled
+
+postgresql-cluster:
+  # Cluster type and mode
+  type: postgresql
+  mode: standalone
+
+  # PostgreSQL version
+  version:
+    postgresql: "16"
+
+  # Cluster configuration
+  cluster:
+    instances: 3  # Matches cnpg.instances default
+    storage:
+      size: 20Gi  # Matches cnpg.storage.size default
+      storageClass: ""  # Matches cnpg.storage.storageClass default
+    resources: {}  # Override via cnpg.resources or directly
+    enableSuperuserAccess: true  # Required for Alembic migrations
+    postgresql:
+      parameters: {}
+      pg_hba: []
+
+  # PgBouncer poolers - created when cnpg.pooler.enabled: true
+  # The cnpg/cluster chart creates Pooler CRs from this list
+  poolers:
+    - name: rw
+      type: rw
+      poolMode: transaction  # Matches cnpg.pooler.poolMode default
+      instances: 2  # Matches cnpg.pooler.instances default
+      parameters:
+        default_pool_size: "25"  # Matches cnpg.pooler.parameters defaults
+        max_client_conn: "1000"
+
+  # Backups (disabled by default, configured via cnpg.backup.*)
+  backups:
     enabled: false

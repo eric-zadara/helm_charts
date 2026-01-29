@@ -22,3 +22,8 @@ dependencies:
   - name: onyx
     version: "0.4.21"
     repository: "https://onyx-dot-app.github.io/onyx/"
+  - name: cluster
+    version: "0.5.0"
+    repository: "https://cloudnative-pg.github.io/charts"
+    condition: cnpg.enabled
+    alias: postgresql-cluster
