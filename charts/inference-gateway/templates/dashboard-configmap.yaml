@@ -1,0 +1,19 @@
+{{- if .Values.dashboards.enabled }}
+{{- range $path, $_ := .Files.Glob "dashboards/*.json" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "inference-gateway.fullname" $ }}-dashboard-{{ $path | base | trimSuffix ".json" }}
+  labels:
+    {{- include "inference-gateway.labels" $ | nindent 4 }}
+    grafana_dashboard: "1"
+  {{- with $.Values.dashboards.folderAnnotation }}
+  annotations:
+    grafana_folder: {{ . | quote }}
+  {{- end }}
+data:
+  {{ $path | base }}: |-
+{{ $.Files.Get $path | indent 4 }}
+---
+{{- end }}
+{{- end }}

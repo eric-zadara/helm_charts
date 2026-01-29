@@ -1,0 +1,28 @@
+# CI test values for inference-gateway chart
+# Enable minimal deployment without external dependencies
+
+# EPP configuration
+epp:
+  replicas: 1
+  poolName: "test-pool"
+  poolNamespace: "default"
+
+# Disable internal Gateway (requires Gateway API CRDs)
+gateway:
+  enabled: false
+
+# Disable EnvoyExtensionPolicy (requires Envoy Gateway CRDs)
+extensionPolicy:
+  enabled: false
+
+# RBAC is standard K8s - safe to enable
+rbac:
+  create: true
+
+# Disable ServiceMonitor (requires Prometheus Operator CRDs)
+serviceMonitor:
+  enabled: false
+
+# Disable Grafana dashboards (requires Grafana)
+dashboards:
+  enabled: false

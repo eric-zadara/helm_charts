@@ -1,0 +1,48 @@
+# ArgoCD Application for Inference Gateway (EPP)
+# Sync-wave 55: After LiteLLM, enables KV-cache aware routing
+#
+# Prerequisites:
+#   - Networking layer deployed (wave 30) - provides GatewayClass
+#   - Model serving deployed (wave 40) - provides InferencePool targets
+#   - At least one InferenceService deployed
+#
+# Configuration:
+#   - epp.poolName: Name of the InferencePool (from model-serving chart)
+#   - Must match the InferenceService you want to route to
+#
+# Usage:
+#   1. Update repoURL to your Git repository
+#   2. Update targetRevision to your branch/tag
+#   3. Apply: kubectl apply -f argocd-application.yaml
+#
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: inference-gateway
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "55"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/your-org/llm-platform.git
+    targetRevision: main
+    path: charts/inference-gateway
+    helm:
+      valueFiles:
+        - values.yaml
+      # Required: Specify the InferencePool name
+      parameters:
+        - name: epp.poolName
+          value: qwen25-7b-pool
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: llm-platform
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

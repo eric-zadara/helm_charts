@@ -1,0 +1,130 @@
+# inference-gateway values
+# Configures internal Gateway, EPP (Endpoint Picker), and EnvoyExtensionPolicy
+# for KV-cache aware routing via Gateway API Inference Extension.
+
+# -- Override chart name
+nameOverride: ""
+# -- Override full release name
+fullnameOverride: ""
+
+# -- GatewayClass name (must match Phase 4 networking-layer gatewayClass.name)
+# The same GatewayClass is shared between the external Gateway (Phase 4) and this
+# internal Gateway. Envoy Gateway creates a separate Envoy proxy Deployment for
+# each Gateway resource, providing independent failure domains.
+gatewayClassName: "llm-gateway"
+
+# -- Internal Gateway configuration
+# Creates a Gateway resource that triggers Envoy Gateway to provision a separate
+# Envoy proxy instance dedicated to model inference traffic.
+gateway:
+  # -- Enable internal Gateway creation
+  enabled: true
+  # -- Gateway name override (defaults to chart fullname)
+  name: ""
+  # -- HTTP listener port
+  port: 80
+  # -- Additional Gateway annotations
+  annotations: {}
+
+# -- EPP (Endpoint Picker) configuration
+# EPP is the ext-proc server that makes KV-cache aware routing decisions.
+# It watches an InferencePool and routes requests to the optimal backend
+# based on prefix cache hits, KV-cache utilization, and queue depth.
+epp:
+  # -- EPP container image
+  image:
+    repository: "registry.k8s.io/gateway-api-inference-extension/epp"
+    tag: "v1.3.0"
+    pullPolicy: IfNotPresent
+  # -- Number of EPP replicas (2 for basic HA, EPP is stateless)
+  replicas: 2
+  # -- InferencePool name this EPP instance manages
+  # IMPORTANT: EPP is one-pool-per-instance. Each InferencePool needs its own EPP.
+  # For multiple pools, deploy separate Helm releases with different poolName values.
+  poolName: ""
+  # -- Namespace of the InferencePool (defaults to release namespace)
+  poolNamespace: ""
+  # -- Log level (debug, info, warn, error)
+  logLevel: "info"
+  # -- Log encoder (json, console)
+  logEncoder: "json"
+  # -- EPP resource requests/limits
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+  # -- Node selector for EPP pods
+  nodeSelector: {}
+  # -- Tolerations for EPP pods
+  tolerations: []
+  # -- Affinity rules for EPP pods
+  affinity: {}
+  # -- Additional pod annotations for EPP
+  podAnnotations: {}
+  # -- Additional pod labels for EPP
+  podLabels: {}
+  # -- Scheduling profile configuration
+  # Configures the scoring, picking, and saturation detection plugins used by EPP.
+  schedulingConfig:
+    # -- Enable custom scheduling config (creates a ConfigMap mounted into EPP)
+    enabled: false
+    # -- Scorer plugin weights (must sum to 100)
+    scorers:
+      # -- Weight for prefix cache hit scoring (higher = prefer cache reuse)
+      prefixCacheScorer: 60
+      # -- Weight for KV-cache utilization scoring (higher = prefer less loaded)
+      kvCacheUtilizationScorer: 30
+      # -- Weight for queue depth scoring (higher = prefer shorter queues)
+      queueScorer: 10
+    # -- Picker plugin for final endpoint selection
+    picker: "max-score-picker"
+    # -- Saturation detector thresholds
+    saturationDetector:
+      # -- Queue depth threshold (requests waiting)
+      queueDepthThreshold: 5
+      # -- KV-cache utilization threshold (0.0 - 1.0)
+      kvCacheUtilThreshold: 0.8
+      # -- Metrics staleness threshold (how old metrics can be before considered stale)
+      metricsStalenessThreshold: "200ms"
+
+# -- EnvoyExtensionPolicy configuration
+# Wires EPP as an ext-proc (external processor) into the Envoy proxy's request
+# path. This enables EPP to inspect requests and select the optimal backend.
+extensionPolicy:
+  # -- Enable EnvoyExtensionPolicy creation
+  enabled: true
+  # -- Target the internal Gateway (default) or a specific HTTPRoute
+  targetKind: "Gateway"
+  # -- Response body processing mode for streaming (Streamed for SSE support)
+  # Streamed mode is required for Server-Sent Events (chat/completions streaming).
+  # Use "Buffered" only if streaming is not needed.
+  responseBodyMode: "Streamed"
+  # -- Request timeout for inference requests (5 minutes for long-form generation)
+  requestTimeout: "300s"
+
+# -- RBAC configuration
+# EPP requires permissions to watch InferencePool and EndpointSlice resources.
+rbac:
+  # -- Create RBAC resources (ServiceAccount, ClusterRole, ClusterRoleBinding)
+  create: true
+
+# -- Service monitor for Prometheus scraping of EPP metrics
+serviceMonitor:
+  # -- Enable ServiceMonitor creation
+  enabled: false
+  # -- Scrape interval
+  interval: "30s"
+  # -- Scrape timeout
+  scrapeTimeout: "10s"
+  # -- Additional relabelings for metric processing
+  relabelings: []
+
+# -- Grafana dashboard configuration
+dashboards:
+  # -- Enable dashboard ConfigMap creation (requires Grafana sidecar)
+  enabled: false
+  # -- Grafana folder annotation for dashboard organization
+  folderAnnotation: "LLM Platform"

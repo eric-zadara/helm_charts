@@ -1,0 +1,56 @@
+{{- if .Values.rbac.create }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "inference-gateway.serviceAccountName" . }}
+  labels:
+    {{- include "inference-gateway.labels" . | nindent 4 }}
+    app.kubernetes.io/component: epp
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "inference-gateway.fullname" . }}-epp
+  labels:
+    {{- include "inference-gateway.labels" . | nindent 4 }}
+rules:
+  # Pod listing for InferencePool member discovery and metrics scraping
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  # InferencePool read access (GA API group)
+  - apiGroups: ["inference.networking.k8s.io"]
+    resources: ["inferencepools"]
+    verbs: ["get", "list", "watch"]
+  # InferenceObjective read access (experimental API group)
+  - apiGroups: ["inference.networking.x-k8s.io"]
+    resources: ["inferenceobjectives"]
+    verbs: ["get", "list", "watch"]
+  # EndpointSlice discovery
+  - apiGroups: ["discovery.k8s.io"]
+    resources: ["endpointslices"]
+    verbs: ["get", "list", "watch"]
+  # Leader election (leases)
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["create", "get", "update"]
+  # Events for leader election
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "inference-gateway.fullname" . }}-epp
+  labels:
+    {{- include "inference-gateway.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "inference-gateway.fullname" . }}-epp
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "inference-gateway.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}

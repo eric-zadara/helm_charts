@@ -1,0 +1,21 @@
+{{- if .Values.extensionPolicy.enabled }}
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyExtensionPolicy
+metadata:
+  name: {{ include "inference-gateway.fullname" . }}-ext-proc
+  labels:
+    {{- include "inference-gateway.labels" . | nindent 4 }}
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: {{ .Values.extensionPolicy.targetKind | default "Gateway" }}
+      name: {{ include "inference-gateway.fullname" . }}
+  extProc:
+    - backendRefs:
+        - name: {{ include "inference-gateway.eppName" . }}
+          port: 9002
+      processingMode:
+        request: {}
+        response:
+          body: {{ .Values.extensionPolicy.responseBodyMode | default "Streamed" }}
+{{- end }}

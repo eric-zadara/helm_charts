@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "inference-gateway.eppName" . }}
+  labels:
+    {{- include "inference-gateway.labels" . | nindent 4 }}
+    app.kubernetes.io/component: epp
+spec:
+  replicas: {{ .Values.epp.replicas }}
+  selector:
+    matchLabels:
+      {{- include "inference-gateway.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: epp
+  template:
+    metadata:
+      labels:
+        {{- include "inference-gateway.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: epp
+        {{- with .Values.epp.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.epp.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "inference-gateway.serviceAccountName" . }}
+      containers:
+        - name: epp
+          image: "{{ .Values.epp.image.repository }}:{{ .Values.epp.image.tag }}"
+          imagePullPolicy: {{ .Values.epp.image.pullPolicy }}
+          args:
+            - --pool-name={{ .Values.epp.poolName | required "epp.poolName is required" }}
+            - --pool-namespace=$(POD_NAMESPACE)
+            - --zap-log-level={{ .Values.epp.logLevel }}
+            - --zap-encoder={{ .Values.epp.logEncoder }}
+            - --grpc-port=9002
+            - --grpc-health-port=9003
+            - --metrics-port=9090
+            {{- if gt (int .Values.epp.replicas) 1 }}
+            - --leader-election
+            {{- end }}
+            {{- if .Values.epp.schedulingConfig.enabled }}
+            - --config-file=/config/epp-config.yaml
+            {{- end }}
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          ports:
+            - name: grpc-ext-proc
+              containerPort: 9002
+              protocol: TCP
+            - name: grpc-health
+              containerPort: 9003
+              protocol: TCP
+            - name: http-metrics
+              containerPort: 9090
+              protocol: TCP
+          livenessProbe:
+            grpc:
+              port: 9003
+            periodSeconds: 15
+            failureThreshold: 3
+          readinessProbe:
+            grpc:
+              port: 9003
+            periodSeconds: 2
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.epp.resources | nindent 12 }}
+          {{- if .Values.epp.schedulingConfig.enabled }}
+          volumeMounts:
+            - name: epp-config
+              mountPath: /config
+              readOnly: true
+          {{- end }}
+      {{- if .Values.epp.schedulingConfig.enabled }}
+      volumes:
+        - name: epp-config
+          configMap:
+            name: {{ include "inference-gateway.eppName" . }}-config
+      {{- end }}
+      {{- with .Values.epp.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.epp.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.epp.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

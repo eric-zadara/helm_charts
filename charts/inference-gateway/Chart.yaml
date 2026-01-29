@@ -1,0 +1,15 @@
+apiVersion: v2
+name: inference-gateway
+description: Inference Gateway - KV-cache aware routing via Gateway API Inference Extension (EPP)
+type: application
+version: 0.1.0
+appVersion: "1.3.0"
+
+# Prerequisites:
+# - Phase 1: Inference Extension CRDs (InferencePool, InferenceModel) must be installed
+# - Phase 4: Envoy Gateway with GatewayClass 'llm-gateway' must be deployed
+# - Phase 5: Model serving with InferencePool targets must be configured
+#
+# This chart does NOT include subchart dependencies. It reuses the Envoy Gateway
+# controller deployed in Phase 4 by referencing the same GatewayClass. The internal
+# Gateway resource triggers the controller to create a separate Envoy proxy instance.

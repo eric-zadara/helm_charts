@@ -1,0 +1,18 @@
+{{- if .Values.gateway.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ include "inference-gateway.fullname" . }}
+  labels:
+    {{- include "inference-gateway.labels" . | nindent 4 }}
+  {{- with .Values.gateway.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  gatewayClassName: {{ .Values.gatewayClassName | default "llm-gateway" }}
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: {{ .Values.gateway.port | default 80 }}
+{{- end }}

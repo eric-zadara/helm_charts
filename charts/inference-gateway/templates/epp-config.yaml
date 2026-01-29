@@ -1,0 +1,29 @@
+{{- if .Values.epp.schedulingConfig.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "inference-gateway.eppName" . }}-config
+  labels:
+    {{- include "inference-gateway.labels" . | nindent 4 }}
+    app.kubernetes.io/component: epp
+data:
+  epp-config.yaml: |
+    apiVersion: inference.networking.x-k8s.io/v1alpha1
+    kind: EndpointPickerConfig
+    schedulingProfiles:
+      - name: default
+        plugins:
+          scorers:
+            - name: prefix-cache-scorer
+              weight: {{ .Values.epp.schedulingConfig.scorers.prefixCacheScorer }}
+            - name: kv-cache-utilization-scorer
+              weight: {{ .Values.epp.schedulingConfig.scorers.kvCacheUtilizationScorer }}
+            - name: queue-scorer
+              weight: {{ .Values.epp.schedulingConfig.scorers.queueScorer }}
+          picker:
+            name: {{ .Values.epp.schedulingConfig.picker }}
+    saturationDetector:
+      queueDepthThreshold: {{ .Values.epp.schedulingConfig.saturationDetector.queueDepthThreshold }}
+      kvCacheUtilThreshold: {{ .Values.epp.schedulingConfig.saturationDetector.kvCacheUtilThreshold }}
+      metricsStalenessThreshold: {{ .Values.epp.schedulingConfig.saturationDetector.metricsStalenessThreshold | quote }}
+{{- end }}

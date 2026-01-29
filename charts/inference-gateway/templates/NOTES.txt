@@ -1,0 +1,301 @@
+========================================================================
+  Inference Gateway - {{ include "inference-gateway.fullname" . }}
+========================================================================
+
+DEPLOYMENT SUMMARY
+------------------
+  Release:        {{ .Release.Name }}
+  Namespace:      {{ .Release.Namespace }}
+  Chart:          {{ include "inference-gateway.chart" . }}
+  EPP Name:       {{ include "inference-gateway.eppName" . }}
+  EPP Replicas:   {{ .Values.epp.replicas }}
+  EPP Image:      {{ .Values.epp.image.repository }}:{{ .Values.epp.image.tag }}
+  Pool Name:      {{ .Values.epp.poolName | default "NOT SET - REQUIRED" }}
+{{- if .Values.gateway.enabled }}
+  Gateway:        {{ .Values.gateway.name | default (include "inference-gateway.fullname" .) }}
+  GatewayClass:   {{ .Values.gatewayClassName }}
+  Listener Port:  {{ .Values.gateway.port }}
+{{- end }}
+{{- if .Values.extensionPolicy.enabled }}
+  ExtensionPolicy: enabled ({{ .Values.extensionPolicy.responseBodyMode }} response body)
+{{- end }}
+
+PREREQUISITES
+-------------
+Before this chart functions correctly, ensure:
+
+  1. Phase 1 CRDs installed:
+     - Gateway API CRDs (gateway-api chart)
+     - Inference Extension CRDs (inference-extension-crds chart)
+     Both must be present BEFORE deploying this chart.
+
+  2. Phase 4 Envoy Gateway running:
+     - networking-layer chart deployed with envoyGateway.enabled=true
+     - GatewayClass "{{ .Values.gatewayClassName }}" must exist
+     - Verify: kubectl get gatewayclass {{ .Values.gatewayClassName }}
+
+  3. Phase 5 model-serving deployed:
+     - At least one InferenceService running with KServe
+     - InferencePool enabled in model-serving values
+     - Verify: kubectl get inferenceservice -A
+
+CRITICAL: ENVOY GATEWAY EXTENSION MANAGER CONFIGURATION
+--------------------------------------------------------
+Envoy Gateway must be configured to allow backend resources for
+InferencePool routing. Without this, ext-proc traffic will fail.
+
+The Envoy Gateway ConfigMap needs extensionManager configuration:
+
+  kubectl get configmap -n envoy-gateway-system envoy-gateway-config -o yaml
+
+Ensure it contains:
+
+  extensionManager:
+    backendResources:
+      - group: ""
+        kind: Service
+
+If missing, patch with:
+
+  kubectl patch configmap envoy-gateway-config \
+    -n envoy-gateway-system \
+    --type merge \
+    -p '{"data":{"envoy-gateway.yaml":"apiVersion: gateway.envoyproxy.io/v1alpha1\nkind: EnvoyGateway\nmetadata:\n  name: envoy-gateway\n  namespace: envoy-gateway-system\nprovider:\n  type: Kubernetes\nextensionManager:\n  backendResources:\n  - group: \"\"\n    kind: Service\n"}}'
+
+Then restart the Envoy Gateway controller:
+
+  kubectl rollout restart deployment -n envoy-gateway-system envoy-gateway
+
+TRAFFIC FLOW
+-------------
+Requests flow through the following path:
+
+  External Client
+    -> NLB (AWS Network Load Balancer)
+    -> Envoy Gateway (external, Phase 4)
+    -> LiteLLM Proxy (Phase 6, routing/auth/rate-limiting)
+    -> Envoy Gateway (internal, this chart)
+    -> EPP ext-proc (selects optimal backend via KV-cache metrics)
+    -> InferencePool (Phase 5 model-serving chart)
+    -> KServe InferenceService
+    -> vLLM (GPU inference)
+
+The internal Gateway is a SEPARATE Envoy proxy instance from the
+external Gateway. Both use the same GatewayClass ("{{ .Values.gatewayClassName }}")
+but Envoy Gateway creates independent proxy Deployments per Gateway.
+
+INFERENCEPOOL SETUP
+--------------------
+InferencePool resources live in the model-serving chart (not this chart).
+This avoids the "fan-in anti-pattern" where all models would share one chart.
+
+To enable InferencePool for a model, set in model-serving values:
+
+  inferenceService:
+    enabled: true
+    name: "my-model"
+  inferencePool:
+    enabled: true
+    eppServiceName: "{{ include "inference-gateway.eppName" . }}"
+    eppServicePort: 9002
+  inferencePoolRoute:
+    enabled: true
+    gatewayName: "{{ .Values.gateway.name | default (include "inference-gateway.fullname" .) }}"
+
+Cross-chart naming convention:
+  - EPP service name: {{ include "inference-gateway.eppName" . }}
+  - Gateway name:     {{ .Values.gateway.name | default (include "inference-gateway.fullname" .) }}
+
+IMPORTANT: The eppServiceName in model-serving MUST match the EPP service
+name from this chart. Use the names shown above.
+
+{{- if .Values.epp.poolName }}
+
+LITELLM CONFIGURATION
+----------------------
+When inference-gateway is deployed, LiteLLM should route to the internal
+Gateway instead of directly to KServe.
+
+Update the LiteLLM model configuration to use the internal Gateway URL:
+
+  api_base: "http://{{ .Values.gateway.name | default (include "inference-gateway.fullname" .) }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.gateway.port }}/v1"
+
+This routes requests through EPP for KV-cache aware backend selection.
+{{- end }}
+
+VERIFICATION COMMANDS
+---------------------
+Check Gateway status:
+
+  kubectl get gateway {{ .Values.gateway.name | default (include "inference-gateway.fullname" .) }} -n {{ .Release.Namespace }}
+  kubectl describe gateway {{ .Values.gateway.name | default (include "inference-gateway.fullname" .) }} -n {{ .Release.Namespace }}
+
+Check EPP pods:
+
+  kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/name={{ include "inference-gateway.name" . }}
+  kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/name={{ include "inference-gateway.name" . }} --tail=50
+
+Check EnvoyExtensionPolicy:
+
+  kubectl get envoyextensionpolicy -n {{ .Release.Namespace }}
+
+Check InferencePool (created by model-serving chart):
+
+  kubectl get inferencepool -A
+  kubectl describe inferencepool -A
+
+Check HTTPRoute (created by model-serving chart):
+
+  kubectl get httproute -A
+  kubectl describe httproute -A
+
+Check EPP has discovered pool endpoints:
+
+  kubectl logs -n {{ .Release.Namespace }} deployment/{{ include "inference-gateway.eppName" . }} | grep -i "endpoint"
+
+EPP METRICS AND PREFIX CACHE
+-----------------------------
+EPP exposes Prometheus metrics on port 9090.
+
+Key metrics to monitor:
+  - inference_pool_ready_pods:          Number of healthy pool members
+  - inference_pool_average_kv_cache_utilization: Average KV-cache usage
+  - inference_model_request_total:      Total requests per model
+  - inference_model_request_duration_seconds: Request latency histogram
+  - inference_pool_prefix_cache_hit_ratio: Prefix cache hit rate
+
+Scrape EPP metrics:
+
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "inference-gateway.eppName" . }} 9090:9090
+  curl http://localhost:9090/metrics
+
+Prefix cache affinity testing:
+
+  # Send identical prompts and check cache hit ratio increases
+  for i in $(seq 1 5); do
+    curl -s http://<gateway-url>/v1/chat/completions \
+      -H "Content-Type: application/json" \
+      -d '{"model":"my-model","messages":[{"role":"user","content":"Explain Kubernetes"}]}'
+  done
+
+  # Check prefix cache hit ratio
+  curl -s http://localhost:9090/metrics | grep prefix_cache
+
+{{- if .Values.epp.schedulingConfig.enabled }}
+
+SCHEDULING CONFIGURATION
+--------------------------
+Custom scheduling profile is ENABLED.
+
+Current scorer weights (must sum to 100):
+  - Prefix Cache Scorer:        {{ .Values.epp.schedulingConfig.scorers.prefixCacheScorer }}
+  - KV-Cache Utilization Scorer: {{ .Values.epp.schedulingConfig.scorers.kvCacheUtilizationScorer }}
+  - Queue Scorer:                {{ .Values.epp.schedulingConfig.scorers.queueScorer }}
+
+Picker: {{ .Values.epp.schedulingConfig.picker }}
+
+Saturation thresholds:
+  - Queue depth:       {{ .Values.epp.schedulingConfig.saturationDetector.queueDepthThreshold }}
+  - KV-cache util:     {{ .Values.epp.schedulingConfig.saturationDetector.kvCacheUtilThreshold }}
+  - Metrics staleness: {{ .Values.epp.schedulingConfig.saturationDetector.metricsStalenessThreshold }}
+
+To adjust weights, update epp.schedulingConfig.scorers in values and upgrade.
+NOTE: ConfigMap changes require EPP pod restart to take effect.
+
+  kubectl rollout restart deployment/{{ include "inference-gateway.eppName" . }} -n {{ .Release.Namespace }}
+{{- else }}
+
+SCHEDULING CONFIGURATION
+--------------------------
+Custom scheduling is DISABLED (using EPP built-in defaults).
+
+To enable custom scoring weights:
+
+  epp:
+    schedulingConfig:
+      enabled: true
+      scorers:
+        prefixCacheScorer: 60         # Weight for prefix cache hit scoring
+        kvCacheUtilizationScorer: 30  # Weight for KV-cache utilization
+        queueScorer: 10              # Weight for queue depth
+      picker: "max-score-picker"
+      saturationDetector:
+        queueDepthThreshold: 5
+        kvCacheUtilThreshold: 0.8
+        metricsStalenessThreshold: "200ms"
+
+NOTE: ConfigMap changes require EPP pod restart to take effect.
+{{- end }}
+
+MULTIPLE MODELS
+----------------
+Each InferencePool requires its own EPP instance. To serve multiple models
+with intelligent routing:
+
+  1. Deploy this chart once per model (different release names):
+
+     helm install epp-model-a charts/inference-gateway \
+       --set epp.poolName=model-a
+
+     helm install epp-model-b charts/inference-gateway \
+       --set epp.poolName=model-b
+
+  2. Each release creates:
+     - A separate internal Gateway
+     - A separate EPP Deployment + Service
+     - A separate EnvoyExtensionPolicy
+
+  3. In each model-serving release, point to the correct EPP:
+
+     # model-a values
+     inferencePool:
+       enabled: true
+       eppServiceName: "epp-model-a-inference-gateway-epp"
+     inferencePoolRoute:
+       gatewayName: "epp-model-a-inference-gateway"
+
+     # model-b values
+     inferencePool:
+       enabled: true
+       eppServiceName: "epp-model-b-inference-gateway-epp"
+     inferencePoolRoute:
+       gatewayName: "epp-model-b-inference-gateway"
+
+TROUBLESHOOTING
+----------------
+1. EPP pods not starting:
+   - Check poolName is set: {{ .Values.epp.poolName | default "NOT SET" }}
+   - Verify InferencePool CRD exists: kubectl get crd inferencepools.inference.networking.k8s.io
+   - Check RBAC: kubectl auth can-i watch pods --as=system:serviceaccount:{{ .Release.Namespace }}:{{ include "inference-gateway.serviceAccountName" . }}
+
+2. Gateway not programmed:
+   - Check GatewayClass exists: kubectl get gatewayclass {{ .Values.gatewayClassName }}
+   - Check Envoy Gateway controller: kubectl get pods -n envoy-gateway-system
+   - Verify Gateway status: kubectl get gateway {{ .Values.gateway.name | default (include "inference-gateway.fullname" .) }} -n {{ .Release.Namespace }} -o jsonpath='{.status.conditions}'
+
+3. ext-proc not routing:
+   - Check EnvoyExtensionPolicy accepted: kubectl get envoyextensionpolicy -n {{ .Release.Namespace }} -o jsonpath='{.items[*].status}'
+   - CRITICAL: Verify extensionManager.backendResources in Envoy Gateway ConfigMap (see above)
+   - Check EPP logs for errors: kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/name={{ include "inference-gateway.name" . }}
+
+4. Requests returning 503:
+   - Check InferencePool has endpoints: kubectl get inferencepool -o jsonpath='{.items[*].status}'
+   - Verify KServe pods are running: kubectl get pods -l serving.kserve.io/inferenceservice
+   - Check EPP discovered endpoints: kubectl logs deployment/{{ include "inference-gateway.eppName" . }} -n {{ .Release.Namespace }} | grep -i "ready\|endpoint"
+
+5. Streaming not working:
+   - Verify responseBodyMode is "Streamed": {{ .Values.extensionPolicy.responseBodyMode }}
+   - Check Envoy Gateway version supports streaming ext-proc (v1.6+)
+
+6. High latency:
+   - Check KV-cache utilization: curl metrics endpoint for inference_pool_average_kv_cache_utilization
+   - Review scorer weights: higher prefixCacheScorer improves cache affinity
+   - Consider enabling custom schedulingConfig for workload-specific tuning
+
+7. EPP scheduling config not applied:
+   - ConfigMap changes require pod restart
+   - kubectl rollout restart deployment/{{ include "inference-gateway.eppName" . }} -n {{ .Release.Namespace }}
+
+========================================================================
+  For full documentation, see: https://gateway-api.sigs.k8s.io/geps/gep-3388/
+========================================================================
