@@ -1,0 +1,22 @@
+# Umbrella chart for LLM inference platform CRDs
+# Install once, leave stable
+
+# Gateway API CRDs (HTTPRoute, Gateway, GatewayClass)
+gateway-api:
+  # -- Enable Gateway API CRD installation
+  enabled: true
+
+# Knative Serving CRDs (Service, Configuration, Revision, Route)
+knative-serving-crds:
+  # -- Enable Knative Serving CRD installation
+  enabled: true
+
+# KServe CRDs (InferenceService, ServingRuntime, ClusterServingRuntime)
+kserve-crds:
+  # -- Enable KServe CRD installation
+  enabled: true
+
+# Inference Extension CRDs (InferencePool, InferenceModel)
+inference-extension-crds:
+  # -- Enable Inference Extension CRD installation
+  enabled: true

@@ -1,0 +1,32 @@
+# chart-testing configuration
+# https://github.com/helm/chart-testing
+
+# Git remote origin
+remote: origin
+
+# Target branch for comparison (find changed charts)
+target-branch: master
+
+# Directories containing Helm charts
+chart-dirs:
+  - charts
+
+# External Helm repositories required for chart dependencies
+chart-repos:
+  - bitnami=https://charts.bitnami.com/bitnami
+  - cnpg=https://cloudnative-pg.github.io/charts
+
+# Helm arguments passed to helm install/upgrade
+helm-extra-args: --timeout 600s
+
+# Disable maintainer validation (not required for internal charts)
+validate-maintainers: false
+
+# Disable version increment check (umbrella chart development mode)
+check-version-increment: false
+
+# YAML linting configuration file
+lint-conf: lintconf.yaml
+
+# Chart schema validation (enabled by default)
+validate-chart-schema: true

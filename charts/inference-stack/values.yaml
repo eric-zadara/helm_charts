@@ -1,0 +1,66 @@
+# Umbrella chart for LLM model serving
+# Frequently updated for model deployments
+
+# Cross-chart service discovery
+# Set this to the release name used for inference-infrastructure
+# This enables inference-stack to discover LiteLLM and gateway services
+infrastructureReleaseName: "infra"
+# Namespace where inference-infrastructure is deployed
+# Leave empty to use same namespace as this release
+infrastructureNamespace: ""
+
+# Model serving (vLLM, llama.cpp, Ollama runtimes)
+model-serving:
+  # -- Enable model serving deployment
+  enabled: true
+
+  # ClusterServingRuntimes (installed once per cluster)
+  servingRuntime:
+    enabled: true
+  llamacppRuntime:
+    enabled: true
+  ollamaRuntime:
+    enabled: true
+
+  # InferenceService disabled by default - users define their own models
+  # Enable and configure for specific model deployments
+  inferenceService:
+    enabled: false
+    # name: "my-model"
+    # storageUri: "hf://model/path"
+    # gpu: 1
+
+  # llama.cpp InferenceService disabled by default
+  llamacppInferenceService:
+    enabled: false
+
+  # Ollama InferenceService disabled by default
+  ollamaInferenceService:
+    enabled: false
+
+  # InferencePool for EPP routing - enable when deploying models
+  inferencePool:
+    enabled: false
+    # eppServiceName must reference the EPP from inference-gateway
+    # Convention: <stack-release>-inference-gateway-epp
+    eppServiceName: ""
+
+# Inference Gateway (EPP for KV-cache aware routing)
+inference-gateway:
+  # -- Enable inference gateway deployment
+  enabled: true
+
+  # EPP (Endpoint Picker) configuration
+  epp:
+    replicas: 2
+    # poolName must match the InferencePool name from model-serving
+    # Leave empty if InferencePool is disabled
+    poolName: ""
+
+  # Internal Gateway for model traffic
+  gateway:
+    enabled: true
+
+  # EnvoyExtensionPolicy wires EPP into Envoy
+  extensionPolicy:
+    enabled: true

@@ -1,0 +1,68 @@
+# ArgoCD Application for Inference Stack (Model Serving)
+# Sync-wave 40: After infrastructure, deploys model serving components
+#
+# Bundles:
+#   - model-serving: vLLM, llama.cpp, and Ollama ClusterServingRuntimes
+#   - inference-gateway: EPP (Endpoint Picker) for KV-cache aware routing
+#
+# Prerequisites:
+#   - inference-operators chart installed (CRDs)
+#   - inference-infrastructure chart installed (networking, LiteLLM)
+#   - GPU nodes available (for vLLM/Ollama GPU workloads)
+#
+# Connects to infrastructure via release name convention:
+#   - LiteLLM proxy: <infraRelease>-litellm-proxy
+#   - External gateway: <infraRelease>-networking-layer-gateway
+#
+# Usage:
+#   1. Update repoURL to your Git repository
+#   2. Update targetRevision to your branch/tag
+#   3. Update infrastructureReleaseName if using non-default release name
+#   4. Apply: kubectl apply -f argocd-application.yaml
+#
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: inference-stack
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "40"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/your-org/llm-platform.git
+    targetRevision: main
+    path: charts/inference-stack
+    helm:
+      valueFiles:
+        - values.yaml
+      # Set infrastructureReleaseName to match your inference-infrastructure release
+      # Default assumes release name "infra"
+      parameters:
+        - name: infrastructureReleaseName
+          value: infra
+      # Example: Deploy a model with KV-cache aware routing
+      # parameters:
+      #   - name: model-serving.inferenceService.enabled
+      #     value: "true"
+      #   - name: model-serving.inferenceService.name
+      #     value: llama-70b
+      #   - name: model-serving.inferenceService.storageUri
+      #     value: "hf://meta-llama/Llama-3.3-70B-Instruct"
+      #   - name: model-serving.inferenceService.gpu
+      #     value: "4"
+      #   - name: model-serving.inferencePool.enabled
+      #     value: "true"
+      #   - name: inference-gateway.epp.poolName
+      #     value: llama-70b
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: llm-platform
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

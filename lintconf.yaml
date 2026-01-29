@@ -1,0 +1,30 @@
+# yamllint configuration for Helm charts
+# https://yamllint.readthedocs.io/
+
+extends: default
+
+rules:
+  # Allow longer lines for Helm template expressions and URLs
+  line-length:
+    max: 150
+    level: warning
+
+  # Require space after comment marker
+  comments:
+    min-spaces-from-content: 1
+
+  # Disable document-start rule (Helm templates don't need ---)
+  document-start: disable
+
+  # Allow empty values (common in Helm)
+  empty-values: disable
+
+  # Relax indentation for Helm templates
+  indentation:
+    spaces: 2
+    indent-sequences: whatever
+
+  # Allow truthy values as booleans
+  truthy:
+    allowed-values: ['true', 'false', 'yes', 'no']
+    check-keys: false

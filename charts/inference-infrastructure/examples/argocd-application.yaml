@@ -1,0 +1,80 @@
+# ArgoCD Application for Inference Infrastructure
+# Sync-wave 20: After CRDs, before applications
+#
+# Bundles:
+#   - networking-layer: Envoy Gateway + Kourier for ingress and Knative networking
+#   - litellm-proxy: Multi-tenant LLM API gateway with caching and rate limiting
+#
+# NOTE: PostgreSQL and Valkey are NOT included. Deploy them separately before this chart:
+#   helm install postgresql cnpg/cluster -n llm-platform --set cluster.instances=3 --set pooler.enabled=true
+#   helm install valkey bitnami/valkey -n llm-platform --set sentinel.enabled=true
+#
+# Prerequisites:
+#   - inference-operators chart installed (CRDs)
+#   - CloudNativePG operator installed
+#   - PostgreSQL deployed (cnpg/cluster with release name "postgresql")
+#   - Valkey deployed (bitnami/valkey with release name "valkey")
+#
+# Before deploying, create required secrets:
+#   kubectl create secret generic litellm-master-key \
+#     --from-literal=master-key='sk-your-master-key-here' \
+#     -n llm-platform
+#
+#   kubectl create secret generic litellm-salt-key \
+#     --from-literal=salt-key='your-random-salt-key' \
+#     -n llm-platform
+#
+# Usage:
+#   1. Update repoURL to your Git repository
+#   2. Update targetRevision to your branch/tag
+#   3. Deploy PostgreSQL and Valkey (see NOTE above)
+#   4. Create LiteLLM secrets (above)
+#   5. Apply: kubectl apply -f argocd-application.yaml
+#
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: inference-infrastructure
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "20"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/your-org/llm-platform.git
+    targetRevision: main
+    path: charts/inference-infrastructure
+    helm:
+      valueFiles:
+        - values.yaml
+      # Configure LiteLLM secrets (required)
+      parameters:
+        - name: litellm-proxy.masterKey.existingSecret
+          value: litellm-master-key
+        - name: litellm-proxy.masterKey.existingSecretKey
+          value: master-key
+        - name: litellm-proxy.saltKey.existingSecret
+          value: litellm-salt-key
+        - name: litellm-proxy.saltKey.existingSecretKey
+          value: salt-key
+      # If using different PostgreSQL/Valkey release names, override:
+      # parameters:
+      #   - name: litellm-proxy.database.host
+      #     value: mydb-pooler-rw
+      #   - name: litellm-proxy.database.passwordSecretName
+      #     value: mydb-app
+      #   - name: litellm-proxy.cache.sentinel.host
+      #     value: mycache
+      #   - name: litellm-proxy.cache.passwordSecretName
+      #     value: mycache
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: llm-platform
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

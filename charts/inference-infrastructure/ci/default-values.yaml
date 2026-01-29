@@ -1,0 +1,36 @@
+# CI test values for inference-infrastructure
+# Minimal configuration for chart-testing (ct lint)
+# Disables features requiring operators/external dependencies
+
+networking-layer:
+  enabled: true
+  envoyGateway:
+    enabled: true
+  kourier:
+    enabled: true
+
+litellm-proxy:
+  enabled: true
+  replicaCount: 1
+  # CI test values - mock database connections
+  database:
+    host: "postgresql-pooler-rw"
+    passwordSecretName: "postgresql-app"
+  cache:
+    enabled: true
+    sentinel:
+      enabled: true
+      host: "valkey"
+    passwordSecretName: "valkey"
+  masterKey:
+    create: true
+    value: "sk-test-master-key-for-ci"
+  saltKey:
+    create: true
+    value: "test-salt-key-for-ci"
+  httpRoute:
+    enabled: false
+  migrationJob:
+    enabled: false  # Skip migration in lint
+  serviceMonitor:
+    enabled: false

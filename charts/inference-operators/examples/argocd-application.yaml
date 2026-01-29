@@ -1,0 +1,58 @@
+# ArgoCD Application for Inference Operators (CRD Bundle)
+# Sync-wave 0: First to deploy - provides CRDs for all other charts
+#
+# Bundles:
+#   - gateway-api: Gateway API CRDs (HTTPRoute, Gateway, GatewayClass, ReferenceGrant)
+#   - knative-serving-crds: Knative Serving CRDs (Service, Configuration, Revision, Route)
+#   - kserve-crds: KServe CRDs (InferenceService, ServingRuntime, ClusterServingRuntime)
+#   - inference-extension-crds: Inference Extension CRDs (InferencePool, InferenceModel)
+#
+# Prerequisites:
+#   - Kubernetes 1.25+
+#   - No other prerequisites (this chart provides the foundation)
+#
+# Usage:
+#   1. Update repoURL to your Git repository
+#   2. Update targetRevision to your branch/tag
+#   3. Apply: kubectl apply -f argocd-application.yaml
+#
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: inference-operators
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/your-org/llm-platform.git
+    targetRevision: main
+    path: charts/inference-operators
+    helm:
+      valueFiles:
+        - values.yaml
+      # To disable specific CRD subcharts (if already installed):
+      # parameters:
+      #   - name: gateway-api.enabled
+      #     value: "false"
+      #   - name: knative-serving-crds.enabled
+      #     value: "false"
+      #   - name: kserve-crds.enabled
+      #     value: "false"
+      #   - name: inference-extension-crds.enabled
+      #     value: "false"
+  destination:
+    server: https://kubernetes.default.svc
+    # CRDs are cluster-scoped, namespace is for tracking only
+    namespace: default
+  syncPolicy:
+    automated:
+      # CRITICAL: Never auto-prune CRDs - prevents accidental deletion of all custom resources
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+      - CreateNamespace=false

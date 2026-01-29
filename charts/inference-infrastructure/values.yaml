@@ -1,0 +1,78 @@
+# Umbrella chart for LLM inference infrastructure
+#
+# This chart bundles:
+# - Networking layer (Envoy Gateway + Kourier)
+# - LiteLLM API proxy
+#
+# PREREQUISITES:
+# Deploy PostgreSQL and Valkey separately before installing this chart.
+# See README.md for deployment instructions.
+
+# Global values for cross-chart service discovery
+global:
+  # All services use FQDNs for cross-namespace compatibility
+  # Format: <release>-<chart>-<component>.<namespace>.svc.cluster.local
+  namespace: ""  # Defaults to release namespace
+
+# =============================================================================
+# COMPONENTS
+# =============================================================================
+
+# Networking layer (Envoy Gateway + Kourier)
+networking-layer:
+  # -- Enable networking layer deployment
+  enabled: true
+  envoyGateway:
+    enabled: true
+  kourier:
+    enabled: true
+
+# LiteLLM API proxy
+#
+# SERVICE DISCOVERY:
+# The default values work with standard release names for PostgreSQL and Valkey:
+#   - PostgreSQL: helm install postgresql cnpg/cluster ...
+#   - Valkey: helm install valkey bitnami/valkey ...
+#
+# Assumes:
+#   - PostgreSQL release name: "postgresql" -> pooler service: "postgresql-pooler-rw"
+#   - Valkey release name: "valkey" -> sentinel service: "valkey"
+#
+litellm-proxy:
+  # -- Enable LiteLLM proxy deployment
+  enabled: true
+
+  # Database connection - defaults for standalone CNPG deployment
+  # Assumes: helm install postgresql cnpg/cluster ...
+  database:
+    # CNPG pooler service: <release>-pooler-rw
+    host: "postgresql-pooler-rw"
+    port: 5432
+    name: "app"
+    user: "app"
+    # CNPG app secret: <release>-app
+    passwordSecretName: "postgresql-app"
+    passwordSecretKey: "password"
+
+  # Cache connection - defaults for standalone Valkey deployment
+  # Assumes: helm install valkey bitnami/valkey ...
+  cache:
+    enabled: true
+    sentinel:
+      enabled: true
+      # Valkey sentinel service: <release>
+      host: "valkey"
+      port: 26379
+      serviceName: "mymaster"
+    # Valkey secret: <release>
+    passwordSecretName: "valkey"
+    passwordSecretKey: "valkey-password"
+
+  # Disable HTTPRoute by default - networking-layer provides the gateway
+  # Users can enable and configure routing separately
+  httpRoute:
+    enabled: false
+
+  # Migration job enabled - runs Prisma migration on install/upgrade
+  migrationJob:
+    enabled: true

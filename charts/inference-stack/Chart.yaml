@@ -1,0 +1,23 @@
+apiVersion: v2
+name: inference-stack
+description: Model serving and routing layer for LLM inference platform
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+
+# Umbrella chart that bundles model serving components:
+# - model-serving: vLLM, llama.cpp, and Ollama ServingRuntimes
+# - inference-gateway: EPP for KV-cache aware routing
+#
+# This chart is frequently updated for model deployments while
+# infrastructure remains stable.
+
+dependencies:
+  - name: model-serving
+    version: "0.1.0"
+    repository: "https://eric-zadara.github.io/helm_charts/"
+    condition: model-serving.enabled
+  - name: inference-gateway
+    version: "0.1.0"
+    repository: "https://eric-zadara.github.io/helm_charts/"
+    condition: inference-gateway.enabled

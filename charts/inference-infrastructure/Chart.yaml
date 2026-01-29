@@ -1,0 +1,26 @@
+apiVersion: v2
+name: inference-infrastructure
+description: Infrastructure layer for LLM inference platform - networking and API proxy
+type: application
+version: 0.3.0
+appVersion: "1.0.0"
+
+# Umbrella chart that bundles infrastructure components:
+# - Networking layer (Envoy Gateway + Kourier)
+# - LiteLLM API proxy
+#
+# NOTE: PostgreSQL (CNPG) and Valkey must be deployed separately.
+# See README.md for standalone deployment instructions.
+
+dependencies:
+  # Envoy Gateway + Kourier networking
+  - name: networking-layer
+    version: "0.1.1"
+    repository: "https://eric-zadara.github.io/helm_charts/"
+    condition: networking-layer.enabled
+
+  # LiteLLM multi-tenant API proxy
+  - name: litellm-proxy
+    version: "0.1.0"
+    repository: "https://eric-zadara.github.io/helm_charts/"
+    condition: litellm-proxy.enabled

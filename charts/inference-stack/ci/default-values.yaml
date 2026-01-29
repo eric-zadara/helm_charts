@@ -1,0 +1,62 @@
+# CI test values for inference-stack
+# Minimal configuration for chart-testing (ct lint)
+# Disables features requiring CRDs/operators
+
+infrastructureReleaseName: "infra"
+infrastructureNamespace: ""
+
+model-serving:
+  enabled: true
+
+  # ClusterServingRuntimes require KServe CRDs - disable for lint
+  servingRuntime:
+    enabled: false
+  llamacppRuntime:
+    enabled: false
+  ollamaRuntime:
+    enabled: false
+
+  # InferenceService requires CRDs - disable for lint
+  inferenceService:
+    enabled: false
+  llamacppInferenceService:
+    enabled: false
+  ollamaInferenceService:
+    enabled: false
+
+  # InferencePool requires CRDs - disable for lint
+  inferencePool:
+    enabled: false
+
+  # Priority classes can be linted
+  priorityClasses:
+    enabled: false
+
+  # ServiceMonitor requires Prometheus CRDs
+  serviceMonitor:
+    enabled: false
+
+inference-gateway:
+  enabled: true
+
+  epp:
+    replicas: 1
+    poolName: "ci-test-pool"  # Required by EPP, placeholder for lint
+
+  # Gateway requires Gateway API CRDs - disable for lint
+  gateway:
+    enabled: false
+
+  # EnvoyExtensionPolicy requires Envoy Gateway CRDs - disable for lint
+  extensionPolicy:
+    enabled: false
+
+  # RBAC can be linted
+  rbac:
+    create: true
+
+  serviceMonitor:
+    enabled: false
+
+  dashboards:
+    enabled: false

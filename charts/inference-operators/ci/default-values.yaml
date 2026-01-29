@@ -1,0 +1,14 @@
+# CI test values - all CRD charts enabled (default configuration)
+# Used by chart-testing (ct lint) to validate the umbrella chart
+
+gateway-api:
+  enabled: true
+
+knative-serving-crds:
+  enabled: true
+
+kserve-crds:
+  enabled: true
+
+inference-extension-crds:
+  enabled: true

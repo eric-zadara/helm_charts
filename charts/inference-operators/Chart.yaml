@@ -1,0 +1,28 @@
+apiVersion: v2
+name: inference-operators
+description: CRDs and operator foundations for LLM inference platform
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+
+# Umbrella chart that bundles all CRD charts for single-command installation.
+# CRDs are installed once and rarely updated, providing a stable foundation
+# for the inference platform.
+
+dependencies:
+  - name: gateway-api
+    version: "0.1.0"
+    repository: "https://eric-zadara.github.io/helm_charts/"
+    condition: gateway-api.enabled
+  - name: knative-serving-crds
+    version: "0.1.0"
+    repository: "https://eric-zadara.github.io/helm_charts/"
+    condition: knative-serving-crds.enabled
+  - name: kserve-crds
+    version: "0.1.0"
+    repository: "https://eric-zadara.github.io/helm_charts/"
+    condition: kserve-crds.enabled
+  - name: inference-extension-crds
+    version: "0.1.0"
+    repository: "https://eric-zadara.github.io/helm_charts/"
+    condition: inference-extension-crds.enabled
