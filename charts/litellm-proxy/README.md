@@ -130,16 +130,108 @@ curl http://litellm-proxy.llm-platform.svc.cluster.local:4000/health
 
 ## Values
 
+### Pod Configuration
+
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | affinity | object | `{}` | Affinity rules for pod scheduling |
+| extraEnv | object | `{}` | Extra environment variables as key-value pairs |
+| extraEnvFrom | list | `[]` | Extra environment variable sources (secretRef, configMapRef) |
+| nodeSelector | object | `{}` | Node selector constraints |
+| podAnnotations | object | `{}` | Additional pod annotations |
+| podLabels | object | `{}` | Additional pod labels |
+| tolerations | list | `[]` | Tolerations for pod scheduling |
+
+### Resources and Scaling
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
 | autoscaling | object | `{"enabled":false,"maxReplicas":10,"minReplicas":2,"targetCPUUtilizationPercentage":80,"targetMemoryUtilizationPercentage":""}` | HPA configuration |
+| podDisruptionBudget | object | `{"enabled":false,"minAvailable":1}` | PodDisruptionBudget configuration |
+| resources | object | `{"limits":{"cpu":"2000m","memory":"2Gi"},"requests":{"cpu":"500m","memory":"512Mi"}}` | Resource requirements |
+| terminationGracePeriodSeconds | int | `90` | Termination grace period (allows in-flight requests to complete) |
+
+### Cache Configuration
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| cache | object | `{"enabled":true,"host":"","passwordSecretKey":"valkey-password","passwordSecretName":"valkey","port":6379,"sentinel":{"enabled":true,"host":"valkey","port":26379,"serviceName":"mymaster"}}` | Cache and rate limiting connection (Valkey). Deploy Valkey: helm install valkey bitnami/valkey --set sentinel.enabled=true |
+
+### Observability
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| dashboards | object | `{"enabled":false,"folderAnnotation":"LLM Platform"}` | Grafana dashboard configuration |
+| serviceMonitor | object | `{"enabled":false,"interval":"15s","scrapeTimeout":"10s"}` | Prometheus ServiceMonitor |
+
+### Database Connection
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| database | object | `{"connectionPoolLimit":10,"connectionTimeout":60,"host":"postgresql-pooler-rw","name":"app","passwordSecretKey":"password","passwordSecretName":"postgresql-app","port":5432,"user":"app"}` | Database connection (PostgreSQL via CNPG). Deploy CNPG cluster: helm install postgresql cnpg/cluster Service name follows: <release>-pooler-rw |
+
+### Image Configuration
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| fullnameOverride | string | `""` | Override full release name |
+| image | object | `{"pullPolicy":"IfNotPresent","repository":"ghcr.io/berriai/litellm-database","tag":"v1.80.15-stable.1"}` | Docker image configuration |
+| imagePullSecrets | list | `[]` | Image pull secrets for private registries |
+| nameOverride | string | `""` | Override chart name |
+| replicaCount | int | `2` | Number of LiteLLM proxy replicas |
+
+### Health Checks
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| healthCheck | object | `{"liveness":{"failureThreshold":3,"periodSeconds":15,"timeoutSeconds":5},"readiness":{"failureThreshold":3,"periodSeconds":10,"timeoutSeconds":5},"separateApp":true,"separatePort":8001,"startup":{"failureThreshold":30,"initialDelaySeconds":30,"periodSeconds":10,"timeoutSeconds":5}}` | Health check configuration |
+
+### HTTPRoute Configuration
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| httpRoute | object | `{"enabled":true,"gateway":{"name":"","namespace":""},"hostname":"","pathPrefix":"/"}` | HTTPRoute configuration (Envoy Gateway integration) |
+
+### LiteLLM Configuration
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| litellm | object | `{"generalSettings":{"allow_requests_on_db_unavailable":true,"disable_error_logs":true,"proxy_batch_write_at":60,"request_timeout":600},"litellmSettings":{"cache":true,"cache_params":{"mode":"default_off","namespace":"litellm.caching","ttl":600,"type":"redis"},"callbacks":["prometheus"],"fallbacks":[],"json_logs":true,"num_retries":2,"set_verbose":false,"turn_off_message_logging":false},"modelList":[],"routerSettings":{"enable_pre_call_checks":true,"model_group_alias":{},"routing_strategy":"simple-shuffle"}}` | LiteLLM proxy configuration (generates litellm_config.yaml) |
+
+### Logging
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| logging | object | `{"disableSpendLogs":false,"retentionInterval":"1d","retentionPeriod":"30d","storePrompts":false}` | Request logging configuration |
+
+### Authentication
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| masterKey | object | `{"create":false,"existingSecret":"","existingSecretKey":"master-key","value":""}` | Master key configuration for admin API authentication |
+| saltKey | object | `{"create":false,"existingSecret":"","existingSecretKey":"salt-key","value":""}` | Salt key for encrypting API credentials stored in PostgreSQL. WARNING: Never change after initial deployment with data -- existing encrypted data becomes unreadable if the salt key changes. |
+
+### Migration Job
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| migrationJob | object | `{"backoffLimit":4,"enabled":true,"ttlSecondsAfterFinished":120}` | Migration job configuration (Prisma schema migration as Helm pre-install/pre-upgrade hook) |
+
+### Service Configuration
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| service | object | `{"port":4000,"type":"ClusterIP"}` | Service configuration |
+
+### Other Values
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
 | autoscaling.enabled | bool | `false` | Enable HPA |
 | autoscaling.maxReplicas | int | `10` | Maximum replicas |
 | autoscaling.minReplicas | int | `2` | Minimum replicas |
 | autoscaling.targetCPUUtilizationPercentage | int | `80` | Target CPU utilization percentage |
 | autoscaling.targetMemoryUtilizationPercentage | string | `""` | Target memory utilization percentage (optional, empty to disable) |
-| cache | object | `{"enabled":true,"host":"","passwordSecretKey":"valkey-password","passwordSecretName":"valkey","port":6379,"sentinel":{"enabled":true,"host":"valkey","port":26379,"serviceName":"mymaster"}}` | Cache and rate limiting connection (Valkey). Deploy Valkey: helm install valkey bitnami/valkey --set sentinel.enabled=true |
 | cache.enabled | bool | `true` | Enable Valkey integration for caching and distributed rate limiting |
 | cache.host | string | `""` | Direct connection host (used when sentinel.enabled=false) |
 | cache.passwordSecretKey | string | `"valkey-password"` | Key within password secret |
@@ -150,10 +242,8 @@ curl http://litellm-proxy.llm-platform.svc.cluster.local:4000/health
 | cache.sentinel.host | string | `"valkey"` | Sentinel host (Valkey service). Service name follows: <release> |
 | cache.sentinel.port | int | `26379` | Sentinel port |
 | cache.sentinel.serviceName | string | `"mymaster"` | Sentinel service name (master group name) |
-| dashboards | object | `{"enabled":false,"folderAnnotation":"LLM Platform"}` | Grafana dashboard configuration |
 | dashboards.enabled | bool | `false` | Enable dashboard ConfigMap creation (requires Grafana sidecar) |
 | dashboards.folderAnnotation | string | `"LLM Platform"` | Grafana folder annotation for dashboard organization |
-| database | object | `{"connectionPoolLimit":10,"connectionTimeout":60,"host":"postgresql-pooler-rw","name":"app","passwordSecretKey":"password","passwordSecretName":"postgresql-app","port":5432,"user":"app"}` | Database connection (PostgreSQL via CNPG). Deploy CNPG cluster: helm install postgresql cnpg/cluster Service name follows: <release>-pooler-rw |
 | database.connectionPoolLimit | int | `10` | Connection pool limit per worker process. Formula: PgBouncer_max_client_conn / (num_workers x num_pods) |
 | database.connectionTimeout | int | `60` | Connection timeout in seconds |
 | database.host | string | `"postgresql-pooler-rw"` | PostgreSQL host (PgBouncer service) |
@@ -162,28 +252,20 @@ curl http://litellm-proxy.llm-platform.svc.cluster.local:4000/health
 | database.passwordSecretName | string | `"postgresql-app"` | Secret containing PostgreSQL password. Secret name follows: <release>-app (CNPG convention) |
 | database.port | int | `5432` | PostgreSQL port |
 | database.user | string | `"app"` | Database user |
-| extraEnv | object | `{}` | Extra environment variables as key-value pairs |
-| extraEnvFrom | list | `[]` | Extra environment variable sources (secretRef, configMapRef) |
-| fullnameOverride | string | `""` | Override full release name |
-| healthCheck | object | `{"liveness":{"failureThreshold":3,"periodSeconds":15,"timeoutSeconds":5},"readiness":{"failureThreshold":3,"periodSeconds":10,"timeoutSeconds":5},"separateApp":true,"separatePort":8001,"startup":{"failureThreshold":30,"initialDelaySeconds":30,"periodSeconds":10,"timeoutSeconds":5}}` | Health check configuration |
 | healthCheck.liveness | object | `{"failureThreshold":3,"periodSeconds":15,"timeoutSeconds":5}` | Liveness probe |
 | healthCheck.readiness | object | `{"failureThreshold":3,"periodSeconds":10,"timeoutSeconds":5}` | Readiness probe |
 | healthCheck.separateApp | bool | `true` | Use separate health check app/port (recommended for production). Prevents health check timeouts under heavy load. |
 | healthCheck.separatePort | int | `8001` | Separate health check port |
 | healthCheck.startup | object | `{"failureThreshold":30,"initialDelaySeconds":30,"periodSeconds":10,"timeoutSeconds":5}` | Startup probe (allows time for LiteLLM initialization) |
-| httpRoute | object | `{"enabled":true,"gateway":{"name":"","namespace":""},"hostname":"","pathPrefix":"/"}` | HTTPRoute configuration (Envoy Gateway integration) |
 | httpRoute.enabled | bool | `true` | Enable HTTPRoute creation |
 | httpRoute.gateway | object | `{"name":"","namespace":""}` | Gateway reference |
 | httpRoute.gateway.name | string | `""` | Gateway name (defaults to networking-layer gateway) |
 | httpRoute.gateway.namespace | string | `""` | Gateway namespace (defaults to release namespace) |
 | httpRoute.hostname | string | `""` | Route hostname (optional, for host-based routing) |
 | httpRoute.pathPrefix | string | `"/"` | Route path prefix |
-| image | object | `{"pullPolicy":"IfNotPresent","repository":"ghcr.io/berriai/litellm-database","tag":"v1.80.15-stable.1"}` | Docker image repository (database variant includes Prisma support) |
 | image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
-| image.repository | string | `"ghcr.io/berriai/litellm-database"` | Docker image repository |
+| image.repository | string | `"ghcr.io/berriai/litellm-database"` | Docker image repository (database variant includes Prisma support) |
 | image.tag | string | `"v1.80.15-stable.1"` | Image tag (pin to specific stable version for reproducibility) |
-| imagePullSecrets | list | `[]` | Image pull secrets for private registries |
-| litellm | object | `{"generalSettings":{"allow_requests_on_db_unavailable":true,"disable_error_logs":true,"proxy_batch_write_at":60,"request_timeout":600},"litellmSettings":{"cache":true,"cache_params":{"mode":"default_off","namespace":"litellm.caching","ttl":600,"type":"redis"},"callbacks":["prometheus"],"fallbacks":[],"json_logs":true,"num_retries":2,"set_verbose":false,"turn_off_message_logging":false},"modelList":[],"routerSettings":{"enable_pre_call_checks":true,"model_group_alias":{},"routing_strategy":"simple-shuffle"}}` | LiteLLM proxy configuration (generates litellm_config.yaml) |
 | litellm.generalSettings | object | `{"allow_requests_on_db_unavailable":true,"disable_error_logs":true,"proxy_batch_write_at":60,"request_timeout":600}` | General settings (merged into config.yaml general_settings) |
 | litellm.generalSettings.allow_requests_on_db_unavailable | bool | `true` | Allow requests if DB is temporarily unavailable |
 | litellm.generalSettings.disable_error_logs | bool | `true` | Disable verbose error logs in DB (recommended for production) |
@@ -206,43 +288,28 @@ curl http://litellm-proxy.llm-platform.svc.cluster.local:4000/health
 | litellm.routerSettings.enable_pre_call_checks | bool | `true` | Enable pre-call checks (context window, model availability) |
 | litellm.routerSettings.model_group_alias | object | `{}` | Model group aliases (supports hidden models) |
 | litellm.routerSettings.routing_strategy | string | `"simple-shuffle"` | Routing strategy |
-| logging | object | `{"disableSpendLogs":false,"retentionInterval":"1d","retentionPeriod":"30d","storePrompts":false}` | Request logging configuration |
 | logging.disableSpendLogs | bool | `false` | Disable spend logs entirely (saves DB space, lose UI usage view) |
 | logging.retentionInterval | string | `"1d"` | Retention cleanup interval |
 | logging.retentionPeriod | string | `"30d"` | Spend log retention period (e.g., "30d", "90d") |
 | logging.storePrompts | bool | `false` | Store prompts/responses in spend_logs (false for privacy) |
-| masterKey | object | `{"create":false,"existingSecret":"","existingSecretKey":"master-key","value":""}` | Master key configuration for admin API authentication |
 | masterKey.create | bool | `false` | Create a Kubernetes Secret from the value below (set false to use existing) |
 | masterKey.existingSecret | string | `""` | Name of an existing secret containing the master key |
 | masterKey.existingSecretKey | string | `"master-key"` | Key within the existing secret |
 | masterKey.value | string | `""` | Master key value (only used if create=true; should start with "sk-") |
-| migrationJob | object | `{"backoffLimit":4,"enabled":true,"ttlSecondsAfterFinished":120}` | Migration job configuration (Prisma schema migration as Helm pre-install/pre-upgrade hook) |
 | migrationJob.backoffLimit | int | `4` | Job retry limit |
 | migrationJob.enabled | bool | `true` | Enable Prisma migration job |
 | migrationJob.ttlSecondsAfterFinished | int | `120` | TTL after completion (seconds) |
-| nameOverride | string | `""` | Override chart name |
-| nodeSelector | object | `{}` | Node selector constraints |
-| podAnnotations | object | `{}` | Additional pod annotations |
-| podDisruptionBudget | object | `{"enabled":false,"minAvailable":1}` | PodDisruptionBudget configuration |
 | podDisruptionBudget.enabled | bool | `false` | Enable PDB |
 | podDisruptionBudget.minAvailable | int | `1` | Minimum available pods during disruptions |
-| podLabels | object | `{}` | Additional pod labels |
-| replicaCount | int | `2` | Number of LiteLLM proxy replicas |
-| resources | object | `{"limits":{"cpu":"2000m","memory":"2Gi"},"requests":{"cpu":"500m","memory":"512Mi"}}` | Resource requirements |
-| saltKey | object | `{"create":false,"existingSecret":"","existingSecretKey":"salt-key","value":""}` | Salt key for encrypting API credentials stored in PostgreSQL. WARNING: Never change after initial deployment with data -- existing encrypted data becomes unreadable if the salt key changes. |
 | saltKey.create | bool | `false` | Create a Kubernetes Secret from the value below (set false to use existing) |
 | saltKey.existingSecret | string | `""` | Name of an existing secret containing the salt key |
 | saltKey.existingSecretKey | string | `"salt-key"` | Key within the existing secret |
 | saltKey.value | string | `""` | Salt key value (only used if create=true) |
-| service | object | `{"port":4000,"type":"ClusterIP"}` | Service configuration |
 | service.port | int | `4000` | Service port (LiteLLM default) |
 | service.type | string | `"ClusterIP"` | Service type |
-| serviceMonitor | object | `{"enabled":false,"interval":"15s","scrapeTimeout":"10s"}` | Prometheus ServiceMonitor |
 | serviceMonitor.enabled | bool | `false` | Enable ServiceMonitor creation |
 | serviceMonitor.interval | string | `"15s"` | Scrape interval |
 | serviceMonitor.scrapeTimeout | string | `"10s"` | Scrape timeout |
-| terminationGracePeriodSeconds | int | `90` | Termination grace period (allows in-flight requests to complete) |
-| tolerations | list | `[]` | Tolerations for pod scheduling |
 
 ## Model Configuration
 
