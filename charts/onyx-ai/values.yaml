@@ -371,16 +371,34 @@ onyx:
     enabled: false
 
   # ---------------------------------------------------------------------------
-  # Application Defaults
+  # Phase 6: API Server HA Configuration
   # ---------------------------------------------------------------------------
-
-  # Phase 6: Will be increased to 2 for HA
+  # API server handles REST API requests. Default: 2 replicas for HA.
+  # Resources use Guaranteed QoS (limits=requests for memory).
   api:
-    replicaCount: 1
+    replicaCount: 2
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
 
-  # Phase 6: Will be increased to 2 for HA
+  # ---------------------------------------------------------------------------
+  # Phase 6: Web Server HA Configuration
+  # ---------------------------------------------------------------------------
+  # Web server handles frontend (Next.js SSR). Default: 2 replicas for HA.
+  # Resources use Guaranteed QoS (limits=requests for memory).
   webserver:
-    replicaCount: 1
+    replicaCount: 2
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
 
   # ---------------------------------------------------------------------------
   # Ingress (managed by wrapper chart in Phase 7)
