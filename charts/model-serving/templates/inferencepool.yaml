@@ -1,0 +1,23 @@
+{{- if and .Values.inferenceService.enabled .Values.inferencePool.enabled }}
+apiVersion: inference.networking.k8s.io/v1
+kind: InferencePool
+metadata:
+  name: {{ .Values.inferenceService.name }}
+  labels:
+    {{- include "model-serving.labels" . | nindent 4 }}
+spec:
+  targetPorts:
+    - number: {{ .Values.inferencePool.targetPort }}
+  selector:
+    matchLabels:
+      {{- if .Values.inferencePool.selectorLabels }}
+      {{- toYaml .Values.inferencePool.selectorLabels | nindent 6 }}
+      {{- else }}
+      serving.kserve.io/inferenceservice: {{ .Values.inferenceService.name }}
+      {{- end }}
+  endpointPickerRef:
+    name: {{ .Values.inferencePool.eppServiceName }}
+    port:
+      number: {{ .Values.inferencePool.eppServicePort }}
+    failureMode: {{ .Values.inferencePool.failureMode }}
+{{- end }}

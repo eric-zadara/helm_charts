@@ -1,0 +1,100 @@
+{{- if .Values.ollamaRuntime.enabled }}
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: {{ include "model-serving.ollamaRuntimeName" . }}
+  labels:
+    {{- include "model-serving.labels" . | nindent 4 }}
+spec:
+  supportedModelFormats:
+    - name: ollama
+      version: "1"
+      autoSelect: true
+  protocolVersions:
+    - v2
+  containers:
+    - name: kserve-container
+      image: {{ .Values.ollamaRuntime.image }}:{{ .Values.ollamaRuntime.tag }}
+      command: ["/bin/sh", "-c"]
+      args:
+        - |
+          # Start Ollama server in background
+          ollama serve &
+          SERVER_PID=$!
+          # Wait for server readiness
+          echo "Waiting for Ollama server..."
+          until curl -sf http://localhost:8080/ > /dev/null 2>&1; do
+            sleep 2
+          done
+          echo "Ollama server ready."
+          # Pull and warm the model if OLLAMA_MODEL is set
+          if [ -n "${OLLAMA_MODEL}" ]; then
+            echo "Pulling model: ${OLLAMA_MODEL}"
+            ollama pull "${OLLAMA_MODEL}"
+            echo "Warming model: ${OLLAMA_MODEL}"
+            curl -sf http://localhost:8080/api/generate -d "{\"model\": \"${OLLAMA_MODEL}\", \"keep_alive\": -1}" > /dev/null 2>&1
+            echo "Model ready: ${OLLAMA_MODEL}"
+          fi
+          # Keep server running in foreground
+          wait ${SERVER_PID}
+      env:
+        # CRITICAL: Bind to 0.0.0.0:8080 for KServe compatibility (Pitfall #1)
+        - name: OLLAMA_HOST
+          value: "0.0.0.0:8080"
+        # Never auto-unload models (Pitfall #3)
+        - name: OLLAMA_KEEP_ALIVE
+          value: "-1"
+        # Parallel request handling
+        - name: OLLAMA_NUM_PARALLEL
+          value: {{ .Values.ollamaRuntime.numParallel | quote }}
+        # Default context length
+        - name: OLLAMA_CONTEXT_LENGTH
+          value: {{ .Values.ollamaRuntime.contextLength | quote }}
+        # Flash attention for performance
+        {{- if .Values.ollamaRuntime.flashAttention }}
+        - name: OLLAMA_FLASH_ATTENTION
+          value: "1"
+        {{- end }}
+        # KV cache quantization type
+        - name: OLLAMA_KV_CACHE_TYPE
+          value: {{ .Values.ollamaRuntime.kvCacheType | quote }}
+        # Do not prune model blobs on startup
+        - name: OLLAMA_NOPRUNE
+          value: "1"
+      ports:
+        - containerPort: 8080
+          protocol: TCP
+      resources:
+        requests:
+          cpu: {{ .Values.ollamaRuntime.resources.requests.cpu | quote }}
+          memory: {{ .Values.ollamaRuntime.resources.requests.memory | quote }}
+        limits:
+          cpu: {{ .Values.ollamaRuntime.resources.limits.cpu | quote }}
+          memory: {{ .Values.ollamaRuntime.resources.limits.memory | quote }}
+      # Startup probe -- /api/tags confirms API layer is functional
+      # Must accommodate model download + loading (10 min max)
+      startupProbe:
+        httpGet:
+          path: /api/tags
+          port: 8080
+        initialDelaySeconds: {{ .Values.ollamaRuntime.startupProbe.initialDelaySeconds }}
+        periodSeconds: {{ .Values.ollamaRuntime.startupProbe.periodSeconds }}
+        timeoutSeconds: {{ .Values.ollamaRuntime.startupProbe.timeoutSeconds }}
+        failureThreshold: {{ .Values.ollamaRuntime.startupProbe.failureThreshold }}
+      # Readiness probe -- /api/tags confirms model API is available
+      readinessProbe:
+        httpGet:
+          path: /api/tags
+          port: 8080
+        periodSeconds: {{ .Values.ollamaRuntime.readinessProbe.periodSeconds }}
+        timeoutSeconds: {{ .Values.ollamaRuntime.readinessProbe.timeoutSeconds }}
+        failureThreshold: {{ .Values.ollamaRuntime.readinessProbe.failureThreshold }}
+      # Liveness probe -- / returns "Ollama is running" (lightweight)
+      livenessProbe:
+        httpGet:
+          path: /
+          port: 8080
+        periodSeconds: {{ .Values.ollamaRuntime.livenessProbe.periodSeconds }}
+        timeoutSeconds: {{ .Values.ollamaRuntime.livenessProbe.timeoutSeconds }}
+        failureThreshold: {{ .Values.ollamaRuntime.livenessProbe.failureThreshold }}
+{{- end }}

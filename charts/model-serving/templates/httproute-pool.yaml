@@ -1,0 +1,25 @@
+{{- if and .Values.inferenceService.enabled .Values.inferencePool.enabled .Values.inferencePoolRoute.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ .Values.inferenceService.name }}-pool
+  labels:
+    {{- include "model-serving.labels" . | nindent 4 }}
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: {{ .Values.inferencePoolRoute.gatewayName }}
+      {{- if .Values.inferencePoolRoute.gatewayNamespace }}
+      namespace: {{ .Values.inferencePoolRoute.gatewayNamespace }}
+      {{- end }}
+  rules:
+    - backendRefs:
+        - group: inference.networking.k8s.io
+          kind: InferencePool
+          name: {{ .Values.inferenceService.name }}
+      matches:
+        - path:
+            type: PathPrefix
+            value: /
+{{- end }}

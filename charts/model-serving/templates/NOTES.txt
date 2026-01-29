@@ -1,0 +1,801 @@
+{{- $runtimeName := include "model-serving.servingRuntimeName" . -}}
+{{- $llamacppRuntimeName := include "model-serving.llamacppRuntimeName" . -}}
+{{- $ollamaRuntimeName := include "model-serving.ollamaRuntimeName" . -}}
+=== Model Serving Chart Deployed ===
+
+{{- if .Values.servingRuntime.enabled }}
+
+=== vLLM ClusterServingRuntime ===
+
+ClusterServingRuntime: {{ $runtimeName }}
+  Image: {{ .Values.servingRuntime.image }}:{{ .Values.servingRuntime.tag }}
+  GPU Memory Utilization: {{ .Values.servingRuntime.gpuMemoryUtilization }}
+  Max Model Length: {{ .Values.servingRuntime.maxModelLen }} tokens
+  Prefix Caching: {{ .Values.servingRuntime.enablePrefixCaching }}
+
+Verify ClusterServingRuntime:
+  kubectl get clusterservingruntime {{ $runtimeName }}
+
+{{- end }}
+
+{{- if .Values.llamacppRuntime.enabled }}
+
+=== llama.cpp ClusterServingRuntime ===
+
+ClusterServingRuntime: {{ $llamacppRuntimeName }}
+  Image: {{ .Values.llamacppRuntime.image }}:{{ .Values.llamacppRuntime.tag }}
+  Threads: {{ .Values.llamacppRuntime.threads }} (batch: {{ .Values.llamacppRuntime.threadsBatch }})
+  Context Window: {{ .Values.llamacppRuntime.contextWindow }} tokens/slot
+  Parallel Slots: {{ .Values.llamacppRuntime.parallelSlots }}
+  Total Context (CTX_SIZE): {{ mul .Values.llamacppRuntime.contextWindow .Values.llamacppRuntime.parallelSlots }} tokens
+  Flash Attention: {{ .Values.llamacppRuntime.flashAttention }}
+  {{- if .Values.llamacppRuntime.gpuLayers }}
+  GPU Layers: {{ .Values.llamacppRuntime.gpuLayers }}
+  {{- else }}
+  GPU Layers: none (CPU only)
+  {{- end }}
+
+Verify ClusterServingRuntime:
+  kubectl get clusterservingruntime {{ $llamacppRuntimeName }}
+
+{{- end }}
+
+{{- if .Values.ollamaRuntime.enabled }}
+
+=== Ollama ClusterServingRuntime ===
+
+ClusterServingRuntime: {{ $ollamaRuntimeName }}
+  Image: {{ .Values.ollamaRuntime.image }}:{{ .Values.ollamaRuntime.tag }}
+  Parallel Requests: {{ .Values.ollamaRuntime.numParallel }}
+  Context Length: {{ .Values.ollamaRuntime.contextLength }} tokens
+  Flash Attention: {{ .Values.ollamaRuntime.flashAttention }}
+  KV Cache Type: {{ .Values.ollamaRuntime.kvCacheType }}
+
+Verify ClusterServingRuntime:
+  kubectl get clusterservingruntime {{ $ollamaRuntimeName }}
+
+{{- end }}
+
+{{- if .Values.inferenceService.enabled }}
+
+=== vLLM InferenceService ===
+
+InferenceService: {{ .Values.inferenceService.name }}
+  Model: {{ .Values.inferenceService.storageUri }}
+  GPUs: {{ .Values.inferenceService.gpu }}
+  Tensor Parallel: {{ .Values.inferenceService.tensorParallelSize }}
+  Min/Max Replicas: {{ .Values.inferenceService.minReplicas }}/{{ .Values.inferenceService.maxReplicas }}
+
+Verify InferenceService:
+  # Check status (wait for READY=True)
+  kubectl get inferenceservice {{ .Values.inferenceService.name }} -w
+
+  # View detailed status
+  kubectl describe inferenceservice {{ .Values.inferenceService.name }}
+
+  # Check predictor pod logs (model loading)
+  kubectl logs -l serving.kserve.io/inferenceservice={{ .Values.inferenceService.name }} -c kserve-container --tail=100
+
+  # Verify GPU allocation
+  kubectl get pods -l serving.kserve.io/inferenceservice={{ .Values.inferenceService.name }} -o jsonpath='{.items[*].spec.containers[*].resources.limits}'
+
+{{- end }}
+
+{{- if .Values.llamacppInferenceService.enabled }}
+
+=== llama.cpp InferenceService ===
+
+InferenceService: {{ .Values.llamacppInferenceService.name }}
+  Model: {{ .Values.llamacppInferenceService.storageUri }}
+  Runtime: {{ $llamacppRuntimeName }}
+  CPU: {{ .Values.llamacppInferenceService.resources.requests.cpu }}
+  Memory: {{ .Values.llamacppInferenceService.resources.requests.memory }}
+  Min/Max Replicas: {{ .Values.llamacppInferenceService.minReplicas }}/{{ .Values.llamacppInferenceService.maxReplicas }}
+  {{- if .Values.llamacppInferenceService.serviceAccountName }}
+  ServiceAccount: {{ .Values.llamacppInferenceService.serviceAccountName }}
+  {{- end }}
+
+Verify InferenceService:
+  # Check status (wait for READY=True)
+  kubectl get inferenceservice {{ .Values.llamacppInferenceService.name }} -w
+
+  # View detailed status
+  kubectl describe inferenceservice {{ .Values.llamacppInferenceService.name }}
+
+  # Check predictor pod logs (model loading + inference)
+  kubectl logs -l serving.kserve.io/inferenceservice={{ .Values.llamacppInferenceService.name }} -c kserve-container --tail=100
+
+  # Verify CPU allocation (should show Guaranteed QoS)
+  kubectl get pods -l serving.kserve.io/inferenceservice={{ .Values.llamacppInferenceService.name }} -o jsonpath='{.items[*].status.qosClass}'
+
+{{- end }}
+
+{{- if .Values.ollamaInferenceService.enabled }}
+
+=== Ollama InferenceService ===
+
+InferenceService: {{ .Values.ollamaInferenceService.name }}
+  Model Tag: {{ .Values.ollamaInferenceService.modelTag }}
+  Runtime: {{ $ollamaRuntimeName }}
+  {{- if .Values.ollamaInferenceService.gpu }}
+  GPUs: {{ .Values.ollamaInferenceService.gpu }}
+  {{- else }}
+  GPUs: CPU only
+  {{- end }}
+  CPU: {{ .Values.ollamaInferenceService.resources.requests.cpu }}
+  Memory: {{ .Values.ollamaInferenceService.resources.requests.memory }}
+  Min/Max Replicas: {{ .Values.ollamaInferenceService.minReplicas }}/{{ .Values.ollamaInferenceService.maxReplicas }}
+
+Verify InferenceService:
+  # Check status (wait for READY=True)
+  kubectl get inferenceservice {{ .Values.ollamaInferenceService.name }} -w
+
+  # View detailed status
+  kubectl describe inferenceservice {{ .Values.ollamaInferenceService.name }}
+
+  # Check predictor pod logs (model download + inference)
+  kubectl logs -l serving.kserve.io/inferenceservice={{ .Values.ollamaInferenceService.name }} -c kserve-container --tail=100
+
+  # Verify resources (GPU or CPU mode)
+  kubectl get pods -l serving.kserve.io/inferenceservice={{ .Values.ollamaInferenceService.name }} -o jsonpath='{.items[*].spec.containers[*].resources}'
+
+{{- end }}
+
+=== Testing Inference ===
+
+{{- if .Values.inferenceService.enabled }}
+
+--- vLLM (GPU) ---
+
+1. Get the InferenceService URL:
+   kubectl get inferenceservice {{ .Values.inferenceService.name }} -o jsonpath='{.status.url}'
+
+2. Port-forward for local testing:
+   kubectl port-forward svc/{{ .Values.inferenceService.name }}-predictor 8080:80
+
+3. Test /v1/chat/completions endpoint:
+   curl -X POST http://localhost:8080/v1/chat/completions \
+     -H "Content-Type: application/json" \
+     -d '{
+       "model": "{{ .Values.inferenceService.name }}",
+       "messages": [{"role": "user", "content": "Hello, how are you?"}],
+       "max_tokens": 100
+     }'
+
+4. Check model list:
+   curl http://localhost:8080/v1/models
+
+5. Verify GPU utilization during inference:
+   kubectl exec -it <pod-name> -- nvidia-smi
+
+{{- end }}
+
+{{- if .Values.llamacppInferenceService.enabled }}
+
+--- llama.cpp (CPU) ---
+
+1. Get the InferenceService URL:
+   kubectl get inferenceservice {{ .Values.llamacppInferenceService.name }} -o jsonpath='{.status.url}'
+
+2. Port-forward for local testing:
+   kubectl port-forward svc/{{ .Values.llamacppInferenceService.name }}-predictor 8081:80
+
+3. Test /v1/chat/completions endpoint:
+   curl -X POST http://localhost:8081/v1/chat/completions \
+     -H "Content-Type: application/json" \
+     -d '{
+       "model": "{{ .Values.llamacppInferenceService.name }}",
+       "messages": [{"role": "user", "content": "Hello, how are you?"}],
+       "max_tokens": 100
+     }'
+
+4. Check model list:
+   curl http://localhost:8081/v1/models
+
+5. Check metrics (Prometheus format):
+   curl http://localhost:8081/metrics
+
+{{- end }}
+
+{{- if .Values.ollamaInferenceService.enabled }}
+
+--- Ollama (GPU or CPU) ---
+
+1. Get the InferenceService URL:
+   kubectl get inferenceservice {{ .Values.ollamaInferenceService.name }} -o jsonpath='{.status.url}'
+
+2. Port-forward for local testing:
+   kubectl port-forward svc/{{ .Values.ollamaInferenceService.name }}-predictor 8082:80
+
+3. Test /v1/chat/completions endpoint (OpenAI-compatible):
+   curl -X POST http://localhost:8082/v1/chat/completions \
+     -H "Content-Type: application/json" \
+     -d '{
+       "model": "{{ .Values.ollamaInferenceService.modelTag }}",
+       "messages": [{"role": "user", "content": "Hello, how are you?"}],
+       "max_tokens": 100
+     }'
+
+4. Check model list:
+   curl http://localhost:8082/v1/models
+
+5. Check loaded models (Ollama API):
+   curl http://localhost:8082/api/tags
+
+{{- end }}
+
+{{- if (not (or .Values.inferenceService.enabled .Values.llamacppInferenceService.enabled .Values.ollamaInferenceService.enabled)) }}
+
+No InferenceService deployed. To deploy a test model:
+
+  # vLLM (GPU):
+  helm upgrade {{ .Release.Name }} {{ .Chart.Name }} \
+    --set inferenceService.enabled=true \
+    --set inferenceService.name=qwen25-1-5b \
+    --set inferenceService.storageUri=hf://Qwen/Qwen2.5-1.5B-Instruct
+
+  # llama.cpp (CPU):
+  helm upgrade {{ .Release.Name }} {{ .Chart.Name }} \
+    --set llamacppInferenceService.enabled=true \
+    --set llamacppInferenceService.storageUri=s3://models/model.gguf \
+    --set llamacppInferenceService.serviceAccountName=s3-model-sa
+
+  # Ollama (CPU):
+  helm upgrade {{ .Release.Name }} {{ .Chart.Name }} \
+    --set ollamaInferenceService.enabled=true \
+    --set ollamaInferenceService.modelTag=qwen3:4b
+
+  # Ollama (GPU):
+  helm upgrade {{ .Release.Name }} {{ .Chart.Name }} \
+    --set ollamaInferenceService.enabled=true \
+    --set ollamaInferenceService.modelTag=qwen3:14b \
+    --set ollamaInferenceService.gpu=1 \
+    --set-json 'ollamaInferenceService.tolerations=[{"key":"nvidia.com/gpu","operator":"Exists","effect":"NoSchedule"}]'
+
+{{- end }}
+
+{{- if .Values.s3Storage.enabled }}
+
+=== S3 Storage Configuration ===
+
+S3 Secret: {{ .Values.s3Storage.secretName }}
+  Endpoint: {{ .Values.s3Storage.endpoint }}
+  Region: {{ .Values.s3Storage.region }}
+  HTTPS: {{ .Values.s3Storage.useHttps }}
+
+S3 ServiceAccount: {{ .Values.s3Storage.serviceAccountName }}
+
+Verify S3 credentials:
+  kubectl get secret {{ .Values.s3Storage.secretName }}
+  kubectl get serviceaccount {{ .Values.s3Storage.serviceAccountName }}
+
+Usage: Set the ServiceAccount on your InferenceService to enable S3 model downloads:
+  --set llamacppInferenceService.serviceAccountName={{ .Values.s3Storage.serviceAccountName }}
+
+{{- end }}
+
+{{- if .Values.llamacppRuntime.enabled }}
+
+=== llama.cpp Deployment Examples ===
+
+--- CPU-only deployment from S3 ---
+
+  helm upgrade {{ .Release.Name }} {{ .Chart.Name }} \
+    --set s3Storage.enabled=true \
+    --set s3Storage.endpoint=minio.storage:9000 \
+    --set s3Storage.useHttps=0 \
+    --set s3Storage.accessKeyId=YOUR_ACCESS_KEY \
+    --set s3Storage.secretAccessKey=YOUR_SECRET_KEY \
+    --set llamacppInferenceService.enabled=true \
+    --set llamacppInferenceService.serviceAccountName=s3-model-sa \
+    --set llamacppInferenceService.storageUri=s3://models/model.gguf
+
+--- Context Size Math ---
+
+  IMPORTANT: llama.cpp divides total context across parallel slots.
+    Per-slot context = contextWindow = {{ .Values.llamacppRuntime.contextWindow }} tokens
+    Parallel slots   = {{ .Values.llamacppRuntime.parallelSlots }}
+    Total CTX_SIZE   = {{ .Values.llamacppRuntime.contextWindow }} * {{ .Values.llamacppRuntime.parallelSlots }} = {{ mul .Values.llamacppRuntime.contextWindow .Values.llamacppRuntime.parallelSlots }} tokens
+
+  If you need more per-request context, increase contextWindow:
+    --set llamacppRuntime.contextWindow=32768
+
+  This will auto-compute CTX_SIZE = 32768 * {{ .Values.llamacppRuntime.parallelSlots }} = {{ mul 32768 .Values.llamacppRuntime.parallelSlots }} tokens
+
+--- CPU node targeting ---
+
+  --set llamacppInferenceService.nodeSelector."node\.kubernetes\.io/instance-type"=cpu-optimized
+
+  Or exclude GPU nodes via affinity:
+  --set-json 'llamacppInferenceService.affinity={"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"nvidia.com/gpu.present","operator":"DoesNotExist"}]}]}}}'
+
+=== GGUF Quantization Reference ===
+
+  Format   | Bits/Weight | Quality vs FP16 | 7B Size | Use Case
+  ---------|-------------|-----------------|---------|-----------------------------------
+  Q4_K_M   | 4-bit       | ~95% quality    | ~4.7GB  | Default for resource-constrained
+  Q5_K_M   | 5-bit       | ~97% quality    | ~5.5GB  | Coding, math, reasoning tasks
+  Q6_K     | 6-bit       | ~99% quality    | ~6.5GB  | High-quality production
+  Q8_0     | 8-bit       | ~99.9% quality  | ~8.1GB  | Near-lossless, fastest CPU dequant
+
+{{- end }}
+
+{{- if .Values.ollamaRuntime.enabled }}
+
+=== Ollama Deployment Examples ===
+
+--- CPU-only deployments ---
+
+  # Qwen3 0.6B (lightweight, fast inference)
+  helm upgrade {{ .Release.Name }} {{ .Chart.Name }} \
+    --set ollamaInferenceService.enabled=true \
+    --set ollamaInferenceService.name=qwen3-0-6b \
+    --set ollamaInferenceService.modelTag=qwen3:0.6b \
+    --set ollamaInferenceService.gpu=0 \
+    --set ollamaInferenceService.resources.requests.cpu=4 \
+    --set ollamaInferenceService.resources.limits.cpu=4 \
+    --set ollamaInferenceService.resources.requests.memory=4Gi \
+    --set ollamaInferenceService.resources.limits.memory=4Gi
+
+  # Qwen3 4B (balanced performance/quality)
+  helm upgrade {{ .Release.Name }} {{ .Chart.Name }} \
+    --set ollamaInferenceService.enabled=true \
+    --set ollamaInferenceService.name=qwen3-4b \
+    --set ollamaInferenceService.modelTag=qwen3:4b \
+    --set ollamaInferenceService.gpu=0 \
+    --set ollamaInferenceService.resources.requests.cpu=8 \
+    --set ollamaInferenceService.resources.limits.cpu=8 \
+    --set ollamaInferenceService.resources.requests.memory=8Gi \
+    --set ollamaInferenceService.resources.limits.memory=8Gi
+
+--- GPU deployments ---
+
+  # Qwen3 14B (high quality, requires GPU)
+  helm upgrade {{ .Release.Name }} {{ .Chart.Name }} \
+    --set ollamaInferenceService.enabled=true \
+    --set ollamaInferenceService.name=qwen3-14b \
+    --set ollamaInferenceService.modelTag=qwen3:14b \
+    --set ollamaInferenceService.gpu=1 \
+    --set ollamaInferenceService.resources.requests.cpu=4 \
+    --set ollamaInferenceService.resources.limits.cpu=8 \
+    --set ollamaInferenceService.resources.requests.memory=24Gi \
+    --set ollamaInferenceService.resources.limits.memory=32Gi \
+    --set-json 'ollamaInferenceService.tolerations=[{"key":"nvidia.com/gpu","operator":"Exists","effect":"NoSchedule"}]'
+
+  # GPT-OSS 20B (large model, production workload)
+  helm upgrade {{ .Release.Name }} {{ .Chart.Name }} \
+    --set ollamaInferenceService.enabled=true \
+    --set ollamaInferenceService.name=gpt-oss-20b \
+    --set ollamaInferenceService.modelTag=gpt-oss:20b \
+    --set ollamaInferenceService.gpu=1 \
+    --set ollamaInferenceService.resources.requests.cpu=4 \
+    --set ollamaInferenceService.resources.limits.cpu=8 \
+    --set ollamaInferenceService.resources.requests.memory=32Gi \
+    --set ollamaInferenceService.resources.limits.memory=48Gi \
+    --set-json 'ollamaInferenceService.tolerations=[{"key":"nvidia.com/gpu","operator":"Exists","effect":"NoSchedule"}]'
+
+--- Multimodal (Vision) deployment ---
+
+  # Qwen3-VL 8B (vision-language model)
+  helm upgrade {{ .Release.Name }} {{ .Chart.Name }} \
+    --set ollamaInferenceService.enabled=true \
+    --set ollamaInferenceService.name=qwen3-vl-8b \
+    --set ollamaInferenceService.modelTag=qwen3-vl:8b \
+    --set ollamaInferenceService.gpu=1 \
+    --set ollamaInferenceService.resources.requests.cpu=4 \
+    --set ollamaInferenceService.resources.limits.cpu=8 \
+    --set ollamaInferenceService.resources.requests.memory=16Gi \
+    --set ollamaInferenceService.resources.limits.memory=24Gi \
+    --set-json 'ollamaInferenceService.tolerations=[{"key":"nvidia.com/gpu","operator":"Exists","effect":"NoSchedule"}]'
+
+=== Ollama Model Reference ===
+
+  Model       | Size  | VRAM/RAM | Use Case
+  ------------|-------|----------|------------------------------------------
+  qwen3:0.6b  | 0.6B  | ~2GB     | Edge, embedded, ultra-fast responses
+  qwen3:4b    | 4B    | ~4GB     | Balanced quality/speed, CPU-friendly
+  qwen3:14b   | 14B   | ~12GB    | High quality, GPU recommended
+  qwen3-vl:8b | 8B    | ~8GB     | Vision-language, image understanding
+  gpt-oss:20b | 20B   | ~16GB    | Production workloads, GPU required
+
+NOTE: Ollama pulls models automatically at startup from the Ollama registry.
+      No storageUri or S3 configuration needed.
+
+{{- end }}
+
+=== Multi-GPU Deployment ===
+
+For models requiring multiple GPUs (e.g., 70B):
+
+  helm upgrade {{ .Release.Name }} {{ .Chart.Name }} \
+    --set inferenceService.enabled=true \
+    --set inferenceService.name=qwen25-72b \
+    --set inferenceService.storageUri=hf://Qwen/Qwen2.5-72B-Instruct \
+    --set inferenceService.gpu=4 \
+    --set inferenceService.tensorParallelSize=4 \
+    --set inferenceService.resources.limits.memory=64Gi
+
+IMPORTANT: tensorParallelSize MUST match gpu count!
+
+=== GPU Node Selection ===
+
+Select specific GPU types via nodeSelector:
+
+  --set inferenceService.nodeSelector."nvidia\.com/gpu\.product"=NVIDIA-A40
+
+Or via affinity for more complex rules:
+
+  --set-json 'inferenceService.affinity={"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"nvidia.com/gpu.product","operator":"In","values":["NVIDIA-A40","NVIDIA-L4"]}]}]}}}'
+
+{{- if .Values.huggingface.secretEnabled }}
+
+=== HuggingFace Authentication ===
+
+HuggingFace secret created: {{ .Values.huggingface.secretName }}
+
+For gated models, reference the secret:
+  --set inferenceService.huggingfaceSecret={{ .Values.huggingface.secretName }}
+
+{{- end }}
+
+{{- if .Values.priorityClasses.enabled }}
+
+=== Priority Classes ===
+
+Created priority classes:
+{{- if .Values.priorityClasses.production.enabled }}
+  - {{ .Values.priorityClasses.production.name }} (value: {{ .Values.priorityClasses.production.value }}, preemption: {{ .Values.priorityClasses.production.preemptionPolicy }})
+{{- end }}
+{{- if .Values.priorityClasses.standard.enabled }}
+  - {{ .Values.priorityClasses.standard.name }} (value: {{ .Values.priorityClasses.standard.value }}, preemption: {{ .Values.priorityClasses.standard.preemptionPolicy }})
+{{- end }}
+{{- if .Values.priorityClasses.experimental.enabled }}
+  - {{ .Values.priorityClasses.experimental.name }} (value: {{ .Values.priorityClasses.experimental.value }}, preemption: {{ .Values.priorityClasses.experimental.preemptionPolicy }})
+{{- end }}
+
+Use with InferenceService:
+  --set inferenceService.priorityClassName={{ .Values.priorityClasses.production.name }}
+  --set llamacppInferenceService.priorityClassName={{ .Values.priorityClasses.production.name }}
+  --set ollamaInferenceService.priorityClassName={{ .Values.priorityClasses.production.name }}
+
+{{- end }}
+
+=== Autoscaling Configuration ===
+
+This chart configures Knative KPA (Pod Autoscaler) for scale-to-zero and autoscaling.
+Autoscaling uses concurrency-based metrics, which is optimal for LLM inference workloads
+where request duration varies from 100ms to 60s.
+
+--- Current Settings ---
+
+{{- if .Values.inferenceService.enabled }}
+
+vLLM ({{ .Values.inferenceService.name }}):
+  Min/Max Replicas: {{ .Values.inferenceService.minReplicas }}/{{ .Values.inferenceService.maxReplicas }}
+  Scale Metric: {{ .Values.inferenceService.scaleMetric }}
+  Scale Target: {{ .Values.inferenceService.scaleTarget }} concurrent requests/pod
+  Scale-Down Delay: {{ .Values.inferenceService.autoscaling.scaleDownDelay }}
+  Pod Retention: {{ .Values.inferenceService.autoscaling.scaleToZeroPodRetention }}
+  Termination Grace: {{ .Values.inferenceService.terminationGracePeriodSeconds }}s
+
+{{- end }}
+{{- if .Values.llamacppInferenceService.enabled }}
+
+llama.cpp ({{ .Values.llamacppInferenceService.name }}):
+  Min/Max Replicas: {{ .Values.llamacppInferenceService.minReplicas }}/{{ .Values.llamacppInferenceService.maxReplicas }}
+  Scale Metric: {{ .Values.llamacppInferenceService.scaleMetric }}
+  Scale Target: {{ .Values.llamacppInferenceService.scaleTarget }} concurrent requests/pod
+  Scale-Down Delay: {{ .Values.llamacppInferenceService.autoscaling.scaleDownDelay }}
+  Pod Retention: {{ .Values.llamacppInferenceService.autoscaling.scaleToZeroPodRetention }}
+  Termination Grace: {{ .Values.llamacppInferenceService.terminationGracePeriodSeconds }}s
+
+{{- end }}
+{{- if .Values.ollamaInferenceService.enabled }}
+
+Ollama ({{ .Values.ollamaInferenceService.name }}):
+  Min/Max Replicas: {{ .Values.ollamaInferenceService.minReplicas }}/{{ .Values.ollamaInferenceService.maxReplicas }}
+  Scale Metric: {{ .Values.ollamaInferenceService.scaleMetric }}
+  Scale Target: {{ .Values.ollamaInferenceService.scaleTarget }} concurrent requests/pod
+  Scale-Down Delay: {{ .Values.ollamaInferenceService.autoscaling.scaleDownDelay }}
+  Pod Retention: {{ .Values.ollamaInferenceService.autoscaling.scaleToZeroPodRetention }}
+  Termination Grace: {{ .Values.ollamaInferenceService.terminationGracePeriodSeconds }}s
+
+{{- end }}
+
+--- Verify Autoscaling Status ---
+
+  # Check current replica count and scaling status
+  kubectl get inferenceservice <name> -o jsonpath='{.status.components.predictor}'
+
+  # Watch scaling events
+  kubectl get pods -l serving.kserve.io/inferenceservice=<name> -w
+
+  # Check Knative autoscaler decisions
+  kubectl logs -n knative-serving -l app=autoscaler --tail=100
+
+  # View autoscaling metrics
+  kubectl get podautoscaler -l serving.kserve.io/service=<name>
+
+--- Scale-to-Zero Behavior ---
+
+When minReplicas=0, the model scales to zero after:
+  1. No requests for stable-window duration (default: 60s)
+  2. Scale-down-delay period passes (vLLM: 5m, llama.cpp: 2m, Ollama: 3m)
+  3. Pod-retention period after scale-to-zero decision (vLLM: 1m, llama.cpp: 30s, Ollama: 1m)
+
+Total time from last request to zero pods:
+  vLLM:     ~6-7 minutes (60s + 5m + 1m)
+  llama.cpp: ~3-4 minutes (60s + 2m + 30s)
+  Ollama:   ~5-6 minutes (60s + 3m + 1m)
+
+--- Customizing Autoscaling ---
+
+Override default autoscaling settings per model:
+
+  # Keep vLLM model warm longer (10 minute scale-down delay)
+  helm upgrade {{ .Release.Name }} {{ .Chart.Name }} \
+    --set inferenceService.enabled=true \
+    --set inferenceService.autoscaling.scaleDownDelay=10m
+
+  # Faster scale-to-zero for dev/test (2 minute delay)
+  helm upgrade {{ .Release.Name }} {{ .Chart.Name }} \
+    --set inferenceService.enabled=true \
+    --set inferenceService.autoscaling.scaleDownDelay=2m \
+    --set inferenceService.autoscaling.scaleToZeroPodRetention=30s
+
+  # Stay warm (never scale to zero)
+  helm upgrade {{ .Release.Name }} {{ .Chart.Name }} \
+    --set inferenceService.enabled=true \
+    --set inferenceService.minReplicas=1
+
+  # Higher concurrency target (scale up later)
+  helm upgrade {{ .Release.Name }} {{ .Chart.Name }} \
+    --set inferenceService.enabled=true \
+    --set inferenceService.scaleTarget=20
+
+--- Termination Grace Period ---
+
+terminationGracePeriodSeconds allows in-flight requests to complete before pod termination.
+Default: 120s (vLLM, Ollama), 60s (llama.cpp)
+
+This requires the Knative config-features ConfigMap to have:
+  kubernetes.podspec-terminationGracePeriodSeconds: Enabled
+
+If you see validation errors about terminationGracePeriodSeconds, ensure the
+networking-layer chart is deployed with knative.enabled=true.
+
+--- Autoscaling Recommendations ---
+
+Production (latency-sensitive):
+  - minReplicas: 1 (avoid cold starts)
+  - scaleDownDelay: 10m (keep warm during traffic lulls)
+  - scaleTarget: 5-10 (scale earlier to maintain latency)
+
+Cost-optimized (batch/async):
+  - minReplicas: 0 (scale to zero when idle)
+  - scaleDownDelay: 2m (release resources quickly)
+  - scaleTarget: 15-20 (maximize utilization before scaling)
+
+Development/Testing:
+  - minReplicas: 0 (save costs)
+  - scaleDownDelay: 1m (fast iteration)
+  - maxReplicas: 1 (limit resource usage)
+
+
+=== Cold Start Latency ===
+
+Cold start latency is the time from scale-up trigger to first successful inference request.
+This metric varies significantly based on your environment and should be measured locally.
+
+--- Factors Affecting Cold Start ---
+
+Cold start time is dominated by these factors (in order of impact):
+
+1. Model Download Time (if not cached)
+   - HuggingFace Hub: Depends on network bandwidth and model size
+   - S3/Object Storage: Typically faster than HuggingFace for large models
+   - Local NVMe (hostpath-nvme): Near-instant if model is pre-cached
+
+2. Model Loading into Memory
+   - GPU VRAM loading: ~10-30s for 7B models, ~60-120s for 70B models
+   - CPU RAM loading: ~5-15s for quantized GGUF models
+   - Tensor parallelism: Adds overhead for multi-GPU distribution
+
+3. Runtime Initialization
+   - vLLM: CUDA initialization, KV-cache allocation (~5-10s)
+   - llama.cpp: Thread pool setup, mmap initialization (~2-5s)
+   - Ollama: Model pull verification, layer loading (varies by model)
+
+4. Container Startup
+   - Image pull (if not cached): 30s-5min depending on image size
+   - Container initialization: ~2-5s
+
+--- Typical Ranges (Environment Dependent) ---
+
+These ranges assume models are cached locally (no download) and container images
+are present on nodes. Your actual cold start times WILL vary.
+
+vLLM GPU Runtime:
+  - 7B parameter models: 20-40 seconds typical
+  - 13B parameter models: 30-60 seconds typical
+  - 70B parameter models: 90-180 seconds typical
+  - Primary factors: GPU VRAM bandwidth, tensor parallelism setup
+
+llama.cpp CPU Runtime:
+  - Quantized 7B (Q4_K_M): 10-20 seconds typical
+  - Quantized 13B (Q4_K_M): 15-30 seconds typical
+  - Primary factors: RAM bandwidth, mmap performance, thread count
+
+Ollama Runtime:
+  - Varies significantly by model source
+  - First pull: Minutes (downloading from Ollama registry)
+  - Subsequent starts: 15-45 seconds typical (model cached)
+  - Primary factors: Model format, layer count, available RAM/VRAM
+
+--- Minimizing Cold Start Latency ---
+
+1. Use Local NVMe Storage (Recommended)
+   Configure a hostPath StorageClass for GPU nodes with local NVMe:
+
+     kubectl apply -f - <<EOF
+     apiVersion: storage.k8s.io/v1
+     kind: StorageClass
+     metadata:
+       name: local-nvme
+     provisioner: kubernetes.io/no-provisioner
+     volumeBindingMode: WaitForFirstConsumer
+     EOF
+
+   Configure InferenceService to use local storage for model caching.
+
+2. Pre-pull Container Images
+   Ensure runtime images are present on nodes before scale-up:
+
+     kubectl get nodes -o wide
+     # On each GPU node:
+     crictl pull ghcr.io/vllm-project/vllm-openai:latest
+
+3. Set minReplicas=1 for Latency-Sensitive Workloads
+   Avoid cold starts entirely by keeping at least one replica warm:
+
+     --set inferenceService.minReplicas=1
+
+4. Use Larger Scale-Down Delays
+   Keep models warm longer to avoid repeated cold starts:
+
+     --set inferenceService.autoscaling.scaleDownDelay=30m
+
+--- Measuring Cold Start in Your Environment ---
+
+To measure actual cold start latency for your specific setup:
+
+  # 1. Scale model to zero
+  kubectl scale inferenceservice <name> --replicas=0
+
+  # 2. Wait for pod termination
+  kubectl wait --for=delete pod -l serving.kserve.io/inferenceservice=<name> --timeout=300s
+
+  # 3. Time a request (triggers scale-up)
+  time curl -X POST "http://<endpoint>/v1/chat/completions" \
+    -H "Content-Type: application/json" \
+    -d '{"model": "<model>", "messages": [{"role": "user", "content": "Hello"}], "max_tokens": 1}'
+
+  # 4. Check pod events for detailed timing
+  kubectl describe pod -l serving.kserve.io/inferenceservice=<name> | grep -A 20 Events
+
+The curl command will block until the model is ready and responds. The total
+time includes: container start + model load + first inference.
+
+--- Cold Start vs Warm Request Latency ---
+
+For comparison, warm request latency (model already loaded) is typically:
+  - vLLM: 50-200ms time-to-first-token
+  - llama.cpp: 100-500ms time-to-first-token
+  - Ollama: 100-300ms time-to-first-token
+
+Cold start adds 10-180 seconds on top of these values depending on your setup.
+This is why minReplicas=1 is recommended for latency-sensitive production workloads.
+
+
+=== Troubleshooting ===
+
+--- vLLM (GPU) ---
+
+Model loading timeout (CrashLoopBackOff):
+  - Check startup probe settings (current: {{ .Values.servingRuntime.startupProbe.failureThreshold }} * {{ .Values.servingRuntime.startupProbe.periodSeconds }}s = {{ mul .Values.servingRuntime.startupProbe.failureThreshold .Values.servingRuntime.startupProbe.periodSeconds }}s max)
+  - Large models may need higher failureThreshold
+  - Check pod logs: kubectl logs <pod> -c kserve-container
+
+GPU OOM errors:
+  - Reduce gpu_memory_utilization (current: {{ .Values.servingRuntime.gpuMemoryUtilization }})
+  - Reduce max_model_len (current: {{ .Values.servingRuntime.maxModelLen }})
+  - Use more GPUs with tensor parallelism
+
+Model download failures:
+  - Check HF_TOKEN for gated models
+  - Verify storageUri format: hf://<org>/<model>
+  - Check init container logs: kubectl logs <pod> -c storage-initializer
+
+{{- if .Values.llamacppRuntime.enabled }}
+
+--- llama.cpp (CPU) ---
+
+Thread over-provisioning (slow inference):
+  - LLAMA_ARG_THREADS must match CPU request, not host CPU count
+  - llama.cpp reads /proc/cpuinfo (host), not cgroup limits (container)
+  - Current: {{ .Values.llamacppRuntime.threads }} threads on {{ .Values.llamacppRuntime.resources.requests.cpu }} CPUs
+  - Fix: Ensure llamacppRuntime.threads equals resources.requests.cpu
+
+Context truncation (responses cut short):
+  - llama.cpp divides total context across parallel slots
+  - Current: {{ .Values.llamacppRuntime.contextWindow }} tokens/slot * {{ .Values.llamacppRuntime.parallelSlots }} slots = {{ mul .Values.llamacppRuntime.contextWindow .Values.llamacppRuntime.parallelSlots }} total
+  - If responses are truncated, increase contextWindow (not CTX_SIZE directly)
+
+Model file not found:
+  - Check /mnt/models contents: kubectl exec <pod> -c kserve-container -- ls -la /mnt/models/
+  - S3 single-file download places file in /mnt/models/
+  - Verify storageUri points to a .gguf file, not a directory
+
+GGUF download too large (hf://):
+  - hf:// downloads ALL quantization variants from a GGUF repo
+  - A 7B GGUF repo may download 20-40GB instead of 4-8GB for one variant
+  - Use s3:// for production GGUF deployments (single file)
+
+OOM during inference:
+  - Memory needed = model_size + KV_cache + overhead
+  - KV cache depends on context size and parallel slots
+  - Increase memory limits: --set llamacppInferenceService.resources.limits.memory=64Gi
+  - Reduce context or parallel slots to lower KV cache usage
+
+{{- end }}
+
+{{- if .Values.ollamaRuntime.enabled }}
+
+--- Ollama (GPU or CPU) ---
+
+Port mismatch (502/503 errors):
+  - Ollama defaults to 127.0.0.1:11434 but KServe expects 0.0.0.0:8080
+  - The ClusterServingRuntime sets OLLAMA_HOST=0.0.0.0:8080 automatically
+  - If you see 502/503, verify the runtime was applied correctly:
+    kubectl get clusterservingruntime {{ $ollamaRuntimeName }} -o yaml | grep OLLAMA_HOST
+
+Model auto-unload (latency spikes on requests):
+  - Ollama defaults to unloading models after 5 minutes of inactivity
+  - This causes cold-start delays on the next request
+  - The ClusterServingRuntime sets OLLAMA_KEEP_ALIVE=-1 (never unload)
+  - Verify: kubectl logs <pod> -c kserve-container | grep "keep_alive"
+
+Slow first request (model loading):
+  - Ollama pulls and loads the model at container startup
+  - First request may take 30-120s depending on model size
+  - The startup script warms the model with keep_alive:-1 to reduce this
+  - Monitor startup progress: kubectl logs <pod> -c kserve-container -f
+
+Model download timeout:
+  - Large models (>10GB) may exceed the 10-minute startup probe timeout
+  - Increase startup probe: --set ollamaRuntime.startupProbe.failureThreshold=60 (15 min)
+  - Or pre-pull models to a persistent volume (requires custom setup)
+
+Model not found (ollama pull fails):
+  - Verify model tag exists: https://ollama.com/library
+  - Model tag format: <name>:<size> (e.g., qwen3:4b, llama3:8b)
+  - Check pull output: kubectl logs <pod> -c kserve-container | grep "Pulling"
+
+GPU not detected:
+  - Ollama auto-detects GPUs via NVIDIA drivers
+  - Verify node has GPU: kubectl describe node <node> | grep nvidia
+  - Verify toleration allows scheduling on GPU nodes
+  - Check nvidia-container-runtime is installed: kubectl exec <pod> -- nvidia-smi
+
+{{- end }}
+
+=== Requirements ===
+
+This chart requires:
+  - KServe CRDs installed (Phase 1)
+  - Storage classes configured (Phase 2)
+  - GPU nodes with NVIDIA drivers and device plugin (for vLLM, Ollama GPU mode)
+  - CPU nodes for llama.cpp and Ollama CPU-only inference
+  - (Optional) Networking layer for external access (Phase 4)
+  - (Optional) S3-compatible storage for GGUF model downloads (llama.cpp)
+  - (Optional) Ollama registry access for model downloads (Ollama)

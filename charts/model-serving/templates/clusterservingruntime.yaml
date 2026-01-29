@@ -1,0 +1,71 @@
+{{- if .Values.servingRuntime.enabled }}
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: {{ include "model-serving.servingRuntimeName" . }}
+  labels:
+    {{- include "model-serving.labels" . | nindent 4 }}
+spec:
+  annotations:
+    prometheus.io/port: "8080"
+    prometheus.io/path: "/metrics"
+  supportedModelFormats:
+    - name: huggingface
+      version: "1"
+      autoSelect: true
+    - name: vllm
+      version: "1"
+      autoSelect: true
+  protocolVersions:
+    - v2
+    - grpc-v2
+  containers:
+    - name: kserve-container
+      image: {{ .Values.servingRuntime.image }}:{{ .Values.servingRuntime.tag }}
+      args:
+        - --model_name={{`{{.Name}}`}}
+        - --backend=vllm
+        - --gpu_memory_utilization={{ .Values.servingRuntime.gpuMemoryUtilization }}
+        - --max_model_len={{ .Values.servingRuntime.maxModelLen }}
+        {{- if .Values.servingRuntime.enablePrefixCaching }}
+        - --enable_prefix_caching
+        {{- end }}
+      env:
+        - name: SAFETENSORS_FAST_GPU
+          value: "1"
+        - name: HF_HUB_DISABLE_TELEMETRY
+          value: "1"
+      resources:
+        requests:
+          cpu: {{ .Values.servingRuntime.resources.requests.cpu | quote }}
+          memory: {{ .Values.servingRuntime.resources.requests.memory | quote }}
+        limits:
+          cpu: {{ .Values.servingRuntime.resources.limits.cpu | quote }}
+          memory: {{ .Values.servingRuntime.resources.limits.memory | quote }}
+      # Startup probe - extended timeout for model loading (CRITICAL per research Pitfall #1)
+      # Uses /v1/models which only returns when model is fully loaded
+      startupProbe:
+        httpGet:
+          path: /v1/models
+          port: 8080
+        initialDelaySeconds: {{ .Values.servingRuntime.startupProbe.initialDelaySeconds }}
+        periodSeconds: {{ .Values.servingRuntime.startupProbe.periodSeconds }}
+        timeoutSeconds: {{ .Values.servingRuntime.startupProbe.timeoutSeconds }}
+        failureThreshold: {{ .Values.servingRuntime.startupProbe.failureThreshold }}
+      # Readiness probe - /v1/models only returns when model loaded
+      readinessProbe:
+        httpGet:
+          path: /v1/models
+          port: 8080
+        periodSeconds: {{ .Values.servingRuntime.readinessProbe.periodSeconds }}
+        timeoutSeconds: {{ .Values.servingRuntime.readinessProbe.timeoutSeconds }}
+        failureThreshold: {{ .Values.servingRuntime.readinessProbe.failureThreshold }}
+      # Liveness probe - health check
+      livenessProbe:
+        httpGet:
+          path: /health
+          port: 8080
+        periodSeconds: {{ .Values.servingRuntime.livenessProbe.periodSeconds }}
+        timeoutSeconds: {{ .Values.servingRuntime.livenessProbe.timeoutSeconds }}
+        failureThreshold: {{ .Values.servingRuntime.livenessProbe.failureThreshold }}
+{{- end }}

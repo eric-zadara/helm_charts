@@ -1,0 +1,11 @@
+apiVersion: v2
+name: model-serving
+description: "Multi-runtime model serving: vLLM (GPU), llama.cpp (CPU), and Ollama (GPU/CPU) ServingRuntimes with InferenceService templates for LLM inference"
+type: application
+version: 0.1.0
+appVersion: "0.16.0"
+
+# Dependencies (must be installed before this chart):
+# - KServe CRDs (Phase 1) - InferenceService, ServingRuntime, ClusterServingRuntime
+# - Storage classes (Phase 2) - local-nvme for model caching
+# - Networking layer (Phase 4) - Envoy Gateway and Kourier

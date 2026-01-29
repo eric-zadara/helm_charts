@@ -1,0 +1,69 @@
+{{- if .Values.inferenceService.enabled }}
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: {{ .Values.inferenceService.name }}
+  labels:
+    {{- include "model-serving.labels" . | nindent 4 }}
+  annotations:
+    # Knative autoscaling annotations
+    autoscaling.knative.dev/scale-down-delay: {{ .Values.inferenceService.autoscaling.scaleDownDelay | quote }}
+    autoscaling.knative.dev/scale-to-zero-pod-retention-period: {{ .Values.inferenceService.autoscaling.scaleToZeroPodRetention | quote }}
+    autoscaling.knative.dev/window: {{ .Values.inferenceService.autoscaling.stableWindow | quote }}
+    autoscaling.knative.dev/target-utilization-percentage: {{ .Values.inferenceService.autoscaling.targetUtilizationPercentage | quote }}
+    {{- with .Values.inferenceService.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  predictor:
+    {{- if .Values.inferenceService.terminationGracePeriodSeconds }}
+    terminationGracePeriodSeconds: {{ .Values.inferenceService.terminationGracePeriodSeconds }}
+    {{- end }}
+    model:
+      modelFormat:
+        name: huggingface
+      runtime: {{ include "model-serving.servingRuntimeName" . }}
+      storageUri: {{ .Values.inferenceService.storageUri | quote }}
+      args:
+        - --tensor_parallel_size={{ .Values.inferenceService.tensorParallelSize }}
+        {{- range .Values.inferenceService.extraArgs }}
+        - {{ . }}
+        {{- end }}
+      {{- if .Values.inferenceService.huggingfaceSecret }}
+      env:
+        - name: HF_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.inferenceService.huggingfaceSecret }}
+              key: HF_TOKEN
+      {{- end }}
+      resources:
+        limits:
+          nvidia.com/gpu: {{ .Values.inferenceService.gpu | quote }}
+          cpu: {{ .Values.inferenceService.resources.limits.cpu | quote }}
+          memory: {{ .Values.inferenceService.resources.limits.memory | quote }}
+        requests:
+          nvidia.com/gpu: {{ .Values.inferenceService.gpu | quote }}
+          cpu: {{ .Values.inferenceService.resources.requests.cpu | quote }}
+          memory: {{ .Values.inferenceService.resources.requests.memory | quote }}
+    {{- with .Values.inferenceService.tolerations }}
+    tolerations:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .Values.inferenceService.nodeSelector }}
+    nodeSelector:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .Values.inferenceService.affinity }}
+    affinity:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    minReplicas: {{ .Values.inferenceService.minReplicas }}
+    maxReplicas: {{ .Values.inferenceService.maxReplicas }}
+    scaleMetric: {{ .Values.inferenceService.scaleMetric }}
+    scaleTarget: {{ .Values.inferenceService.scaleTarget }}
+    timeout: {{ .Values.inferenceService.timeout }}
+    {{- if .Values.inferenceService.priorityClassName }}
+    priorityClassName: {{ .Values.inferenceService.priorityClassName | quote }}
+    {{- end }}
+{{- end }}

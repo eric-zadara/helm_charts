@@ -1,0 +1,13 @@
+{{- if and .Values.inferenceService.enabled .Values.inferencePool.enabled .Values.inferenceObjective.enabled }}
+apiVersion: inference.networking.x-k8s.io/v1alpha2
+kind: InferenceObjective
+metadata:
+  name: {{ .Values.inferenceService.name }}
+  labels:
+    {{- include "model-serving.labels" . | nindent 4 }}
+spec:
+  priority: {{ .Values.inferenceObjective.priority }}
+  poolRef:
+    name: {{ .Values.inferenceService.name }}
+    group: "inference.networking.k8s.io"
+{{- end }}

@@ -1,0 +1,91 @@
+{{- if .Values.llamacppRuntime.enabled }}
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: {{ include "model-serving.llamacppRuntimeName" . }}
+  labels:
+    {{- include "model-serving.labels" . | nindent 4 }}
+spec:
+  annotations:
+    prometheus.io/port: "8080"
+    prometheus.io/path: "/metrics"
+  supportedModelFormats:
+    - name: gguf
+      version: "1"
+      autoSelect: true
+  protocolVersions:
+    - v2
+  containers:
+    - name: kserve-container
+      image: {{ .Values.llamacppRuntime.image }}:{{ .Values.llamacppRuntime.tag }}
+      env:
+        # Model location -- KServe StorageInitializer mounts here
+        - name: LLAMA_ARG_MODEL
+          value: "/mnt/models"
+        # Bind to all interfaces for KServe networking
+        - name: LLAMA_ARG_HOST
+          value: "0.0.0.0"
+        # Port (KServe expects 8080)
+        - name: LLAMA_ARG_PORT
+          value: "8080"
+        # CRITICAL: Must match CPU request to avoid host CPU detection (Pitfall #2)
+        - name: LLAMA_ARG_THREADS
+          value: {{ .Values.llamacppRuntime.threads | quote }}
+        - name: LLAMA_ARG_THREADS_BATCH
+          value: {{ .Values.llamacppRuntime.threadsBatch | quote }}
+        # Total context = contextWindow * parallelSlots (Pitfall #1)
+        - name: LLAMA_ARG_CTX_SIZE
+          value: {{ mul .Values.llamacppRuntime.contextWindow .Values.llamacppRuntime.parallelSlots | quote }}
+        # Concurrent request handling
+        - name: LLAMA_ARG_N_PARALLEL
+          value: {{ .Values.llamacppRuntime.parallelSlots | quote }}
+        # Enable Prometheus metrics endpoint
+        - name: LLAMA_ARG_ENDPOINT_METRICS
+          value: "1"
+        # Disable web UI in production
+        - name: LLAMA_ARG_NO_WEBUI
+          value: "true"
+        # Flash attention mode
+        - name: LLAMA_ARG_FLASH_ATTN
+          value: {{ .Values.llamacppRuntime.flashAttention | quote }}
+        {{- if .Values.llamacppRuntime.gpuLayers }}
+        # Optional GPU layer offloading (use server-cuda image)
+        - name: LLAMA_ARG_N_GPU_LAYERS
+          value: {{ .Values.llamacppRuntime.gpuLayers | quote }}
+        {{- end }}
+      ports:
+        - containerPort: 8080
+          protocol: TCP
+      resources:
+        requests:
+          cpu: {{ .Values.llamacppRuntime.resources.requests.cpu | quote }}
+          memory: {{ .Values.llamacppRuntime.resources.requests.memory | quote }}
+        limits:
+          cpu: {{ .Values.llamacppRuntime.resources.limits.cpu | quote }}
+          memory: {{ .Values.llamacppRuntime.resources.limits.memory | quote }}
+      # Startup probe -- /health returns 503 "loading model" until ready
+      startupProbe:
+        httpGet:
+          path: /health
+          port: 8080
+        initialDelaySeconds: {{ .Values.llamacppRuntime.startupProbe.initialDelaySeconds }}
+        periodSeconds: {{ .Values.llamacppRuntime.startupProbe.periodSeconds }}
+        timeoutSeconds: {{ .Values.llamacppRuntime.startupProbe.timeoutSeconds }}
+        failureThreshold: {{ .Values.llamacppRuntime.startupProbe.failureThreshold }}
+      # Readiness probe -- /health returns 200 "ok" when model is loaded
+      readinessProbe:
+        httpGet:
+          path: /health
+          port: 8080
+        periodSeconds: {{ .Values.llamacppRuntime.readinessProbe.periodSeconds }}
+        timeoutSeconds: {{ .Values.llamacppRuntime.readinessProbe.timeoutSeconds }}
+        failureThreshold: {{ .Values.llamacppRuntime.readinessProbe.failureThreshold }}
+      # Liveness probe -- /health returns 500 on error
+      livenessProbe:
+        httpGet:
+          path: /health
+          port: 8080
+        periodSeconds: {{ .Values.llamacppRuntime.livenessProbe.periodSeconds }}
+        timeoutSeconds: {{ .Values.llamacppRuntime.livenessProbe.timeoutSeconds }}
+        failureThreshold: {{ .Values.llamacppRuntime.livenessProbe.failureThreshold }}
+{{- end }}

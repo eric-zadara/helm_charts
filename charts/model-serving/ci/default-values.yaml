@@ -1,0 +1,63 @@
+# CI test values for model-serving chart
+# Enable templates that don't require external CRDs
+
+# vLLM ClusterServingRuntime (requires KServe CRDs - disabled for CI)
+servingRuntime:
+  enabled: false
+
+# llama.cpp ClusterServingRuntime (requires KServe CRDs - disabled for CI)
+llamacppRuntime:
+  enabled: false
+
+# Ollama ClusterServingRuntime (requires KServe CRDs - disabled for CI)
+ollamaRuntime:
+  enabled: false
+
+# vLLM InferenceService (requires KServe CRDs)
+inferenceService:
+  enabled: false
+
+# llama.cpp InferenceService (requires KServe CRDs)
+llamacppInferenceService:
+  enabled: false
+
+# Ollama InferenceService (requires KServe CRDs)
+ollamaInferenceService:
+  enabled: false
+
+# InferencePool (requires Inference Extension CRDs)
+inferencePool:
+  enabled: false
+
+# InferenceObjective (requires Inference Extension CRDs)
+inferenceObjective:
+  enabled: false
+
+# HTTPRoute (requires Gateway API CRDs)
+inferencePoolRoute:
+  enabled: false
+
+# PriorityClasses (standard K8s resources - safe to enable)
+priorityClasses:
+  enabled: true
+  production:
+    enabled: true
+  standard:
+    enabled: true
+  experimental:
+    enabled: true
+
+# ServiceMonitor (requires Prometheus Operator CRDs)
+serviceMonitor:
+  enabled: false
+
+# HuggingFace secret (standard K8s Secret - safe to enable)
+huggingface:
+  secretEnabled: true
+  token: "test-token-for-ci"
+
+# S3 storage (standard K8s resources - safe to enable)
+s3Storage:
+  enabled: true
+  accessKeyId: "test-access-key"
+  secretAccessKey: "test-secret-key"

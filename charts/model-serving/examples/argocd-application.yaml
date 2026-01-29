@@ -1,0 +1,55 @@
+# ArgoCD Application for Model Serving (vLLM, llama.cpp, Ollama runtimes)
+# Sync-wave 40: After networking, deploys ClusterServingRuntimes
+#
+# This application deploys:
+#   - ClusterServingRuntimes (vLLM, llama.cpp, Ollama)
+#   - InferenceService (optional, disabled by default)
+#   - HuggingFace/S3 secrets (optional, for model access)
+#
+# For models, create a separate Application or enable inferenceService in values.
+#
+# Prerequisites:
+#   - KServe CRDs installed (wave 2)
+#   - Networking layer deployed (wave 30)
+#   - GPU nodes available (for vLLM/Ollama GPU workloads)
+#
+# Usage:
+#   1. Update repoURL to your Git repository
+#   2. Update targetRevision to your branch/tag
+#   3. Apply: kubectl apply -f argocd-application.yaml
+#
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: model-serving
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "40"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/your-org/llm-platform.git
+    targetRevision: main
+    path: charts/model-serving
+    helm:
+      valueFiles:
+        - values.yaml
+      # Example: Deploy a test InferenceService
+      # parameters:
+      #   - name: inferenceService.enabled
+      #     value: "true"
+      #   - name: inferenceService.name
+      #     value: qwen25-7b
+      #   - name: inferenceService.gpu
+      #     value: "1"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: llm-platform
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

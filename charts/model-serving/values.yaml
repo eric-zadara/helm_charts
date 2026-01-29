@@ -1,0 +1,401 @@
+# -- ClusterServingRuntime configuration
+servingRuntime:
+  # -- Enable ClusterServingRuntime creation
+  enabled: true
+  # -- Runtime name
+  name: "kserve-vllm"
+  # -- Container image
+  image: "kserve/huggingfaceserver"
+  # -- Image tag (GPU variant)
+  tag: "v0.16.0-gpu"
+  # -- GPU memory utilization (0.0-1.0) per CONTEXT.md: 0.85 for balanced utilization with safety margin
+  gpuMemoryUtilization: 0.85
+  # -- Maximum model context length in tokens per CONTEXT.md: 16384 for extended context
+  maxModelLen: 16384
+  # -- Enable vLLM prefix caching (for KV-cache optimization in chat workloads)
+  enablePrefixCaching: true
+  # -- Resource defaults (per-InferenceService can override)
+  resources:
+    requests:
+      cpu: "1"
+      memory: "4Gi"
+    limits:
+      cpu: "4"
+      memory: "16Gi"
+  # -- Startup probe configuration (extended for model loading per CONTEXT.md: 10-15 min)
+  startupProbe:
+    initialDelaySeconds: 30
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 30  # 30 * 30s = 15 minutes max startup time
+  # -- Readiness probe configuration
+  readinessProbe:
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  # -- Liveness probe configuration
+  livenessProbe:
+    periodSeconds: 15
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+# -- InferenceService configuration (example/test model)
+inferenceService:
+  # -- Enable InferenceService deployment
+  enabled: false
+  # -- InferenceService name
+  name: "qwen25-1-5b"
+  # -- HuggingFace model URI (Qwen2.5 is Apache 2.0, no auth needed)
+  storageUri: "hf://Qwen/Qwen2.5-1.5B-Instruct"
+  # -- Number of GPUs (1-4)
+  gpu: 1
+  # -- Tensor parallel size (MUST match gpu count per research Pitfall #4)
+  tensorParallelSize: 1
+  # -- Extra vLLM args (e.g., --quantization=awq, --speculative-model=xxx)
+  extraArgs: []
+  # -- Minimum replicas (0 enables scale-to-zero)
+  minReplicas: 0
+  # -- Maximum replicas
+  maxReplicas: 3
+  # -- Autoscaling metric (concurrency or rps)
+  scaleMetric: "concurrency"
+  # -- Autoscaling target
+  scaleTarget: 10
+  # -- Request timeout in seconds
+  timeout: 60
+  # -- Resource requests/limits
+  resources:
+    requests:
+      cpu: "2"
+      memory: "8Gi"
+    limits:
+      cpu: "4"
+      memory: "16Gi"
+  # -- Node selector for GPU type (simpler alternative to affinity)
+  nodeSelector: {}
+  # -- Tolerations for GPU nodes
+  tolerations:
+    - key: "nvidia.com/gpu"
+      operator: "Exists"
+      effect: "NoSchedule"
+  # -- Node affinity for GPU type selection
+  affinity: {}
+  # -- Pod annotations
+  annotations: {}
+  # -- Autoscaling configuration (Knative KPA annotations)
+  autoscaling:
+    # -- Delay before scaling down (prevents flapping for GPU workloads)
+    scaleDownDelay: "5m"
+    # -- Minimum time last pod stays after scale-to-zero decision
+    scaleToZeroPodRetention: "1m"
+    # -- Stable window for averaging concurrency
+    stableWindow: "60s"
+    # -- Target utilization percentage before scaling
+    targetUtilizationPercentage: "70"
+  # -- Termination grace period in seconds (for long-running LLM requests)
+  # Requires config-features ConfigMap with terminationGracePeriodSeconds: Enabled
+  terminationGracePeriodSeconds: 120
+  # -- HuggingFace secret reference (for gated models)
+  huggingfaceSecret: ""
+  # -- Priority class name (reference existing or chart-created)
+  priorityClassName: ""
+
+# -- HuggingFace authentication (for gated models like Llama 3)
+huggingface:
+  # -- Enable HF secret creation
+  secretEnabled: false
+  # -- Secret name
+  secretName: "hf-secret"
+  # -- HF token value (use external secret management in production)
+  # For production: use Sealed Secrets, External Secrets Operator, or Vault
+  token: ""
+
+# -- Priority classes for workload prioritization (optional)
+priorityClasses:
+  # -- Enable PriorityClass creation
+  enabled: false
+  # -- Production workloads (highest priority, non-preempting)
+  production:
+    enabled: true
+    name: "llm-production"
+    value: 1000000
+    globalDefault: false
+    preemptionPolicy: "Never"
+    description: "Production LLM inference workloads - never preempted"
+  # -- Standard workloads
+  standard:
+    enabled: true
+    name: "llm-standard"
+    value: 100000
+    globalDefault: false
+    preemptionPolicy: "PreemptLowerPriority"
+    description: "Standard LLM inference workloads"
+  # -- Experimental workloads (lowest priority, can be preempted)
+  experimental:
+    enabled: true
+    name: "llm-experimental"
+    value: 10000
+    globalDefault: false
+    preemptionPolicy: "PreemptLowerPriority"
+    description: "Experimental LLM inference workloads - may be preempted"
+
+# -- InferencePool configuration (requires Phase 7 inference-gateway chart)
+inferencePool:
+  # -- Enable InferencePool creation (requires inference-gateway chart deployed)
+  enabled: false
+  # -- Target port on model server pods (vLLM default: 8080 via KServe)
+  targetPort: 8080
+  # -- EPP service name. MUST match the EPP service from the inference-gateway chart.
+  # Convention: <inference-gateway-release-name>-inference-gateway-epp
+  eppServiceName: "inference-gateway-epp"
+  # -- EPP service port (gRPC ext-proc)
+  eppServicePort: 9002
+  # -- Failure mode when EPP is unavailable (FailClose or FailOpen)
+  failureMode: "FailClose"
+  # -- Custom selector labels (default: auto-derived from inferenceService.name)
+  selectorLabels: {}
+
+# -- InferenceObjective configuration (priority per model)
+inferenceObjective:
+  # -- Enable InferenceObjective creation
+  enabled: false
+  # -- Priority level (lower number = higher priority, 0 is highest)
+  priority: 0
+
+# -- Internal HTTPRoute for InferencePool routing (connects internal Gateway to InferencePool)
+inferencePoolRoute:
+  # -- Enable HTTPRoute for InferencePool
+  enabled: false
+  # -- Internal Gateway name. MUST match the Gateway from the inference-gateway chart.
+  # Convention: <inference-gateway-release-name>-inference-gateway
+  gatewayName: "inference-gateway"
+  # -- Internal Gateway namespace (leave empty for same namespace)
+  gatewayNamespace: ""
+
+# -- llama.cpp ClusterServingRuntime configuration
+llamacppRuntime:
+  # -- Enable llama.cpp ClusterServingRuntime creation
+  enabled: true
+  # -- Runtime name
+  name: "kserve-llamacpp"
+  # -- Container image (CPU-only; use server-cuda tag for GPU offload)
+  image: "ghcr.io/ggml-org/llama.cpp"
+  # -- Image tag (pinned build number for reproducibility, NOT latest)
+  tag: "server-b7850"
+  # -- CPU threads for inference (MUST match resources.requests.cpu to avoid host CPU detection)
+  threads: 16
+  # -- CPU threads for batch/prompt processing (defaults to same as threads)
+  threadsBatch: 16
+  # -- Per-request context window in tokens (consistent with vLLM Phase 5 default)
+  contextWindow: 16384
+  # -- Number of parallel request slots
+  # Total context = contextWindow * parallelSlots (auto-computed in template)
+  parallelSlots: 4
+  # -- Flash attention mode (auto lets llama.cpp decide)
+  flashAttention: "auto"
+  # -- GPU layer offloading (empty string = CPU only; set with server-cuda image for hybrid)
+  gpuLayers: ""
+  # -- Resource requests/limits (Guaranteed QoS: requests = limits recommended for inference)
+  resources:
+    requests:
+      cpu: "16"
+      memory: "32Gi"
+    limits:
+      cpu: "16"       # MUST equal requests for Guaranteed QoS
+      memory: "32Gi"  # MUST equal requests for Guaranteed QoS
+  # -- Startup probe (GGUF loads faster than safetensors: 5 min max)
+  startupProbe:
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 30   # 30 * 10s = 5 minutes max startup
+  # -- Readiness probe
+  readinessProbe:
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  # -- Liveness probe
+  livenessProbe:
+    periodSeconds: 15
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+# -- llama.cpp InferenceService configuration
+llamacppInferenceService:
+  # -- Enable llama.cpp InferenceService deployment
+  enabled: false
+  # -- InferenceService name
+  name: "qwen25-7b-gguf"
+  # -- Model storage URI (s3:// recommended for GGUF; hf:// downloads ALL quantization variants)
+  storageUri: "s3://models/qwen2.5-7b-instruct-q4_k_m.gguf"
+  # -- ServiceAccount for S3 credential access (empty = no S3 auth; set to s3-model-sa when using S3)
+  serviceAccountName: ""
+  # -- Minimum replicas (0 enables scale-to-zero)
+  minReplicas: 0
+  # -- Maximum replicas
+  maxReplicas: 3
+  # -- Autoscaling metric (concurrency or rps)
+  scaleMetric: "concurrency"
+  # -- Autoscaling target
+  scaleTarget: 10
+  # -- Request timeout in seconds (longer than vLLM's 60s -- CPU inference is slower)
+  timeout: 120
+  # -- Resource requests/limits (Guaranteed QoS: requests = limits)
+  resources:
+    requests:
+      cpu: "16"
+      memory: "32Gi"
+    limits:
+      cpu: "16"
+      memory: "32Gi"
+  # -- Node selector for CPU-only nodes
+  nodeSelector: {}
+  # -- Tolerations
+  tolerations: []
+  # -- Node affinity
+  affinity: {}
+  # -- Pod annotations
+  annotations: {}
+  # -- Autoscaling configuration (Knative KPA annotations)
+  autoscaling:
+    # -- Delay before scaling down (shorter than vLLM due to faster CPU cold starts)
+    scaleDownDelay: "2m"
+    # -- Minimum time last pod stays after scale-to-zero decision
+    scaleToZeroPodRetention: "30s"
+    # -- Stable window for averaging concurrency
+    stableWindow: "60s"
+    # -- Target utilization percentage before scaling
+    targetUtilizationPercentage: "70"
+  # -- Termination grace period in seconds
+  terminationGracePeriodSeconds: 60
+  # -- Priority class name (reference existing or chart-created)
+  priorityClassName: ""
+
+# -- S3-compatible storage configuration
+# For S3-compatible storage (MinIO, Ceph, R2, AWS). Use external secret management in production.
+s3Storage:
+  # -- Enable S3 Secret and ServiceAccount creation
+  enabled: false
+  # -- Secret name
+  secretName: "s3-model-creds"
+  # -- ServiceAccount name (references the S3 Secret for KServe StorageInitializer)
+  serviceAccountName: "s3-model-sa"
+  # -- S3-compatible endpoint (override for MinIO, Ceph, R2, etc.)
+  endpoint: "s3.amazonaws.com"
+  # -- Use HTTPS (KServe annotation value: "1" or "0")
+  useHttps: "1"
+  # -- Verify SSL (KServe annotation value: "1" or "0")
+  verifySsl: "1"
+  # -- S3 region
+  region: "us-east-1"
+  # -- Access key ID (empty by default; use external secret management in production)
+  accessKeyId: ""
+  # -- Secret access key (empty by default; use external secret management in production)
+  secretAccessKey: ""
+
+# -- Ollama ClusterServingRuntime configuration
+ollamaRuntime:
+  # -- Enable Ollama ClusterServingRuntime creation
+  enabled: true
+  # -- Runtime name
+  name: "kserve-ollama"
+  # -- Container image
+  image: "ollama/ollama"
+  # -- Image tag (pinned for reproducibility, NOT latest)
+  tag: "0.15.2"
+  # -- Number of parallel requests (OLLAMA_NUM_PARALLEL)
+  numParallel: 4
+  # -- Default context length in tokens (OLLAMA_CONTEXT_LENGTH, consistent with vLLM/llama.cpp)
+  contextLength: 16384
+  # -- Enable flash attention for performance (OLLAMA_FLASH_ATTENTION=1)
+  flashAttention: true
+  # -- KV cache quantization type (OLLAMA_KV_CACHE_TYPE)
+  kvCacheType: "f16"
+  # -- Resource defaults (ClusterServingRuntime defaults, overridden per InferenceService)
+  resources:
+    requests:
+      cpu: "4"
+      memory: "16Gi"
+    limits:
+      cpu: "8"
+      memory: "24Gi"
+  # -- Startup probe (10 min max for model download + load: 40*15=600s)
+  startupProbe:
+    initialDelaySeconds: 30
+    periodSeconds: 15
+    timeoutSeconds: 5
+    failureThreshold: 40
+  # -- Readiness probe
+  readinessProbe:
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  # -- Liveness probe
+  livenessProbe:
+    periodSeconds: 15
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+# -- Ollama InferenceService configuration (example model deployment)
+ollamaInferenceService:
+  # -- Enable Ollama InferenceService deployment
+  enabled: false
+  # -- InferenceService name
+  name: "qwen3-4b-ollama"
+  # -- Ollama model tag (pulled via `ollama pull`, NOT storageUri)
+  modelTag: "qwen3:4b"
+  # -- Number of GPUs (0 for CPU-only, 1+ for GPU)
+  gpu: 0
+  # -- Minimum replicas (0 enables scale-to-zero)
+  minReplicas: 0
+  # -- Maximum replicas
+  maxReplicas: 3
+  # -- Autoscaling metric (concurrency or rps)
+  scaleMetric: "concurrency"
+  # -- Autoscaling target
+  scaleTarget: 10
+  # -- Request timeout in seconds (longer than vLLM -- model download at startup)
+  timeout: 120
+  # -- Resource requests/limits (Guaranteed QoS: requests = limits for CPU default)
+  resources:
+    requests:
+      cpu: "8"
+      memory: "8Gi"
+    limits:
+      cpu: "8"
+      memory: "8Gi"
+  # -- Node selector
+  nodeSelector: {}
+  # -- Tolerations
+  tolerations: []
+  # -- Node affinity
+  affinity: {}
+  # -- Pod annotations
+  annotations: {}
+  # -- Autoscaling configuration (Knative KPA annotations)
+  autoscaling:
+    # -- Delay before scaling down
+    scaleDownDelay: "3m"
+    # -- Minimum time last pod stays after scale-to-zero decision
+    scaleToZeroPodRetention: "1m"
+    # -- Stable window for averaging concurrency
+    stableWindow: "60s"
+    # -- Target utilization percentage before scaling
+    targetUtilizationPercentage: "70"
+  # -- Termination grace period in seconds
+  terminationGracePeriodSeconds: 120
+  # -- Priority class name (reference existing or chart-created)
+  priorityClassName: ""
+
+# -- Prometheus ServiceMonitor for vLLM metrics
+serviceMonitor:
+  # -- Enable ServiceMonitor creation (requires Prometheus Operator)
+  enabled: false
+  # -- Scrape interval
+  interval: "30s"
+  # -- Scrape timeout
+  scrapeTimeout: "10s"
+  # -- Namespace selector for cross-namespace scraping (default: release namespace only)
+  namespaceSelector: {}
+  # -- Additional relabelings for metric processing
+  relabelings: []

@@ -1,0 +1,62 @@
+{{- if .Values.ollamaInferenceService.enabled }}
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: {{ .Values.ollamaInferenceService.name }}
+  labels:
+    {{- include "model-serving.labels" . | nindent 4 }}
+  annotations:
+    # Knative autoscaling annotations
+    autoscaling.knative.dev/scale-down-delay: {{ .Values.ollamaInferenceService.autoscaling.scaleDownDelay | quote }}
+    autoscaling.knative.dev/scale-to-zero-pod-retention-period: {{ .Values.ollamaInferenceService.autoscaling.scaleToZeroPodRetention | quote }}
+    autoscaling.knative.dev/window: {{ .Values.ollamaInferenceService.autoscaling.stableWindow | quote }}
+    autoscaling.knative.dev/target-utilization-percentage: {{ .Values.ollamaInferenceService.autoscaling.targetUtilizationPercentage | quote }}
+    {{- with .Values.ollamaInferenceService.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  predictor:
+    {{- if .Values.ollamaInferenceService.terminationGracePeriodSeconds }}
+    terminationGracePeriodSeconds: {{ .Values.ollamaInferenceService.terminationGracePeriodSeconds }}
+    {{- end }}
+    model:
+      modelFormat:
+        name: ollama
+      runtime: {{ include "model-serving.ollamaRuntimeName" . }}
+      env:
+        - name: OLLAMA_MODEL
+          value: {{ .Values.ollamaInferenceService.modelTag | quote }}
+      resources:
+        requests:
+          {{- if .Values.ollamaInferenceService.gpu }}
+          nvidia.com/gpu: {{ .Values.ollamaInferenceService.gpu | quote }}
+          {{- end }}
+          cpu: {{ .Values.ollamaInferenceService.resources.requests.cpu | quote }}
+          memory: {{ .Values.ollamaInferenceService.resources.requests.memory | quote }}
+        limits:
+          {{- if .Values.ollamaInferenceService.gpu }}
+          nvidia.com/gpu: {{ .Values.ollamaInferenceService.gpu | quote }}
+          {{- end }}
+          cpu: {{ .Values.ollamaInferenceService.resources.limits.cpu | quote }}
+          memory: {{ .Values.ollamaInferenceService.resources.limits.memory | quote }}
+    {{- with .Values.ollamaInferenceService.tolerations }}
+    tolerations:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .Values.ollamaInferenceService.nodeSelector }}
+    nodeSelector:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .Values.ollamaInferenceService.affinity }}
+    affinity:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    minReplicas: {{ .Values.ollamaInferenceService.minReplicas }}
+    maxReplicas: {{ .Values.ollamaInferenceService.maxReplicas }}
+    scaleMetric: {{ .Values.ollamaInferenceService.scaleMetric }}
+    scaleTarget: {{ .Values.ollamaInferenceService.scaleTarget }}
+    timeout: {{ .Values.ollamaInferenceService.timeout }}
+    {{- if .Values.ollamaInferenceService.priorityClassName }}
+    priorityClassName: {{ .Values.ollamaInferenceService.priorityClassName | quote }}
+    {{- end }}
+{{- end }}

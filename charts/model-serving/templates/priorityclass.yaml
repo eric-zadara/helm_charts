@@ -1,0 +1,41 @@
+{{- if .Values.priorityClasses.enabled }}
+{{- if .Values.priorityClasses.production.enabled }}
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: {{ .Values.priorityClasses.production.name }}
+  labels:
+    {{- include "model-serving.labels" . | nindent 4 }}
+value: {{ .Values.priorityClasses.production.value }}
+globalDefault: {{ .Values.priorityClasses.production.globalDefault }}
+preemptionPolicy: {{ .Values.priorityClasses.production.preemptionPolicy | quote }}
+description: {{ .Values.priorityClasses.production.description | quote }}
+{{- end }}
+{{- if .Values.priorityClasses.standard.enabled }}
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: {{ .Values.priorityClasses.standard.name }}
+  labels:
+    {{- include "model-serving.labels" . | nindent 4 }}
+value: {{ .Values.priorityClasses.standard.value }}
+globalDefault: {{ .Values.priorityClasses.standard.globalDefault }}
+preemptionPolicy: {{ .Values.priorityClasses.standard.preemptionPolicy | quote }}
+description: {{ .Values.priorityClasses.standard.description | quote }}
+{{- end }}
+{{- if .Values.priorityClasses.experimental.enabled }}
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: {{ .Values.priorityClasses.experimental.name }}
+  labels:
+    {{- include "model-serving.labels" . | nindent 4 }}
+value: {{ .Values.priorityClasses.experimental.value }}
+globalDefault: {{ .Values.priorityClasses.experimental.globalDefault }}
+preemptionPolicy: {{ .Values.priorityClasses.experimental.preemptionPolicy | quote }}
+description: {{ .Values.priorityClasses.experimental.description | quote }}
+{{- end }}
+{{- end }}

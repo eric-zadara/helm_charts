@@ -1,0 +1,57 @@
+{{- if .Values.llamacppInferenceService.enabled }}
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: {{ .Values.llamacppInferenceService.name }}
+  labels:
+    {{- include "model-serving.labels" . | nindent 4 }}
+  annotations:
+    # Knative autoscaling annotations
+    autoscaling.knative.dev/scale-down-delay: {{ .Values.llamacppInferenceService.autoscaling.scaleDownDelay | quote }}
+    autoscaling.knative.dev/scale-to-zero-pod-retention-period: {{ .Values.llamacppInferenceService.autoscaling.scaleToZeroPodRetention | quote }}
+    autoscaling.knative.dev/window: {{ .Values.llamacppInferenceService.autoscaling.stableWindow | quote }}
+    autoscaling.knative.dev/target-utilization-percentage: {{ .Values.llamacppInferenceService.autoscaling.targetUtilizationPercentage | quote }}
+    {{- with .Values.llamacppInferenceService.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  predictor:
+    {{- if .Values.llamacppInferenceService.terminationGracePeriodSeconds }}
+    terminationGracePeriodSeconds: {{ .Values.llamacppInferenceService.terminationGracePeriodSeconds }}
+    {{- end }}
+    {{- if .Values.llamacppInferenceService.serviceAccountName }}
+    serviceAccountName: {{ .Values.llamacppInferenceService.serviceAccountName }}
+    {{- end }}
+    model:
+      modelFormat:
+        name: gguf
+      runtime: {{ include "model-serving.llamacppRuntimeName" . }}
+      storageUri: {{ .Values.llamacppInferenceService.storageUri | quote }}
+      resources:
+        requests:
+          cpu: {{ .Values.llamacppInferenceService.resources.requests.cpu | quote }}
+          memory: {{ .Values.llamacppInferenceService.resources.requests.memory | quote }}
+        limits:
+          cpu: {{ .Values.llamacppInferenceService.resources.limits.cpu | quote }}
+          memory: {{ .Values.llamacppInferenceService.resources.limits.memory | quote }}
+    {{- with .Values.llamacppInferenceService.tolerations }}
+    tolerations:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .Values.llamacppInferenceService.nodeSelector }}
+    nodeSelector:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    {{- with .Values.llamacppInferenceService.affinity }}
+    affinity:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    minReplicas: {{ .Values.llamacppInferenceService.minReplicas }}
+    maxReplicas: {{ .Values.llamacppInferenceService.maxReplicas }}
+    scaleMetric: {{ .Values.llamacppInferenceService.scaleMetric }}
+    scaleTarget: {{ .Values.llamacppInferenceService.scaleTarget }}
+    timeout: {{ .Values.llamacppInferenceService.timeout }}
+    {{- if .Values.llamacppInferenceService.priorityClassName }}
+    priorityClassName: {{ .Values.llamacppInferenceService.priorityClassName | quote }}
+    {{- end }}
+{{- end }}
