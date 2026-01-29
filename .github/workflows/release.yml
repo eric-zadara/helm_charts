@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@main
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -26,16 +26,121 @@ jobs:
         env:
           GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
 
-      - name: Run helm-docs
-        uses: losisin/helm-docs-github-action@v1
-        with:
-          git-push: true
+      - name: Install chart-releaser
+        run: |
+          curl -sSLo cr.tar.gz https://github.com/helm/chart-releaser/releases/download/v1.6.1/chart-releaser_1.6.1_linux_amd64.tar.gz
+          tar -xzf cr.tar.gz
+          sudo mv cr /usr/local/bin/cr
 
-      - name: Run chart-releaser
-        id: releaser
-        uses: helm/chart-releaser-action@v1.6.0
+      - name: Install helm-docs
+        run: |
+          curl -sSLo helm-docs.tar.gz https://github.com/norwoodj/helm-docs/releases/download/v1.14.2/helm-docs_1.14.2_Linux_x86_64.tar.gz
+          tar -xzf helm-docs.tar.gz
+          sudo mv helm-docs /usr/local/bin/helm-docs
+
+      - name: Update values documentation
+        run: |
+          # Only update READMEs for charts that have a gotmpl template
+          # Charts without templates keep their fully manual READMEs
+          for chart_dir in charts/*/; do
+            if [[ -f "${chart_dir}README.md.gotmpl" ]]; then
+              echo "Generating docs for ${chart_dir}..."
+              helm-docs --chart-search-root="${chart_dir}" --template-files=README.md.gotmpl
+            fi
+          done
+
+      - name: Commit documentation updates
+        run: |
+          if [[ -n "$(git status --porcelain charts/*/README.md)" ]]; then
+            git add charts/*/README.md
+            git commit -m "docs: update values documentation"
+            git push
+          else
+            echo "No documentation changes to commit"
+          fi
+
+      - name: Add helm repo for dependencies
+        run: |
+          helm repo add self https://${{ github.repository_owner }}.github.io/$(basename ${{ github.repository }})/
+          helm repo update
+
+      - name: Package charts
+        id: package
+        run: |
+          mkdir -p .cr-release-packages
+          failed_charts=""
+          successful_charts=""
+
+          for chart_dir in charts/*/; do
+            chart_name=$(basename "$chart_dir")
+            echo "::group::Processing $chart_name"
+
+            # Try to update dependencies (may fail for umbrella charts on first run)
+            if helm dependency update "$chart_dir" 2>&1; then
+              echo "Dependencies updated for $chart_name"
+            else
+              echo "::warning::Dependency update failed for $chart_name (may need dependencies published first)"
+              failed_charts="$failed_charts $chart_name"
+              echo "::endgroup::"
+              continue
+            fi
+
+            # Try to package
+            if helm package "$chart_dir" -d .cr-release-packages 2>&1; then
+              echo "Successfully packaged $chart_name"
+              successful_charts="$successful_charts $chart_name"
+            else
+              echo "::warning::Failed to package $chart_name"
+              failed_charts="$failed_charts $chart_name"
+            fi
+
+            echo "::endgroup::"
+          done
+
+          echo "successful=$successful_charts" >> $GITHUB_OUTPUT
+          echo "failed=$failed_charts" >> $GITHUB_OUTPUT
+
+          echo ""
+          echo "=== Summary ==="
+          echo "Successful: $successful_charts"
+          echo "Failed: $failed_charts"
+
+      - name: Upload charts
+        run: |
+          if ls .cr-release-packages/*.tgz 1>/dev/null 2>&1; then
+            cr upload \
+              --owner "${{ github.repository_owner }}" \
+              --repo "$(basename ${{ github.repository }})" \
+              --token "${{ secrets.GITHUB_TOKEN }}" \
+              --skip-existing
+          else
+            echo "No charts to upload"
+          fi
         env:
           CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-        with:
-          skip_existing: true
 
+      - name: Update chart index
+        run: |
+          if ls .cr-release-packages/*.tgz 1>/dev/null 2>&1; then
+            cr index \
+              --owner "${{ github.repository_owner }}" \
+              --repo "$(basename ${{ github.repository }})" \
+              --token "${{ secrets.GITHUB_TOKEN }}" \
+              --push
+          else
+            echo "No charts to index"
+          fi
+        env:
+          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Report status
+        if: always()
+        run: |
+          failed="${{ steps.package.outputs.failed }}"
+          if [[ -n "$failed" ]]; then
+            echo "::error::The following charts failed to package:$failed"
+            echo ""
+            echo "This may be expected for umbrella charts on first run."
+            echo "Re-run this workflow after dependencies are published."
+            exit 1
+          fi
