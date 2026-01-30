@@ -491,6 +491,38 @@ entries:
       testing/tier: "3"
     apiVersion: v2
     appVersion: 1.0.0
+    created: "2026-01-30T20:07:32.696258559Z"
+    dependencies:
+    - alias: postgresql
+      condition: postgresql.enabled
+      name: cluster
+      repository: https://cloudnative-pg.github.io/charts
+      version: 0.5.0
+    - condition: valkey.enabled
+      name: valkey
+      repository: https://charts.bitnami.com/bitnami
+      version: 5.1.4
+    - condition: networking-layer.enabled
+      name: networking-layer
+      repository: file://../networking-layer
+      version: '>=0.1.0'
+    - condition: litellm-proxy.enabled
+      name: litellm-proxy
+      repository: file://../litellm-proxy
+      version: '>=0.1.0'
+    description: Infrastructure layer for LLM inference platform - databases, networking,
+      and API proxy
+    digest: 3e1fc28905e091312756258b4c0338589f22d723360565d593528ae361f7bef8
+    name: inference-infrastructure
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/inference-infrastructure-0.6.0/inference-infrastructure-0.6.0.tgz
+    version: 0.6.0
+  - annotations:
+      testing/prerequisites: tier1-crds,cnpg-operator
+      testing/tier: "3"
+    apiVersion: v2
+    appVersion: 1.0.0
     created: "2026-01-30T19:07:00.522195183Z"
     dependencies:
     - alias: postgresql
@@ -857,6 +889,29 @@ entries:
     - https://github.com/eric-zadara/helm_charts/releases/download/lightrag-server-0.0.1/lightrag-server-0.0.1.tgz
     version: 0.0.1
   litellm-proxy:
+  - annotations:
+      testing/prerequisites: cnpg-operator
+      testing/tier: "2"
+    apiVersion: v2
+    appVersion: v1.80.15-stable.1
+    created: "2026-01-30T20:07:32.705394484Z"
+    dependencies:
+    - alias: postgresql
+      condition: database.internal.enabled
+      name: cluster
+      repository: https://cloudnative-pg.github.io/charts
+      version: 0.5.0
+    - condition: cache.internal.enabled
+      name: valkey
+      repository: https://charts.bitnami.com/bitnami
+      version: 5.1.4
+    description: LiteLLM Proxy - Multi-tenant API gateway for LLM inference
+    digest: 6b4ae5af567814ca0c27b9d8f780d86e37e8429cf71772bc40eff9747dd07aec
+    name: litellm-proxy
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/litellm-proxy-0.2.0/litellm-proxy-0.2.0.tgz
+    version: 0.2.0
   - apiVersion: v2
     appVersion: v1.80.15-stable.1
     created: "2026-01-29T20:36:18.756367169Z"
@@ -949,6 +1004,26 @@ entries:
     - https://github.com/eric-zadara/helm_charts/releases/download/model-serving-0.1.0/model-serving-0.1.0.tgz
     version: 0.1.0
   networking-layer:
+  - annotations:
+      testing/prerequisites: tier1-crds,cert-manager
+      testing/tier: "2"
+    apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-01-30T20:07:32.718164271Z"
+    dependencies:
+    - alias: envoy-gateway
+      condition: envoy-gateway.enabled
+      name: gateway-helm
+      repository: oci://docker.io/envoyproxy
+      version: 1.6.3
+    description: Gateway API ingress (Envoy Gateway) and Knative networking (Kourier)
+      for LLM inference platform
+    digest: 0afb267d93ed1dd299663d2adc44eb2ef0ada1610ff14de01376aeddd2c8ca59
+    name: networking-layer
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/networking-layer-0.2.0/networking-layer-0.2.0.tgz
+    version: 0.2.0
   - apiVersion: v2
     appVersion: 1.0.0
     created: "2026-01-29T19:19:38.628734887Z"
@@ -988,4 +1063,4 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/zadara-aws-config-0.0.1/zadara-aws-config-0.0.1.tgz
     version: 0.0.1
-generated: "2026-01-30T19:07:00.503687861Z"
+generated: "2026-01-30T20:07:32.684355879Z"
