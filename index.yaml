@@ -505,6 +505,38 @@ entries:
       testing/tier: "3"
     apiVersion: v2
     appVersion: 1.0.0
+    created: "2026-01-30T20:49:19.376177327Z"
+    dependencies:
+    - alias: postgresql
+      condition: postgresql.enabled
+      name: cluster
+      repository: https://cloudnative-pg.github.io/charts
+      version: 0.5.0
+    - condition: valkey.enabled
+      name: valkey
+      repository: https://charts.bitnami.com/bitnami
+      version: 5.1.4
+    - condition: networking-layer.enabled
+      name: networking-layer
+      repository: https://eric-zadara.github.io/helm_charts/
+      version: 0.2.0
+    - condition: litellm-proxy.enabled
+      name: litellm-proxy
+      repository: https://eric-zadara.github.io/helm_charts/
+      version: 0.2.1
+    description: Infrastructure layer for LLM inference platform - databases, networking,
+      and API proxy
+    digest: f424e312aef396531910185a5950efb7be4a2fbc90b5fb6f5f3998f20416af6a
+    name: inference-infrastructure
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/inference-infrastructure-0.6.1/inference-infrastructure-0.6.1.tgz
+    version: 0.6.1
+  - annotations:
+      testing/prerequisites: tier1-crds,cnpg-operator
+      testing/tier: "3"
+    apiVersion: v2
+    appVersion: 1.0.0
     created: "2026-01-30T20:07:32.696258559Z"
     dependencies:
     - alias: postgresql
@@ -647,6 +679,28 @@ entries:
     - https://github.com/eric-zadara/helm_charts/releases/download/inference-operators-0.1.0/inference-operators-0.1.0.tgz
     version: 0.1.0
   inference-stack:
+  - annotations:
+      testing/prerequisites: tier1-crds
+      testing/tier: "3"
+    apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-01-30T20:49:19.37829914Z"
+    dependencies:
+    - condition: model-serving.enabled
+      name: model-serving
+      repository: https://eric-zadara.github.io/helm_charts/
+      version: 0.1.0
+    - condition: inference-gateway.enabled
+      name: inference-gateway
+      repository: https://eric-zadara.github.io/helm_charts/
+      version: 0.1.1
+    description: Model serving and routing layer for LLM inference platform
+    digest: fd76182ec9a85a36a9b5f5f4e2b3af665ab13ec0159279222e422523bf1c6ba9
+    name: inference-stack
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/inference-stack-0.1.1/inference-stack-0.1.1.tgz
+    version: 0.1.1
   - apiVersion: v2
     appVersion: 1.0.0
     created: "2026-01-29T19:21:02.038880596Z"
@@ -1100,4 +1154,4 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/zadara-aws-config-0.0.1/zadara-aws-config-0.0.1.tgz
     version: 0.0.1
-generated: "2026-01-30T20:44:02.569388747Z"
+generated: "2026-01-30T20:49:19.344837931Z"
