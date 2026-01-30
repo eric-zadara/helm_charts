@@ -4,6 +4,9 @@ description: "Multi-runtime model serving: vLLM (GPU), llama.cpp (CPU), and Olla
 type: application
 version: 0.1.0
 appVersion: "0.16.0"
+annotations:
+  testing/tier: "2"
+  testing/prerequisites: "tier1-crds"
 
 # Dependencies (must be installed before this chart):
 # - KServe CRDs (Phase 1) - InferenceService, ServingRuntime, ClusterServingRuntime

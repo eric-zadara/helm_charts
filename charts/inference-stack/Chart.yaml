@@ -4,6 +4,9 @@ description: Model serving and routing layer for LLM inference platform
 type: application
 version: 0.1.0
 appVersion: "1.0.0"
+annotations:
+  testing/tier: "3"
+  testing/prerequisites: "tier1-crds"
 
 # Umbrella chart that bundles model serving components:
 # - model-serving: vLLM, llama.cpp, and Ollama ServingRuntimes

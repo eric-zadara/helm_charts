@@ -4,6 +4,9 @@ description: Gateway API ingress (Envoy Gateway) and Knative networking (Kourier
 type: application
 version: 0.1.1
 appVersion: "1.0.0"
+annotations:
+  testing/tier: "2"
+  testing/prerequisites: "tier1-crds,cert-manager"
 
 # Required: Gateway API CRDs must be installed (Phase 1)
 # Required: Knative Serving CRDs must be installed (Phase 1) for Kourier

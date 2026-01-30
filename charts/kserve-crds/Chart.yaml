@@ -4,3 +4,6 @@ description: KServe CRDs for model serving (InferenceService, ServingRuntime)
 type: application
 version: 0.1.0
 appVersion: "0.16.0"
+annotations:
+  testing/tier: "1"
+  testing/prerequisites: ""

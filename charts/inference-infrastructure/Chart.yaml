@@ -4,6 +4,9 @@ description: Infrastructure layer for LLM inference platform - networking and AP
 type: application
 version: 0.3.0
 appVersion: "1.0.0"
+annotations:
+  testing/tier: "3"
+  testing/prerequisites: "tier1-crds,cnpg-operator,cert-manager"
 
 # Umbrella chart that bundles infrastructure components:
 # - Networking layer (Envoy Gateway + Kourier)

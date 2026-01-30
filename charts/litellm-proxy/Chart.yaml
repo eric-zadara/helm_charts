@@ -4,6 +4,9 @@ description: "LiteLLM Proxy - Multi-tenant API gateway for LLM inference"
 type: application
 version: 0.1.1
 appVersion: "v1.80.15-stable.1"
+annotations:
+  testing/tier: "2"
+  testing/prerequisites: "cnpg-operator"
 
 # Prerequisites (must be installed before this chart):
 # - PostgreSQL via CNPG with PgBouncer pooler

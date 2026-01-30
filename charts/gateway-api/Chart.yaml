@@ -4,3 +4,6 @@ description: Gateway API CRDs for Kubernetes (standard channel)
 type: application
 version: 0.1.0
 appVersion: "1.4.1"
+annotations:
+  testing/tier: "1"
+  testing/prerequisites: ""
