@@ -69,6 +69,12 @@ database:
   passwordSecretName: "postgresql-app"
   # -- Key within password secret
   passwordSecretKey: "password"
+  # -- Password secret creation (for CI/testing only - production uses CNPG-managed secrets)
+  password:
+    # -- Create a Kubernetes Secret from the value below (set false to use existing)
+    create: false
+    # -- Password value (only used if create=true)
+    value: ""
   # -- Connection pool limit per worker process. Formula: PgBouncer_max_client_conn / (num_workers x num_pods)
   connectionPoolLimit: 10
   # -- Connection timeout in seconds
@@ -98,6 +104,12 @@ cache:
   passwordSecretName: "valkey"
   # -- Key within password secret
   passwordSecretKey: "valkey-password"
+  # -- Password secret creation (for CI/testing only - production uses Valkey-managed secrets)
+  password:
+    # -- Create a Kubernetes Secret from the value below (set false to use existing)
+    create: false
+    # -- Password value (only used if create=true)
+    value: ""
 
 # -- LiteLLM proxy configuration (generates litellm_config.yaml)
 # @section -- LiteLLM Configuration

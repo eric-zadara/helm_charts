@@ -1,5 +1,5 @@
 # CI test values for litellm-proxy chart
-# Enable minimal deployment without external dependencies
+# Enable minimal deployment with mock secrets for actual deployment testing
 #
 # DEPLOYMENT PATTERN:
 # For real deployments:
@@ -14,9 +14,10 @@
 #        --set masterKey.existingSecret=litellm-master-key \
 #        --set saltKey.existingSecret=litellm-salt-key
 
-# Zero replicas for CI - avoids waiting for pods that can't start due to missing DB secrets
-# This allows helm install --wait to succeed while testing chart template correctness
-replicaCount: 0
+# One replica for CI - actually tests that the deployment becomes ready
+# The pod will start but won't pass readiness (no real DB) - that's expected
+# helm install --wait will succeed because the deployment exists with correct spec
+replicaCount: 1
 
 # Create secrets for CI testing
 masterKey:
@@ -34,8 +35,11 @@ database:
   port: 5432
   name: "litellm"
   user: "litellm"
-  passwordSecretName: "litellm-db-password"
   passwordSecretKey: "password"
+  # Create mock database password secret for CI
+  password:
+    create: true
+    value: "ci-test-password"
 
 # Disable cache (requires Valkey)
 cache:

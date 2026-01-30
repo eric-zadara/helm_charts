@@ -52,7 +52,7 @@ spec:
             - name: PGPASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.database.passwordSecretName }}
+                  name: {{ include "litellm-proxy.databaseSecretName" . }}
                   key: {{ .Values.database.passwordSecretKey }}
             # -- Secrets
             - name: PROXY_MASTER_KEY
@@ -70,7 +70,7 @@ spec:
             - name: REDIS_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.cache.passwordSecretName }}
+                  name: {{ include "litellm-proxy.cacheSecretName" . }}
                   key: {{ .Values.cache.passwordSecretKey }}
             {{- end }}
             # -- Production settings

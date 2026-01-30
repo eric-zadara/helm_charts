@@ -73,3 +73,27 @@ Uses existingSecret if set, otherwise the generated secret name.
 {{- printf "%s-salt-key" (include "litellm-proxy.fullname" .) }}
 {{- end }}
 {{- end }}
+
+{{/*
+Return the database password secret name.
+Uses passwordSecretName if set, otherwise the generated secret name when create is true.
+*/}}
+{{- define "litellm-proxy.databaseSecretName" -}}
+{{- if .Values.database.password.create }}
+{{- printf "%s-db-password" (include "litellm-proxy.fullname" .) }}
+{{- else }}
+{{- .Values.database.passwordSecretName }}
+{{- end }}
+{{- end }}
+
+{{/*
+Return the cache password secret name.
+Uses passwordSecretName if set, otherwise the generated secret name when create is true.
+*/}}
+{{- define "litellm-proxy.cacheSecretName" -}}
+{{- if .Values.cache.password.create }}
+{{- printf "%s-cache-password" (include "litellm-proxy.fullname" .) }}
+{{- else }}
+{{- .Values.cache.passwordSecretName }}
+{{- end }}
+{{- end }}

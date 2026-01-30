@@ -1,11 +1,11 @@
 # CI test values for inference-gateway chart
-# Enable minimal deployment without external dependencies
+# Enable minimal deployment for actual deployment testing
 
 # EPP configuration
-# Zero replicas for CI - avoids waiting for pods that can't connect to InferencePool CRDs
-# This allows helm install --wait to succeed while testing chart template correctness
+# One replica for CI - EPP can start without a real InferencePool
+# It will watch for the pool but the gRPC health check is independent
 epp:
-  replicas: 0
+  replicas: 1
   poolName: "test-pool"
   poolNamespace: "default"
 

@@ -28,20 +28,20 @@ networking-layer:
   knative:
     enabled: false
 
-# LiteLLM proxy - mock database connections for lint
+# LiteLLM proxy - mock database connections for actual deployment testing
 litellm-proxy:
   enabled: true
-  # Zero replicas for CI - avoids waiting for pods that can't start due to missing DB secrets
-  replicaCount: 0
+  # One replica for CI - actually tests deployment creation
+  replicaCount: 1
   database:
     host: "mock-postgresql-pooler-rw"
-    passwordSecretName: "mock-postgresql-app"
+    passwordSecretKey: "password"
+    # Create mock database password secret for CI
+    password:
+      create: true
+      value: "ci-test-password"
   cache:
-    enabled: true
-    sentinel:
-      enabled: false
-    host: "mock-valkey"
-    passwordSecretName: "mock-valkey"
+    enabled: false
   masterKey:
     create: true
     value: "sk-test-master-key-for-ci"

@@ -45,7 +45,7 @@ DATABASE CONNECTION
   Port: {{ .Values.database.port }}
   Database: {{ .Values.database.name }}
   User: {{ .Values.database.user }}
-  Password Secret: {{ .Values.database.passwordSecretName }} (key: {{ .Values.database.passwordSecretKey }})
+  Password Secret: {{ include "litellm-proxy.databaseSecretName" . }} (key: {{ .Values.database.passwordSecretKey }})
   Pool Limit: {{ .Values.database.connectionPoolLimit }} per worker
 
   # Check LiteLLM database connectivity from logs
@@ -296,7 +296,7 @@ TROUBLESHOOTING
 Migration Job failures:
   kubectl logs job/{{ $fullName }}-migration -n {{ .Release.Namespace }}
   - Verify database host is reachable from this namespace
-  - Check password secret exists: kubectl get secret {{ .Values.database.passwordSecretName }} -n {{ .Release.Namespace }}
+  - Check password secret exists: kubectl get secret {{ include "litellm-proxy.databaseSecretName" . }} -n {{ .Release.Namespace }}
 
 Pod CrashLoopBackOff:
   kubectl logs deploy/{{ $fullName }} -n {{ .Release.Namespace }} --previous
