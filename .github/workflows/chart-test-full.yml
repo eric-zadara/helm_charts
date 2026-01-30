@@ -212,7 +212,15 @@ jobs:
 
       - name: Install chart
         run: |
+          # Use CI values file if it exists
+          VALUES_ARGS=""
+          if [[ -f "charts/${{ matrix.chart }}/ci/default-values.yaml" ]]; then
+            VALUES_ARGS="-f charts/${{ matrix.chart }}/ci/default-values.yaml"
+            echo "Using CI values file: charts/${{ matrix.chart }}/ci/default-values.yaml"
+          fi
+
           helm install ${{ matrix.chart }} charts/${{ matrix.chart }} \
+            $VALUES_ARGS \
             --namespace default \
             --wait \
             --timeout 10m
@@ -269,7 +277,15 @@ jobs:
 
       - name: Install chart
         run: |
+          # Use CI values file if it exists
+          VALUES_ARGS=""
+          if [[ -f "charts/${{ matrix.chart }}/ci/default-values.yaml" ]]; then
+            VALUES_ARGS="-f charts/${{ matrix.chart }}/ci/default-values.yaml"
+            echo "Using CI values file: charts/${{ matrix.chart }}/ci/default-values.yaml"
+          fi
+
           helm install ${{ matrix.chart }} charts/${{ matrix.chart }} \
+            $VALUES_ARGS \
             --namespace default \
             --wait \
             --timeout 5m
@@ -385,7 +401,15 @@ jobs:
 
       - name: Install chart
         run: |
+          # Use CI values file if it exists
+          VALUES_ARGS=""
+          if [[ -f "charts/${{ matrix.chart }}/ci/default-values.yaml" ]]; then
+            VALUES_ARGS="-f charts/${{ matrix.chart }}/ci/default-values.yaml"
+            echo "Using CI values file: charts/${{ matrix.chart }}/ci/default-values.yaml"
+          fi
+
           helm install ${{ matrix.chart }} charts/${{ matrix.chart }} \
+            $VALUES_ARGS \
             --namespace default \
             --wait \
             --timeout 10m
@@ -494,7 +518,15 @@ jobs:
 
       - name: Install chart
         run: |
+          # Use CI values file if it exists
+          VALUES_ARGS=""
+          if [[ -f "charts/${{ matrix.chart }}/ci/default-values.yaml" ]]; then
+            VALUES_ARGS="-f charts/${{ matrix.chart }}/ci/default-values.yaml"
+            echo "Using CI values file: charts/${{ matrix.chart }}/ci/default-values.yaml"
+          fi
+
           helm install ${{ matrix.chart }} charts/${{ matrix.chart }} \
+            $VALUES_ARGS \
             --namespace default \
             --wait \
             --timeout 15m
