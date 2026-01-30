@@ -42,18 +42,18 @@ spec:
           env:
             # -- Database connection components
             - name: PGHOST
-              value: {{ .Values.database.host | quote }}
+              value: {{ include "litellm-proxy.databaseHost" . | quote }}
             - name: PGPORT
-              value: {{ .Values.database.port | quote }}
+              value: {{ include "litellm-proxy.databasePort" . | quote }}
             - name: PGDATABASE
-              value: {{ .Values.database.name | quote }}
+              value: {{ include "litellm-proxy.databaseName" . | quote }}
             - name: PGUSER
-              value: {{ .Values.database.user | quote }}
+              value: {{ include "litellm-proxy.databaseUser" . | quote }}
             - name: PGPASSWORD
               valueFrom:
                 secretKeyRef:
                   name: {{ include "litellm-proxy.databaseSecretName" . }}
-                  key: {{ .Values.database.passwordSecretKey }}
+                  key: {{ include "litellm-proxy.databaseSecretKey" . }}
             # -- Secrets
             - name: PROXY_MASTER_KEY
               valueFrom:
@@ -71,7 +71,7 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: {{ include "litellm-proxy.cacheSecretName" . }}
-                  key: {{ .Values.cache.passwordSecretKey }}
+                  key: {{ include "litellm-proxy.cacheSecretKey" . }}
             {{- end }}
             # -- Production settings
             - name: LITELLM_LOG

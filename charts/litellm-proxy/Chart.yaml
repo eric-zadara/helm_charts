@@ -2,16 +2,33 @@ apiVersion: v2
 name: litellm-proxy
 description: "LiteLLM Proxy - Multi-tenant API gateway for LLM inference"
 type: application
-version: 0.1.2
+version: 0.2.0
 appVersion: "v1.80.15-stable.1"
 annotations:
   testing/tier: "2"
   testing/prerequisites: "cnpg-operator"
 
-# Prerequisites (must be installed before this chart):
-# - PostgreSQL via CNPG with PgBouncer pooler
-# - Valkey with Sentinel for HA
-# - KServe InferenceService endpoints for model routing (model-serving chart)
+# ZERO-CONFIG DEPLOYMENT:
+# This chart works out of the box - PostgreSQL (CNPG) and Valkey are
+# included as dependencies and enabled by default.
 #
-# No subchart dependencies - standalone chart that connects to
-# existing infrastructure via values.yaml configuration.
+# Prerequisites:
+# - CNPG operator installed (for database.internal.enabled=true)
+#
+# Optional (for external resources):
+# - External PostgreSQL + secret
+# - External Redis/Valkey + secret
+
+dependencies:
+  # CNPG PostgreSQL cluster (enabled by default)
+  - name: cluster
+    version: "0.5.0"
+    repository: https://cloudnative-pg.github.io/charts
+    alias: postgresql
+    condition: database.internal.enabled
+
+  # Valkey cache (enabled by default)
+  - name: valkey
+    version: "5.1.4"
+    repository: https://charts.bitnami.com/bitnami
+    condition: cache.internal.enabled

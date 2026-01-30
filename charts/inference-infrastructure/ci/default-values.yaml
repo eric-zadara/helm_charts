@@ -28,26 +28,30 @@ networking-layer:
   knative:
     enabled: false
 
-# LiteLLM proxy - mock database connections for actual deployment testing
+# LiteLLM proxy - use new internal/external structure
 litellm-proxy:
   enabled: true
-  # One replica for CI - actually tests deployment creation
+  # One replica for CI
   replicaCount: 1
+
+  # Disable internal resources (require CNPG operator / would create valkey)
   database:
-    host: "mock-postgresql-pooler-rw"
-    passwordSecretKey: "password"
-    # Create mock database password secret for CI
-    password:
-      create: true
-      value: "ci-test-password"
+    internal:
+      enabled: false
+    external:
+      host: "mock-postgresql-pooler-rw"
+      port: 5432
+      name: "app"
+      user: "app"
+      secretName: "mock-postgresql-app"
+      passwordSecretKey: "password"
+
   cache:
     enabled: false
-  masterKey:
-    create: true
-    value: "sk-test-master-key-for-ci"
-  saltKey:
-    create: true
-    value: "test-salt-key-for-ci"
+    internal:
+      enabled: false
+
+  # Disable features requiring other infrastructure
   httpRoute:
     enabled: false
   migrationJob:

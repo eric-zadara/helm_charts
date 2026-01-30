@@ -11,7 +11,7 @@
 #
 # The "infra" release name produces these service names:
 #   - PostgreSQL pooler: infra-postgresql-pooler-rw
-#   - Valkey service: infra-valkey
+#   - Valkey service: infra-valkey-master
 #
 # For external databases, disable the subcharts and override connection settings.
 
@@ -69,41 +69,32 @@ postgresql:
         default_pool_size: "50"
         max_client_conn: "1000"
 
-# Valkey cache (official valkey-io/valkey-helm chart)
+# Valkey cache (Bitnami chart)
 # Provides caching for LiteLLM responses
 valkey:
   # -- Enable Valkey cache deployment
   enabled: true
 
-  # Replica configuration
-  replica:
-    replicaCount: 2
+  # Architecture: standalone or replication
+  architecture: standalone
 
-  # No persistence - ephemeral cache
-  persistence:
-    enabled: false
-
-  # Authentication - default user with password
+  # Authentication
   auth:
     enabled: true
-    aclUsers:
-      default:
-        permissions: "~* &* +@all"
-        password: "changeme"  # Override in production!
+    password: ""  # Auto-generated if empty
 
-  # Service configuration
-  service:
-    type: ClusterIP
-    port: 6379
+  # Master configuration
+  master:
+    persistence:
+      enabled: false
 
-  # Resources
-  resources:
-    requests:
-      memory: 256Mi
-      cpu: 100m
-    limits:
-      memory: 512Mi
-      cpu: 500m
+    resources:
+      requests:
+        memory: 256Mi
+        cpu: 100m
+      limits:
+        memory: 512Mi
+        cpu: 500m
 
 # =============================================================================
 # NETWORKING COMPONENTS
@@ -127,35 +118,41 @@ networking-layer:
 # SERVICE DISCOVERY:
 # Default values expect release name "infra" which produces:
 #   - PostgreSQL pooler: infra-postgresql-pooler-rw
-#   - Valkey service: infra-valkey
+#   - Valkey service: infra-valkey-master
 #
-# For different release names or external databases, override these values.
+# The litellm-proxy chart has its own internal database/cache,
+# but in this umbrella chart we use the shared infrastructure.
 litellm-proxy:
   # -- Enable LiteLLM proxy deployment
   enabled: true
 
-  # Database connection
-  # Convention: CNPG pooler service is {release}-{alias}-pooler-{type}
+  # Disable internal resources - use umbrella chart's shared infrastructure
   database:
-    host: "infra-postgresql-pooler-rw"
-    port: 5432
-    name: "app"
-    user: "app"
-    # Convention: CNPG app secret is {release}-{alias}-app
-    passwordSecretName: "infra-postgresql-app"
-    passwordSecretKey: "password"
+    internal:
+      enabled: false
+    external:
+      # Convention: CNPG pooler service is {release}-{alias}-pooler-{type}
+      host: "infra-postgresql-pooler-rw"
+      port: 5432
+      name: "app"
+      user: "app"
+      # Convention: CNPG app secret is {release}-{alias}-app
+      secretName: "infra-postgresql-app"
+      passwordSecretKey: "password"
 
-  # Cache connection
-  # Convention: Valkey service is {release}-valkey
   cache:
     enabled: true
-    sentinel:
-      enabled: false  # Official valkey chart doesn't support Sentinel
-    host: "infra-valkey"
-    port: 6379
-    # Convention: Valkey auth secret is {release}-valkey-auth with key {username}-password
-    passwordSecretName: "infra-valkey-auth"
-    passwordSecretKey: "default-password"
+    internal:
+      enabled: false
+    external:
+      # Convention: Bitnami Valkey service is {release}-valkey-master
+      host: "infra-valkey-master"
+      port: 6379
+      # Convention: Bitnami Valkey secret is {release}-valkey
+      secretName: "infra-valkey"
+      passwordSecretKey: "valkey-password"
+      sentinel:
+        enabled: false
 
   # Disable HTTPRoute by default - networking-layer provides the gateway
   httpRoute:

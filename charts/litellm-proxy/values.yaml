@@ -1,4 +1,13 @@
 # charts/litellm-proxy/values.yaml
+#
+# ZERO-CONFIG DEFAULTS:
+# This chart works out of the box with `helm install litellm-proxy`.
+# Internal PostgreSQL (CNPG) and Valkey are created automatically.
+#
+# POWER USER OVERRIDES:
+# Disable internal resources and provide external connection details:
+#   database.internal.enabled: false + database.external.secretName
+#   cache.internal.enabled: false + cache.external.secretName
 
 # -- Docker image configuration
 # @section -- Image Configuration
@@ -30,12 +39,12 @@ fullnameOverride: ""
 # @section -- Authentication
 masterKey:
   # -- Create a Kubernetes Secret from the value below (set false to use existing)
-  create: false
+  create: true
   # -- Name of an existing secret containing the master key
   existingSecret: ""
   # -- Key within the existing secret
   existingSecretKey: "master-key"
-  # -- Master key value (only used if create=true; should start with "sk-")
+  # -- Master key value (auto-generated if empty and create=true)
   value: ""
 
 # -- Salt key for encrypting API credentials stored in PostgreSQL.
@@ -44,72 +53,129 @@ masterKey:
 # @section -- Authentication
 saltKey:
   # -- Create a Kubernetes Secret from the value below (set false to use existing)
-  create: false
+  create: true
   # -- Name of an existing secret containing the salt key
   existingSecret: ""
   # -- Key within the existing secret
   existingSecretKey: "salt-key"
-  # -- Salt key value (only used if create=true)
+  # -- Salt key value (auto-generated if empty and create=true)
   value: ""
 
-# -- Database connection (PostgreSQL via CNPG).
-# Deploy CNPG cluster: helm install postgresql cnpg/cluster
-# Service name follows: <release>-pooler-rw
-# @section -- Database Connection
+# -- Database configuration (PostgreSQL)
+# @section -- Database Configuration
 database:
-  # -- PostgreSQL host (PgBouncer service)
-  host: "postgresql-pooler-rw"
-  # -- PostgreSQL port
-  port: 5432
-  # -- Database name
-  name: "app"
-  # -- Database user
-  user: "app"
-  # -- Secret containing PostgreSQL password. Secret name follows: <release>-app (CNPG convention)
-  passwordSecretName: "postgresql-app"
-  # -- Key within password secret
-  passwordSecretKey: "password"
-  # -- Password secret creation (for CI/testing only - production uses CNPG-managed secrets)
-  password:
-    # -- Create a Kubernetes Secret from the value below (set false to use existing)
-    create: false
-    # -- Password value (only used if create=true)
-    value: ""
-  # -- Connection pool limit per worker process. Formula: PgBouncer_max_client_conn / (num_workers x num_pods)
+  # -- Internal CNPG PostgreSQL cluster (enabled by default)
+  # Creates a highly-available PostgreSQL cluster with PgBouncer pooling
+  internal:
+    # -- Enable internal CNPG cluster deployment
+    enabled: true
+    # -- Number of PostgreSQL instances (1 for dev, 3 for HA)
+    instances: 1
+    # -- PostgreSQL image
+    imageName: "ghcr.io/cloudnative-pg/postgresql:17.4"
+    # -- Storage size for PostgreSQL data
+    storageSize: "10Gi"
+    # -- Storage class (leave empty for default)
+    storageClass: ""
+    # -- Database name to create
+    database: "litellm"
+    # -- Owner username
+    owner: "litellm"
+    # -- PostgreSQL parameters
+    parameters:
+      max_connections: "200"
+      shared_buffers: "256MB"
+    # -- Resource requests/limits
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "250m"
+      limits:
+        memory: "1Gi"
+        cpu: "1000m"
+    # -- PgBouncer pooler configuration
+    pooler:
+      # -- Enable PgBouncer connection pooling
+      enabled: true
+      # -- Number of pooler instances
+      instances: 2
+      # -- Pool mode (transaction recommended)
+      poolMode: "transaction"
+      # -- Default connections per pool
+      defaultPoolSize: 50
+      # -- Maximum client connections
+      maxClientConn: 1000
+
+  # -- External database connection (used when internal.enabled=false)
+  external:
+    # -- PostgreSQL host
+    host: ""
+    # -- PostgreSQL port
+    port: 5432
+    # -- Database name
+    name: "litellm"
+    # -- Database user
+    user: "litellm"
+    # -- Secret containing the password (required when internal.enabled=false)
+    # Secret must have key specified in passwordSecretKey
+    secretName: ""
+    # -- Key within the password secret
+    passwordSecretKey: "password"
+
+  # -- Connection pool limit per worker process
+  # Formula: PgBouncer_max_client_conn / (num_workers x num_pods)
   connectionPoolLimit: 10
   # -- Connection timeout in seconds
   connectionTimeout: 60
 
-# -- Cache and rate limiting connection (Valkey).
-# Deploy Valkey: helm install valkey bitnami/valkey --set sentinel.enabled=true
+# -- Cache configuration (Redis/Valkey)
 # @section -- Cache Configuration
 cache:
-  # -- Enable Valkey integration for caching and distributed rate limiting
+  # -- Enable caching and distributed rate limiting
   enabled: true
-  # -- Sentinel HA configuration
-  sentinel:
-    # -- Enable Sentinel discovery for automatic failover
+
+  # -- Internal Valkey deployment (enabled by default)
+  # Creates a Valkey instance for caching and rate limiting
+  internal:
+    # -- Enable internal Valkey deployment
     enabled: true
-    # -- Sentinel host (Valkey service). Service name follows: <release>
-    host: "valkey"
-    # -- Sentinel port
-    port: 26379
-    # -- Sentinel service name (master group name)
-    serviceName: "mymaster"
-  # -- Direct connection host (used when sentinel.enabled=false)
-  host: ""
-  # -- Direct connection port (used when sentinel.enabled=false)
-  port: 6379
-  # -- Secret containing Valkey password. Secret name follows: <release> (bitnami convention)
-  passwordSecretName: "valkey"
-  # -- Key within password secret
-  passwordSecretKey: "valkey-password"
-  # -- Password secret creation (for CI/testing only - production uses Valkey-managed secrets)
-  password:
-    # -- Create a Kubernetes Secret from the value below (set false to use existing)
-    create: false
-    # -- Password value (only used if create=true)
-    value: ""
+    # -- Number of Valkey replicas
+    replicas: 1
+    # -- Valkey image
+    image: "docker.io/valkey/valkey:8-alpine"
+    # -- Storage persistence
+    persistence:
+      enabled: false
+      size: "1Gi"
+      storageClass: ""
+    # -- Resource requests/limits
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+    # -- Password for Valkey (auto-generated if empty)
+    password: ""
+
+  # -- External cache connection (used when internal.enabled=false)
+  external:
+    # -- Redis/Valkey host
+    host: ""
+    # -- Redis/Valkey port
+    port: 6379
+    # -- Secret containing the password (required when internal.enabled=false)
+    secretName: ""
+    # -- Key within the password secret
+    passwordSecretKey: "password"
+    # -- Enable Sentinel mode for HA
+    sentinel:
+      enabled: false
+      # -- Sentinel port
+      port: 26379
+      # -- Sentinel master name
+      serviceName: "mymaster"
 
 # -- LiteLLM proxy configuration (generates litellm_config.yaml)
 # @section -- LiteLLM Configuration
@@ -318,3 +384,64 @@ extraEnv: {}
 # -- Extra environment variable sources (secretRef, configMapRef)
 # @section -- Pod Configuration
 extraEnvFrom: []
+
+# =============================================================================
+# SUBCHART OVERRIDES
+# These are passed to the dependency subcharts when internal resources are enabled
+# =============================================================================
+
+# CNPG cluster subchart configuration (only used when database.internal.enabled=true)
+# Override any value from https://github.com/cloudnative-pg/charts/tree/main/charts/cluster
+postgresql:
+  mode: standalone
+  type: postgresql
+
+  cluster:
+    instances: 1
+    imageName: "ghcr.io/cloudnative-pg/postgresql:17.4"
+
+    postgresql:
+      parameters:
+        max_connections: "200"
+        shared_buffers: "256MB"
+
+    storage:
+      size: "10Gi"
+
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "250m"
+      limits:
+        memory: "1Gi"
+        cpu: "1000m"
+
+  poolers:
+    - name: rw
+      type: rw
+      instances: 2
+      poolMode: transaction
+      parameters:
+        default_pool_size: "50"
+        max_client_conn: "1000"
+
+# Valkey subchart configuration (only used when cache.internal.enabled=true)
+# Override any value from https://github.com/bitnami/charts/tree/main/bitnami/valkey
+valkey:
+  architecture: standalone
+
+  auth:
+    enabled: true
+    password: ""
+
+  master:
+    persistence:
+      enabled: false
+
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"

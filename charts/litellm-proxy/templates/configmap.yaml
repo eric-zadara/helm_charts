@@ -39,7 +39,7 @@ data:
 
     litellm_settings:
       {{- with .Values.litellm.litellmSettings }}
-      {{- /* Render all settings EXCEPT cache/cache_params which need special Sentinel wiring */ -}}
+      {{- /* Render all settings EXCEPT cache/cache_params which need special wiring */ -}}
       {{- $settings := deepCopy . }}
       {{- $_ := unset $settings "cache_params" }}
       {{- $_ := unset $settings "cache" }}
@@ -51,14 +51,15 @@ data:
       cache: true
       cache_params:
         type: "redis"
-        {{- if .Values.cache.sentinel.enabled }}
-        service_name: {{ .Values.cache.sentinel.serviceName | quote }}
+        {{- $sentinelEnabled := include "litellm-proxy.cacheSentinelEnabled" . }}
+        {{- if eq $sentinelEnabled "true" }}
+        service_name: {{ .Values.cache.external.sentinel.serviceName | quote }}
         sentinel_nodes:
-          - - {{ .Values.cache.sentinel.host | quote }}
-            - {{ .Values.cache.sentinel.port }}
+          - - {{ include "litellm-proxy.cacheHost" . | quote }}
+            - {{ include "litellm-proxy.cachePort" . }}
         {{- else }}
-        host: {{ .Values.cache.host | quote }}
-        port: {{ .Values.cache.port }}
+        host: {{ include "litellm-proxy.cacheHost" . | quote }}
+        port: {{ include "litellm-proxy.cachePort" . }}
         {{- end }}
         password: os.environ/REDIS_PASSWORD
         {{- with .Values.litellm.litellmSettings.cache_params }}
@@ -77,19 +78,12 @@ data:
       {{- end }}
 
     router_settings:
-      {{- if .Values.cache.enabled }}
-      {{- /* Wire Valkey connection for distributed rate limiting state */ -}}
-      {{- if .Values.cache.sentinel.enabled }}
-      redis_host: {{ .Values.cache.sentinel.host | quote }}
-      redis_port: {{ .Values.cache.sentinel.port | quote }}
-      {{- else }}
-      redis_host: {{ .Values.cache.host | quote }}
-      redis_port: {{ .Values.cache.port | quote }}
-      {{- end }}
+    {{- if .Values.cache.enabled }}
+      redis_host: {{ include "litellm-proxy.cacheHost" . | quote }}
+      redis_port: {{ include "litellm-proxy.cachePort" . | quote }}
       redis_password: os.environ/REDIS_PASSWORD
-      {{- end }}
-      {{- with .Values.litellm.routerSettings }}
-      {{- /* Render router settings, skipping redis fields already handled by cache wiring */ -}}
+    {{- end }}
+    {{- with .Values.litellm.routerSettings }}
       {{- $settings := deepCopy . }}
       {{- $_ := unset $settings "redis_host" }}
       {{- $_ := unset $settings "redis_port" }}
@@ -97,4 +91,4 @@ data:
       {{- if $settings }}
       {{- toYaml $settings | nindent 6 }}
       {{- end }}
-      {{- end }}
+    {{- end }}

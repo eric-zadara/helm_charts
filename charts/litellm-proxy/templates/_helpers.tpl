@@ -75,25 +75,180 @@ Uses existingSecret if set, otherwise the generated secret name.
 {{- end }}
 
 {{/*
+=============================================================================
+DATABASE HELPERS
+=============================================================================
+*/}}
+
+{{/*
+Return the database host.
+When internal is enabled, uses the CNPG pooler service name.
+Otherwise uses the external host.
+*/}}
+{{- define "litellm-proxy.databaseHost" -}}
+{{- if .Values.database.internal.enabled }}
+{{- if .Values.database.internal.pooler.enabled }}
+{{- printf "%s-postgresql-pooler-rw" .Release.Name }}
+{{- else }}
+{{- printf "%s-postgresql-rw" .Release.Name }}
+{{- end }}
+{{- else }}
+{{- .Values.database.external.host }}
+{{- end }}
+{{- end }}
+
+{{/*
+Return the database port.
+*/}}
+{{- define "litellm-proxy.databasePort" -}}
+{{- if .Values.database.internal.enabled }}
+{{- 5432 }}
+{{- else }}
+{{- .Values.database.external.port }}
+{{- end }}
+{{- end }}
+
+{{/*
+Return the database name.
+*/}}
+{{- define "litellm-proxy.databaseName" -}}
+{{- if .Values.database.internal.enabled }}
+{{- .Values.database.internal.database }}
+{{- else }}
+{{- .Values.database.external.name }}
+{{- end }}
+{{- end }}
+
+{{/*
+Return the database user.
+*/}}
+{{- define "litellm-proxy.databaseUser" -}}
+{{- if .Values.database.internal.enabled }}
+{{- .Values.database.internal.owner }}
+{{- else }}
+{{- .Values.database.external.user }}
+{{- end }}
+{{- end }}
+
+{{/*
 Return the database password secret name.
-Uses passwordSecretName if set, otherwise the generated secret name when create is true.
+When internal is enabled, uses CNPG convention: {release}-postgresql-app
+Otherwise uses the external secret name.
 */}}
 {{- define "litellm-proxy.databaseSecretName" -}}
-{{- if .Values.database.password.create }}
-{{- printf "%s-db-password" (include "litellm-proxy.fullname" .) }}
+{{- if .Values.database.internal.enabled }}
+{{- printf "%s-postgresql-app" .Release.Name }}
 {{- else }}
-{{- .Values.database.passwordSecretName }}
+{{- .Values.database.external.secretName }}
+{{- end }}
+{{- end }}
+
+{{/*
+Return the database password secret key.
+*/}}
+{{- define "litellm-proxy.databaseSecretKey" -}}
+{{- if .Values.database.internal.enabled }}
+{{- "password" }}
+{{- else }}
+{{- .Values.database.external.passwordSecretKey }}
+{{- end }}
+{{- end }}
+
+{{/*
+=============================================================================
+CACHE HELPERS
+=============================================================================
+*/}}
+
+{{/*
+Return the cache host.
+When internal is enabled, uses the Valkey service name.
+Otherwise uses the external host (or sentinel host if sentinel enabled).
+*/}}
+{{- define "litellm-proxy.cacheHost" -}}
+{{- if .Values.cache.internal.enabled }}
+{{- printf "%s-valkey-master" .Release.Name }}
+{{- else if .Values.cache.external.sentinel.enabled }}
+{{- .Values.cache.external.host }}
+{{- else }}
+{{- .Values.cache.external.host }}
+{{- end }}
+{{- end }}
+
+{{/*
+Return the cache port.
+*/}}
+{{- define "litellm-proxy.cachePort" -}}
+{{- if .Values.cache.internal.enabled }}
+{{- 6379 }}
+{{- else if .Values.cache.external.sentinel.enabled }}
+{{- .Values.cache.external.sentinel.port }}
+{{- else }}
+{{- .Values.cache.external.port }}
+{{- end }}
+{{- end }}
+
+{{/*
+Return whether sentinel mode is enabled.
+Internal Valkey uses master/replica mode, not sentinel.
+*/}}
+{{- define "litellm-proxy.cacheSentinelEnabled" -}}
+{{- if .Values.cache.internal.enabled }}
+{{- false }}
+{{- else }}
+{{- .Values.cache.external.sentinel.enabled }}
 {{- end }}
 {{- end }}
 
 {{/*
 Return the cache password secret name.
-Uses passwordSecretName if set, otherwise the generated secret name when create is true.
+When internal is enabled, uses Bitnami Valkey convention.
+Otherwise uses the external secret name.
 */}}
 {{- define "litellm-proxy.cacheSecretName" -}}
-{{- if .Values.cache.password.create }}
-{{- printf "%s-cache-password" (include "litellm-proxy.fullname" .) }}
+{{- if .Values.cache.internal.enabled }}
+{{- printf "%s-valkey" .Release.Name }}
 {{- else }}
-{{- .Values.cache.passwordSecretName }}
+{{- .Values.cache.external.secretName }}
+{{- end }}
+{{- end }}
+
+{{/*
+Return the cache password secret key.
+*/}}
+{{- define "litellm-proxy.cacheSecretKey" -}}
+{{- if .Values.cache.internal.enabled }}
+{{- "valkey-password" }}
+{{- else }}
+{{- .Values.cache.external.passwordSecretKey }}
+{{- end }}
+{{- end }}
+
+{{/*
+=============================================================================
+RANDOM KEY GENERATION
+=============================================================================
+*/}}
+
+{{/*
+Generate a random master key if not provided.
+Format: sk-<random-32-char-string>
+*/}}
+{{- define "litellm-proxy.generateMasterKey" -}}
+{{- if .Values.masterKey.value }}
+{{- .Values.masterKey.value }}
+{{- else }}
+{{- printf "sk-%s" (randAlphaNum 32) }}
+{{- end }}
+{{- end }}
+
+{{/*
+Generate a random salt key if not provided.
+*/}}
+{{- define "litellm-proxy.generateSaltKey" -}}
+{{- if .Values.saltKey.value }}
+{{- .Values.saltKey.value }}
+{{- else }}
+{{- randAlphaNum 32 }}
 {{- end }}
 {{- end }}

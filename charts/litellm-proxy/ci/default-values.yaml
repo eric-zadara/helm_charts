@@ -1,49 +1,36 @@
 # CI test values for litellm-proxy chart
-# Enable minimal deployment with mock secrets for actual deployment testing
 #
-# DEPLOYMENT PATTERN:
-# For real deployments:
-#   1. Deploy PostgreSQL (CNPG):
-#      helm install postgresql cnpg/cluster -n llm-platform --set pooler.enabled=true
+# With the new zero-config defaults, most values are already correct.
+# This file only overrides what's needed for CI testing.
 #
-#   2. Deploy Valkey:
-#      helm install valkey bitnami/valkey -n llm-platform --set sentinel.enabled=true
+# ZERO-CONFIG DEPLOYMENT:
+#   helm install litellm-proxy ./charts/litellm-proxy
 #
-#   3. Deploy litellm-proxy (defaults work with release names above):
-#      helm install litellm ./charts/litellm-proxy -n llm-platform \
-#        --set masterKey.existingSecret=litellm-master-key \
-#        --set saltKey.existingSecret=litellm-salt-key
+# This works out of the box with:
+#   - Internal CNPG PostgreSQL cluster
+#   - Internal Valkey cache
+#   - Auto-generated master key and salt key
 
-# One replica for CI - actually tests that the deployment becomes ready
-# The pod will start but won't pass readiness (no real DB) - that's expected
-# helm install --wait will succeed because the deployment exists with correct spec
+# One replica for CI
 replicaCount: 1
 
-# Create secrets for CI testing
-masterKey:
-  create: true
-  value: "sk-test-key-for-ci-validation"
-
-saltKey:
-  create: true
-  value: "test-salt-key-for-ci-validation"
-
-# Database config for template rendering (CI uses mock values)
-# Real deployments use: postgresql-pooler-rw (default)
+# Disable internal database (requires CNPG operator which may not be in CI)
 database:
-  host: "localhost"
-  port: 5432
-  name: "litellm"
-  user: "litellm"
-  passwordSecretKey: "password"
-  # Create mock database password secret for CI
-  password:
-    create: true
-    value: "ci-test-password"
+  internal:
+    enabled: false
+  external:
+    host: "localhost"
+    port: 5432
+    name: "litellm"
+    user: "litellm"
+    secretName: "litellm-proxy-db-password"
+    passwordSecretKey: "password"
 
-# Disable cache (requires Valkey)
+# Disable internal cache for CI simplicity
 cache:
   enabled: false
+  internal:
+    enabled: false
 
 # Disable migration job (requires database)
 migrationJob:
