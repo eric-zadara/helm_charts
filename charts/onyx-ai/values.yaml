@@ -105,12 +105,17 @@ externalPostgresql:
 
 redis:
   # Enable default OT Container Kit Redis (upstream subchart)
-  # Set to false when using HA mode or external Redis
+  # IMPORTANT: You MUST set this to false when using HA mode or external Redis.
+  # Helm values.yaml cannot contain template logic, so this is not auto-disabled.
+  # The chart validates that only one Redis mode is active and will fail with a
+  # clear error message if multiple modes are enabled simultaneously.
   enabled: true
 
   # HA mode using Spotahome Redis Operator (RedisFailover CRD)
   # Requires: Spotahome Redis Operator pre-installed in cluster
-  # When enabled, redis.enabled should be set to false
+  # IMPORTANT: When enabling HA mode, you MUST also set:
+  #   - redis.enabled: false (in this section)
+  #   - onyx.redis.enabled: false (in onyx: section below)
   ha:
     enabled: false
     # Redis instances (followers)
@@ -316,11 +321,18 @@ onyx:
   # Phase 4: Redis for Celery task queue
   # ---------------------------------------------------------------------------
   # This controls the upstream OT Container Kit Redis subchart.
-  # The wrapper chart's redis.enabled controls whether this is active.
-  # See redis: section (above onyx:) for wrapper-level Redis configuration.
+  # IMPORTANT: Manual configuration is required when switching Redis modes:
   #
-  # For HA Redis: Set redis.ha.enabled: true (above) and this will be disabled.
-  # For external Redis: Set externalRedis.host (above) and this will be disabled.
+  #   For HA Redis (redis.ha.enabled: true):
+  #     - Set redis.enabled: false (wrapper redis section above onyx:)
+  #     - Set onyx.redis.enabled: false (this section)
+  #
+  #   For external Redis (externalRedis.host set):
+  #     - Set redis.enabled: false (wrapper redis section above onyx:)
+  #     - Set onyx.redis.enabled: false (this section)
+  #
+  # The chart validates that only one Redis mode is active and fails with
+  # a descriptive error if multiple modes are enabled.
   redis:
     enabled: true
     redisStandalone:
