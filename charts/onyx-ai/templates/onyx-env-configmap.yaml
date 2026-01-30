@@ -14,6 +14,7 @@ chart templates when they produce resources with the same name.
 All Onyx pods read this via envFrom.configMapRef in their deployment specs.
 */}}
 {{- include "onyx-ai.objectStorage.validate" . }}
+{{- include "onyx-ai.redis.validate" . }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -58,6 +59,26 @@ data:
   AWS_REGION_NAME: {{ $region | quote }}
   {{- end }}
   S3_VERIFY_SSL: {{ include "onyx-ai.objectStorage.sslVerify" . | quote }}
+  # ============================================================================
+  # PostgreSQL Configuration (Phase 8.1 - merged from postgres-config)
+  # ============================================================================
+  POSTGRES_HOST: {{ include "onyx-ai.postgresql.host" . | quote }}
+  POSTGRES_PORT: {{ include "onyx-ai.postgresql.port" . | quote }}
+  {{- if not .Values.cnpg.enabled }}
+  POSTGRES_DB: {{ .Values.externalPostgresql.database | default "postgres" | quote }}
+  {{- end }}
+  # ============================================================================
+  # Redis Configuration (Phase 8.1 - merged from redis-config)
+  # ============================================================================
+  REDIS_HOST: {{ include "onyx-ai.redis.host" . | quote }}
+  REDIS_PORT: {{ include "onyx-ai.redis.port" . | quote }}
+  {{- $dbNum := include "onyx-ai.redis.database" . -}}
+  {{- if ne $dbNum "0" }}
+  REDIS_DB_NUMBER: {{ $dbNum | quote }}
+  {{- end }}
+  {{- if eq (include "onyx-ai.redis.tlsEnabled" .) "true" }}
+  REDIS_SSL: "true"
+  {{- end }}
   {{- if .Values.onyx.codeInterpreter.enabled }}
   CODE_INTERPRETER_BASE_URL: "http://{{ .Release.Name }}-code-interpreter:{{ .Values.onyx.codeInterpreter.service.port }}"
   {{- end }}
