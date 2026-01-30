@@ -1,21 +1,23 @@
 # ArgoCD Application for Inference Infrastructure
-# Sync-wave 20: After CRDs, before applications
+# Sync-wave 20: After operators (wave 0), before applications (wave 40)
 #
-# Bundles:
-#   - networking-layer: Envoy Gateway + Kourier for ingress and Knative networking
-#   - litellm-proxy: Multi-tenant LLM API gateway with caching and rate limiting
-#
-# NOTE: PostgreSQL and Valkey are NOT included. Deploy them separately before this chart:
-#   helm install postgresql cnpg/cluster -n llm-platform --set cluster.instances=3 --set pooler.enabled=true
-#   helm install valkey bitnami/valkey -n llm-platform --set sentinel.enabled=true
+# Zero-config deployment includes:
+#   - PostgreSQL cluster (CNPG) with PgBouncer connection pooling
+#   - Valkey cache (Redis-compatible)
+#   - Networking layer (Envoy Gateway + Kourier)
+#   - LiteLLM proxy (auto-wired to PostgreSQL and Valkey)
 #
 # Prerequisites:
-#   - inference-operators chart installed (CRDs)
-#   - CloudNativePG operator installed
-#   - PostgreSQL deployed (cnpg/cluster with release name "postgresql")
-#   - Valkey deployed (bitnami/valkey with release name "valkey")
+#   - inference-operators chart installed (sync-wave: 0)
+#   - No manual database deployment required (databases are bundled)
 #
-# Before deploying, create required secrets:
+# For external databases, add helm parameters to disable bundled components:
+#   postgresql.enabled=false
+#   valkey.enabled=false
+#   litellm-proxy.database.host=your-postgresql-host
+#   litellm-proxy.cache.host=your-valkey-host
+#
+# Before deploying, create required LiteLLM secrets:
 #   kubectl create secret generic litellm-master-key \
 #     --from-literal=master-key='sk-your-master-key-here' \
 #     -n llm-platform
@@ -27,9 +29,8 @@
 # Usage:
 #   1. Update repoURL to your Git repository
 #   2. Update targetRevision to your branch/tag
-#   3. Deploy PostgreSQL and Valkey (see NOTE above)
-#   4. Create LiteLLM secrets (above)
-#   5. Apply: kubectl apply -f argocd-application.yaml
+#   3. Create LiteLLM secrets (above)
+#   4. Apply: kubectl apply -f argocd-application.yaml
 #
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -59,16 +60,20 @@ spec:
           value: litellm-salt-key
         - name: litellm-proxy.saltKey.existingSecretKey
           value: salt-key
-      # If using different PostgreSQL/Valkey release names, override:
+      # To disable bundled databases and use external:
       # parameters:
+      #   - name: postgresql.enabled
+      #     value: "false"
+      #   - name: valkey.enabled
+      #     value: "false"
       #   - name: litellm-proxy.database.host
-      #     value: mydb-pooler-rw
+      #     value: my-external-postgresql
       #   - name: litellm-proxy.database.passwordSecretName
-      #     value: mydb-app
-      #   - name: litellm-proxy.cache.sentinel.host
-      #     value: mycache
+      #     value: my-postgres-secret
+      #   - name: litellm-proxy.cache.host
+      #     value: my-external-valkey
       #   - name: litellm-proxy.cache.passwordSecretName
-      #     value: mycache
+      #     value: my-valkey-secret
   destination:
     server: https://kubernetes.default.svc
     namespace: llm-platform
@@ -78,3 +83,4 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+      - ServerSideApply=true

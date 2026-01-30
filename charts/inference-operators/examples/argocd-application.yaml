@@ -1,7 +1,8 @@
-# ArgoCD Application for Inference Operators (CRD Bundle)
-# Sync-wave 0: First to deploy - provides CRDs for all other charts
+# ArgoCD Application for Inference Operators
+# Sync-wave 0: First to deploy - provides CNPG operator + CRDs for all other charts
 #
-# Bundles:
+# This chart installs:
+#   - cloudnative-pg: CNPG operator for PostgreSQL cluster management
 #   - gateway-api: Gateway API CRDs (HTTPRoute, Gateway, GatewayClass, ReferenceGrant)
 #   - knative-serving-crds: Knative Serving CRDs (Service, Configuration, Revision, Route)
 #   - kserve-crds: KServe CRDs (InferenceService, ServingRuntime, ClusterServingRuntime)
@@ -15,6 +16,8 @@
 #   1. Update repoURL to your Git repository
 #   2. Update targetRevision to your branch/tag
 #   3. Apply: kubectl apply -f argocd-application.yaml
+#
+# Note: CNPG operator includes CRDs. Use ServerSideApply for CRD-heavy charts.
 #
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -34,8 +37,10 @@ spec:
     helm:
       valueFiles:
         - values.yaml
-      # To disable specific CRD subcharts (if already installed):
+      # To disable specific components (if already installed):
       # parameters:
+      #   - name: cloudnative-pg.enabled
+      #     value: "false"
       #   - name: gateway-api.enabled
       #     value: "false"
       #   - name: knative-serving-crds.enabled
@@ -46,7 +51,7 @@ spec:
       #     value: "false"
   destination:
     server: https://kubernetes.default.svc
-    # CRDs are cluster-scoped, namespace is for tracking only
+    # CNPG operator installs to this namespace; CRDs are cluster-scoped
     namespace: default
   syncPolicy:
     automated:
@@ -54,5 +59,6 @@ spec:
       prune: false
       selfHeal: true
     syncOptions:
+      # Recommended for CRD-heavy charts with operator
       - ServerSideApply=true
       - CreateNamespace=false

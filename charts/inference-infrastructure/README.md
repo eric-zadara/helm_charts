@@ -1,217 +1,109 @@
 # Inference Infrastructure
 
-Umbrella chart that installs the infrastructure layer for the LLM inference platform.
+Umbrella chart for LLM inference platform infrastructure with zero-config deployment.
 
-## Overview
+## What's Included
 
-This chart bundles infrastructure components for the LLM inference platform:
+| Component | Description | Default |
+|-----------|-------------|---------|
+| PostgreSQL | CNPG cluster with PgBouncer pooling | Enabled |
+| Valkey | Redis-compatible cache | Enabled |
+| Networking | Envoy Gateway + Kourier | Enabled |
+| LiteLLM | Multi-tenant API proxy | Enabled |
 
-| Component | Description |
-|-----------|-------------|
-| networking-layer | Envoy Gateway + Kourier |
-| litellm-proxy | LiteLLM multi-tenant API proxy |
-
-> **Note:** PostgreSQL and Valkey must be deployed separately using upstream charts.
-> See the "Standalone Database Deployment" section below.
+All components are toggleable. Disable any component and provide external endpoints.
 
 ## Architecture
 
 ```
-                        External Traffic
-                              |
-                              v
-                    +-------------------+
-                    |  Envoy Gateway    |  (networking-layer)
-                    +-------------------+
-                              |
-              +---------------+---------------+
-              |                               |
-              v                               v
-    +-------------------+           +-------------------+
-    |  LiteLLM Proxy    |           |     Kourier       |
-    +-------------------+           +-------------------+
-              |                               |
-              v                               v
-    +-------------------+           +-------------------+
-    |   PostgreSQL +    |           |  Knative Services |
-    |     Valkey        |           +-------------------+
-    +-------------------+
-     (standalone deploy)
+                    External Traffic
+                          |
+                          v
+                +-------------------+
+                |  Envoy Gateway    |
+                +-------------------+
+                          |
+          +---------------+---------------+
+          |                               |
+          v                               v
++-------------------+           +-------------------+
+|  LiteLLM Proxy    |           |     Kourier       |
++-------------------+           +-------------------+
+      |           |                       |
+      v           v                       v
++-----------+  +----------+     +-------------------+
+| PostgreSQL|  |  Valkey  |     |  Knative Services |
+|  (CNPG)   |  |          |     +-------------------+
++-----------+  +----------+
 ```
 
 ## Prerequisites
 
 - Kubernetes 1.25+
 - Helm 3.8+
-- inference-operators chart installed (CRDs)
-- CloudNativePG operator installed
+- inference-operators chart installed (provides CNPG operator + CRDs)
+
+## Zero-Config Deployment
+
+Three commands to deploy a complete inference platform:
 
 ```bash
-# Install CNPG operator
-kubectl apply -f https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/main/releases/cnpg-1.26.0.yaml
+# 1. Install operators (CNPG operator + CRDs)
+helm install operators ./charts/inference-operators
+
+# 2. Install infrastructure (PostgreSQL + Valkey + Networking + LiteLLM)
+helm install infra ./charts/inference-infrastructure
+
+# 3. Install model serving stack
+helm install stack ./charts/inference-stack --set infrastructureReleaseName=infra
 ```
 
-## Database Deployment (Required Prerequisite)
-
-Deploy PostgreSQL and Valkey separately using upstream charts before installing this chart.
-
-This approach provides:
-
-- **Direct version control** - Update database versions independently
-- **Better flexibility** - Full access to all upstream chart options
-- **Independent lifecycle** - Scale and manage databases separately from the platform
-- **Simpler debugging** - Standard chart names match documentation
-
-### Step 1: Deploy PostgreSQL (CloudNativePG)
+Verify the deployment:
 
 ```bash
-# Add CNPG Helm repository
-helm repo add cnpg https://cloudnative-pg.github.io/charts
-helm repo update
+# Check all pods are running
+kubectl get pods
 
-# Install PostgreSQL cluster with connection pooling
-# Release name "postgresql" creates service "postgresql-pooler-rw"
-helm install postgresql cnpg/cluster -n llm-platform \
-  --set cluster.instances=3 \
-  --set cluster.storage.size=50Gi \
-  --set cluster.storage.storageClass=gp3 \
-  --set pooler.enabled=true \
-  --set pooler.type=rw \
-  --set pooler.poolMode=transaction \
-  --set pooler.instances=2
+# Check PostgreSQL cluster is ready
+kubectl get cluster
 
-# Verify deployment
-kubectl get cluster -n llm-platform
-kubectl get pods -n llm-platform -l cnpg.io/cluster=postgresql
+# Check LiteLLM is connected
+kubectl logs -l app.kubernetes.io/name=litellm-proxy | head -20
 ```
 
-### Step 2: Deploy Valkey (Redis-compatible cache)
+LiteLLM automatically connects to the deployed PostgreSQL and Valkey using the release name convention.
 
-```bash
-# Add Bitnami Helm repository
-helm repo add bitnami https://charts.bitnami.com/bitnami
-helm repo update
+## Service Naming Convention
 
-# Install Valkey with Sentinel for HA
-# Release name "valkey" creates service "valkey"
-helm install valkey bitnami/valkey -n llm-platform \
-  --set architecture=replication \
-  --set sentinel.enabled=true \
-  --set sentinel.quorum=2 \
-  --set replica.replicaCount=2
+When using release name `infra`, these services are created:
 
-# Verify deployment
-kubectl get pods -n llm-platform -l app.kubernetes.io/name=valkey
-```
+| Service | Name | Description |
+|---------|------|-------------|
+| PostgreSQL pooler | `infra-postgresql-pooler-rw` | PgBouncer connection pooler |
+| PostgreSQL secret | `infra-postgresql-app` | Database credentials |
+| Valkey service | `infra-valkey` | Redis-compatible cache |
+| Valkey auth secret | `infra-valkey-auth` | Cache credentials |
 
-### Step 3: Deploy Infrastructure (networking + LiteLLM)
-
-```bash
-# Install infrastructure with standalone database defaults
-helm install infra ./charts/inference-infrastructure \
-  --namespace llm-platform
-
-# The defaults work with the release names above:
-# - PostgreSQL: postgresql -> service: postgresql-pooler-rw
-# - Valkey: valkey -> service: valkey
-```
-
-### Service Naming Reference
-
-When using standalone deployment with the recommended release names:
-
-| Service | Release Name | Service Name | Secret Name |
-|---------|--------------|--------------|-------------|
-| PostgreSQL pooler | `postgresql` | `postgresql-pooler-rw` | `postgresql-app` |
-| PostgreSQL primary | `postgresql` | `postgresql-rw` | `postgresql-app` |
-| Valkey sentinel | `valkey` | `valkey` | `valkey` |
-| Valkey master | `valkey` | `valkey-master` | `valkey` |
-
-### Custom Release Names
-
-If using different release names, override the litellm-proxy connection settings:
-
-```bash
-# Example with custom release names
-helm install infra ./charts/inference-infrastructure \
-  --namespace llm-platform \
-  --set litellm-proxy.database.host=mydb-pooler-rw \
-  --set litellm-proxy.database.passwordSecretName=mydb-app \
-  --set litellm-proxy.cache.sentinel.host=mycache \
-  --set litellm-proxy.cache.passwordSecretName=mycache
-```
-
-Or via values file:
-
-```yaml
-# values-custom-db.yaml
-litellm-proxy:
-  database:
-    host: "mydb-pooler-rw"
-    passwordSecretName: "mydb-app"
-  cache:
-    sentinel:
-      host: "mycache"
-    passwordSecretName: "mycache"
-```
-
-## Quick Start
-
-Complete deployment steps:
-
-```bash
-# 1. Create namespace
-kubectl create namespace llm-platform
-
-# 2. Install CNPG operator (if not already installed)
-kubectl apply -f https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/main/releases/cnpg-1.26.0.yaml
-
-# 3. Deploy PostgreSQL
-helm install postgresql cnpg/cluster -n llm-platform \
-  --set cluster.instances=3 \
-  --set cluster.storage.size=50Gi \
-  --set pooler.enabled=true
-
-# 4. Deploy Valkey
-helm install valkey bitnami/valkey -n llm-platform \
-  --set architecture=replication \
-  --set sentinel.enabled=true
-
-# 5. Create LiteLLM secrets
-kubectl create secret generic litellm-master-key \
-  --namespace llm-platform \
-  --from-literal=master-key="sk-$(openssl rand -hex 16)"
-
-kubectl create secret generic litellm-salt-key \
-  --namespace llm-platform \
-  --from-literal=salt-key="$(openssl rand -hex 16)"
-
-# 6. Deploy infrastructure (networking + LiteLLM)
-helm install infra ./charts/inference-infrastructure \
-  --namespace llm-platform \
-  --set litellm-proxy.masterKey.existingSecret=litellm-master-key \
-  --set litellm-proxy.masterKey.existingSecretKey=master-key \
-  --set litellm-proxy.saltKey.existingSecret=litellm-salt-key \
-  --set litellm-proxy.saltKey.existingSecretKey=salt-key
-
-# 7. Verify deployment
-kubectl get pods -n llm-platform
-kubectl get cluster -n llm-platform
-```
+LiteLLM is pre-configured to connect to these services automatically.
 
 ## Values
 
-### Global Settings
+### Database Components
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `global.namespace` | string | `""` | Namespace for FQDN generation (defaults to release namespace) |
+| `postgresql.enabled` | bool | `true` | Deploy PostgreSQL cluster |
+| `postgresql.cluster.instances` | int | `3` | Number of PostgreSQL instances |
+| `postgresql.cluster.storage.size` | string | `50Gi` | Storage per instance |
+| `postgresql.poolers[0].instances` | int | `2` | Number of PgBouncer instances |
+| `valkey.enabled` | bool | `true` | Deploy Valkey cache |
+| `valkey.replica.replicaCount` | int | `2` | Number of Valkey replicas |
 
-### Networking Layer
+### Networking Components
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `networking-layer.enabled` | bool | `true` | Enable networking layer |
+| `networking-layer.enabled` | bool | `true` | Deploy networking layer |
 | `networking-layer.envoyGateway.enabled` | bool | `true` | Deploy Envoy Gateway |
 | `networking-layer.kourier.enabled` | bool | `true` | Deploy Kourier for Knative |
 
@@ -219,29 +111,87 @@ kubectl get cluster -n llm-platform
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `litellm-proxy.enabled` | bool | `true` | Enable LiteLLM proxy |
-| `litellm-proxy.database.host` | string | `"postgresql-pooler-rw"` | PostgreSQL host (standalone default) |
-| `litellm-proxy.database.passwordSecretName` | string | `"postgresql-app"` | PostgreSQL password secret |
-| `litellm-proxy.cache.sentinel.host` | string | `"valkey"` | Valkey sentinel host (standalone default) |
-| `litellm-proxy.cache.passwordSecretName` | string | `"valkey"` | Valkey password secret |
+| `litellm-proxy.enabled` | bool | `true` | Deploy LiteLLM proxy |
+| `litellm-proxy.database.host` | string | `infra-postgresql-pooler-rw` | PostgreSQL host |
+| `litellm-proxy.database.passwordSecretName` | string | `infra-postgresql-app` | PostgreSQL secret |
+| `litellm-proxy.cache.host` | string | `infra-valkey` | Valkey host |
+| `litellm-proxy.cache.passwordSecretName` | string | `infra-valkey-auth` | Valkey secret |
+
+## Using External Databases
+
+Disable bundled databases and provide external endpoints:
+
+```yaml
+# values-external-db.yaml
+postgresql:
+  enabled: false
+
+valkey:
+  enabled: false
+
+litellm-proxy:
+  database:
+    host: "my-external-postgresql.database.svc.cluster.local"
+    port: 5432
+    name: "litellm"
+    user: "litellm"
+    passwordSecretName: "my-postgres-secret"
+    passwordSecretKey: "password"
+  cache:
+    host: "my-external-redis.cache.svc.cluster.local"
+    port: 6379
+    passwordSecretName: "my-redis-secret"
+    passwordSecretKey: "password"
+```
+
+```bash
+helm install infra ./charts/inference-infrastructure -f values-external-db.yaml
+```
+
+### External Database with Sentinel
+
+For Redis/Valkey clusters with Sentinel:
+
+```yaml
+litellm-proxy:
+  cache:
+    sentinel:
+      enabled: true
+      host: "my-sentinel.cache.svc.cluster.local"
+      port: 26379
+      masterName: "mymaster"
+    passwordSecretName: "my-redis-secret"
+    passwordSecretKey: "password"
+```
+
+## Custom Release Names
+
+If using a different release name, update the LiteLLM connection settings:
+
+```bash
+# Example: release name "platform" instead of "infra"
+helm install platform ./charts/inference-infrastructure \
+  --set litellm-proxy.database.host=platform-postgresql-pooler-rw \
+  --set litellm-proxy.database.passwordSecretName=platform-postgresql-app \
+  --set litellm-proxy.cache.host=platform-valkey \
+  --set litellm-proxy.cache.passwordSecretName=platform-valkey-auth
+```
 
 ## Secrets Configuration
 
-LiteLLM requires master key and salt key secrets. Create before installation:
+LiteLLM requires master key and salt key secrets for API authentication:
 
 ```bash
 # Create master key secret
 kubectl create secret generic litellm-master-key \
-  --namespace llm-platform \
-  --from-literal=master-key="sk-your-master-key"
+  --from-literal=master-key="sk-$(openssl rand -hex 16)"
 
 # Create salt key secret
 kubectl create secret generic litellm-salt-key \
-  --namespace llm-platform \
-  --from-literal=salt-key="your-salt-key"
+  --from-literal=salt-key="$(openssl rand -hex 16)"
 ```
 
-Then configure in values:
+Configure in values:
 
 ```yaml
 litellm-proxy:
@@ -259,7 +209,6 @@ After installing inference-infrastructure, install inference-stack:
 
 ```bash
 helm install stack ./charts/inference-stack \
-  --namespace llm-platform \
   --set infrastructureReleaseName=infra
 ```
 
@@ -267,54 +216,84 @@ This allows inference-stack to discover infrastructure services.
 
 ## Troubleshooting
 
-### PostgreSQL cluster not ready (Standalone)
+### CNPG Cluster Not Ready
 
 ```bash
-kubectl describe cluster postgresql -n llm-platform
-kubectl logs -n llm-platform -l cnpg.io/cluster=postgresql
+# Check cluster status
+kubectl describe cluster infra-postgresql
+
+# Check CNPG operator logs
+kubectl logs -l app.kubernetes.io/name=cloudnative-pg
+
+# Check PostgreSQL instance logs
+kubectl logs -l cnpg.io/cluster=infra-postgresql
 ```
 
-### LiteLLM cannot connect to database
+Common issues:
+- **Pending PVC**: Check storage class exists and has available capacity
+- **Operator not running**: Ensure inference-operators was installed first
+
+### PostgreSQL Pooler Connection Issues
 
 ```bash
-# Check if pooler is running (standalone)
-kubectl get pods -n llm-platform -l cnpg.io/poolerName=postgresql-pooler
+# Check pooler pods are running
+kubectl get pods -l cnpg.io/poolerName=infra-postgresql-pooler
 
-# Verify secret exists (standalone)
-kubectl get secret postgresql-app -n llm-platform
+# Check pooler logs
+kubectl logs -l cnpg.io/poolerName=infra-postgresql-pooler
 
-# Check LiteLLM logs
-kubectl logs -n llm-platform -l app.kubernetes.io/name=litellm-proxy
+# Verify secret exists
+kubectl get secret infra-postgresql-app
 ```
 
-### Valkey connection issues
+### Valkey Connection Issues
 
 ```bash
 # Check Valkey pods
-kubectl get pods -n llm-platform -l app.kubernetes.io/name=valkey
+kubectl get pods -l app.kubernetes.io/name=valkey
 
-# Get password from secret
-VALKEY_PASSWORD=$(kubectl get secret valkey -n llm-platform -o jsonpath='{.data.valkey-password}' | base64 -d)
-
-# Verify sentinel is working
-kubectl exec -it valkey-node-0 -n llm-platform -- \
-  valkey-cli -a $VALKEY_PASSWORD SENTINEL masters
+# Test connection
+kubectl exec -it deploy/infra-valkey-primary -- valkey-cli -a $(kubectl get secret infra-valkey-auth -o jsonpath='{.data.default-password}' | base64 -d) PING
 ```
 
-### Service discovery issues
+### LiteLLM Cannot Connect to Database
+
+```bash
+# Check LiteLLM logs
+kubectl logs -l app.kubernetes.io/name=litellm-proxy
+
+# Verify database connectivity from LiteLLM pod
+kubectl exec -it deploy/infra-litellm-proxy -- \
+  nc -zv infra-postgresql-pooler-rw 5432
+```
+
+Common issues:
+- **Connection refused**: Pooler not ready yet. Wait for cluster to be fully initialized.
+- **Authentication failed**: Check that secret names match between PostgreSQL and LiteLLM config.
+- **Database does not exist**: Migration job may have failed. Check job logs.
+
+### Service Discovery Issues
 
 Verify services exist with expected names:
 
 ```bash
 # Check database services
-kubectl get svc -n llm-platform | grep -E "(postgresql|valkey)"
+kubectl get svc | grep -E "(postgresql|valkey)"
 
-# Expected output:
-# postgresql-pooler-rw   ClusterIP   ...
-# postgresql-r           ClusterIP   ...
-# postgresql-ro          ClusterIP   ...
-# postgresql-rw          ClusterIP   ...
-# valkey                 ClusterIP   ...
-# valkey-headless        ClusterIP   ...
-# valkey-master          ClusterIP   ...
+# Expected output for release name "infra":
+# infra-postgresql-pooler-rw   ClusterIP   ...
+# infra-postgresql-r           ClusterIP   ...
+# infra-postgresql-ro          ClusterIP   ...
+# infra-postgresql-rw          ClusterIP   ...
+# infra-valkey                 ClusterIP   ...
+```
+
+### Migration Job Failed
+
+```bash
+# Check migration job status
+kubectl get jobs | grep litellm
+
+# Check migration logs
+kubectl logs job/infra-litellm-proxy-migration
 ```
