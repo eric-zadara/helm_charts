@@ -31,8 +31,8 @@ networking-layer:
 # LiteLLM proxy - use new internal/external structure
 litellm-proxy:
   enabled: true
-  # One replica for CI
-  replicaCount: 1
+  # Zero replicas for CI - LiteLLM cannot start without a real database
+  replicaCount: 0
 
   # Disable internal resources (require CNPG operator / would create valkey)
   database:

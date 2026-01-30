@@ -1,9 +1,11 @@
 # CI test values for litellm-proxy chart
 #
-# With the new zero-config defaults, most values are already correct.
-# This file only overrides what's needed for CI testing.
+# LiteLLM requires a PostgreSQL database to function. Without a real database,
+# the pod cannot start or pass health checks. Similar to EPP (which requires
+# real InferencePool backends), we set replicas: 0 to validate template
+# rendering without expecting the deployment to become ready.
 #
-# ZERO-CONFIG DEPLOYMENT:
+# ZERO-CONFIG DEPLOYMENT (production):
 #   helm install litellm-proxy ./charts/litellm-proxy
 #
 # This works out of the box with:
@@ -11,8 +13,8 @@
 #   - Internal Valkey cache
 #   - Auto-generated master key and salt key
 
-# One replica for CI
-replicaCount: 1
+# Zero replicas for CI - LiteLLM cannot start without a real database
+replicaCount: 0
 
 # Disable internal database (requires CNPG operator which may not be in CI)
 database:

@@ -1,14 +1,14 @@
 # CI test values for inference-gateway chart
-# Enable minimal deployment for actual deployment testing
+# EPP is a controller that requires real InferencePool backends to function.
+# In CI we test template rendering but don't run EPP (it would crash without backends).
 
-# EPP configuration
+# EPP configuration - disabled for CI (requires real backends)
 epp:
-  replicas: 1
+  replicas: 0
   poolName: "test-pool"
   poolNamespace: "default"
 
-# Create a test InferencePool so EPP can initialize
-# EPP requires the pool resource to exist to pass health checks
+# Create a test InferencePool to validate template rendering
 testPool:
   enabled: true
   targetPort: 8000

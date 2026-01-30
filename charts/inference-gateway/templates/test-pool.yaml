@@ -16,10 +16,12 @@ spec:
     - number: {{ .Values.testPool.targetPort }}
   # Selector for model server pods (placeholder for CI - won't match real pods)
   selector:
-    {{- toYaml .Values.testPool.selector | nindent 4 }}
+    matchLabels:
+      {{- toYaml .Values.testPool.selector | nindent 6 }}
   # Reference to EPP service for routing decisions
-  extensionRef:
+  endpointPickerRef:
     name: {{ include "inference-gateway.eppName" . }}
-    port: 9002
+    port:
+      number: 9002
     failureMode: {{ .Values.testPool.failureMode | default "FailOpen" }}
 {{- end }}

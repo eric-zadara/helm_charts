@@ -39,12 +39,13 @@ model-serving:
 inference-gateway:
   enabled: true
 
+  # EPP requires real backends - disabled for CI
   epp:
-    replicas: 1
+    replicas: 0
     poolName: "ci-test-pool"
     poolNamespace: "default"
 
-  # Create test InferencePool so EPP can initialize and pass health checks
+  # Create test InferencePool to validate template rendering
   testPool:
     enabled: true
     targetPort: 8000
