@@ -1,5 +1,9 @@
-# CI test values - all CRD charts enabled (default configuration)
+# CI test values - all operators and CRD charts enabled (default configuration)
 # Used by chart-testing (ct lint) to validate the umbrella chart
+
+# CNPG operator - enabled by default
+cloudnative-pg:
+  enabled: true
 
 gateway-api:
   enabled: true

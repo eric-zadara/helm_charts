@@ -1,11 +1,18 @@
 # CI test values for inference-infrastructure
-# Minimal configuration for chart-testing (ct lint)
-# Disables features requiring operators/external dependencies
+# Disables database subcharts (require CNPG operator) for lint testing
+# Production deployment uses postgresql.enabled=true and valkey.enabled=true
 
+# Disable database components for CI lint (require operators)
+postgresql:
+  enabled: false
+
+valkey:
+  enabled: false
+
+# Networking layer - minimal config for lint
 networking-layer:
   enabled: true
-  # Disable envoyGateway - requires Gateway API CRDs and creates resources
-  # with camelCase names (envoyGateway) that violate RFC 1123
+  # Disable envoyGateway - requires Gateway API CRDs
   envoyGateway:
     enabled: false
   # Disable kourier - requires Knative Serving CRDs
@@ -21,19 +28,19 @@ networking-layer:
   knative:
     enabled: false
 
+# LiteLLM proxy - mock database connections for lint
 litellm-proxy:
   enabled: true
   replicaCount: 1
-  # CI test values - mock database connections
   database:
-    host: "postgresql-pooler-rw"
-    passwordSecretName: "postgresql-app"
+    host: "mock-postgresql-pooler-rw"
+    passwordSecretName: "mock-postgresql-app"
   cache:
     enabled: true
     sentinel:
-      enabled: true
-      host: "valkey"
-    passwordSecretName: "valkey"
+      enabled: false
+    host: "mock-valkey"
+    passwordSecretName: "mock-valkey"
   masterKey:
     create: true
     value: "sk-test-master-key-for-ci"
@@ -43,6 +50,6 @@ litellm-proxy:
   httpRoute:
     enabled: false
   migrationJob:
-    enabled: false  # Skip migration in lint
+    enabled: false
   serviceMonitor:
     enabled: false

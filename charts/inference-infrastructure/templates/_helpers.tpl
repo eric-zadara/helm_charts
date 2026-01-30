@@ -49,3 +49,26 @@ Selector labels
 app.kubernetes.io/name: {{ include "inference-infrastructure.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
+
+{{/*
+=============================================================================
+SERVICE DISCOVERY CONVENTION
+
+This chart uses convention-based service discovery for database connections.
+The recommended release name is "infra" which produces:
+
+  PostgreSQL pooler: infra-postgresql-pooler-rw
+  PostgreSQL secret: infra-postgresql-app
+  Valkey service:    infra-valkey
+  Valkey secret:     infra-valkey
+
+Service names follow these conventions:
+- CNPG pooler: {release}-postgresql-pooler-rw
+- CNPG secret: {release}-postgresql-app
+- Valkey service: {release}-valkey
+- Valkey secret: {release}-valkey
+
+Users with different release names or external databases should override
+the litellm-proxy.database.* and litellm-proxy.cache.* values directly.
+=============================================================================
+*/}}

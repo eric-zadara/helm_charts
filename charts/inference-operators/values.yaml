@@ -1,5 +1,13 @@
-# Umbrella chart for LLM inference platform CRDs
-# Install once, leave stable
+# Umbrella chart for LLM inference platform operators and CRDs
+# Includes CNPG operator for PostgreSQL cluster management
+
+# CloudNativePG operator - installs operator controller + CRDs
+# Required for deploying PostgreSQL clusters via inference-infrastructure
+cloudnative-pg:
+  # -- Enable CNPG operator deployment
+  enabled: true
+  # Note: Operator installs to release namespace by default
+  # CRDs are installed automatically with the operator
 
 # Gateway API CRDs (HTTPRoute, Gateway, GatewayClass)
 gateway-api:
