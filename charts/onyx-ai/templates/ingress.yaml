@@ -1,0 +1,93 @@
+{{/*
+Standard Kubernetes Ingress for Onyx
+Split into two Ingress resources because Traefik middleware annotations
+apply to the entire Ingress, not per-path. API needs stripPrefix, web does not.
+*/}}
+{{- if and .Values.ingress.enabled (eq .Values.ingress.type "ingress") }}
+{{- $fullName := include "onyx-ai.fullname" . -}}
+{{- $apiService := printf "%s-onyx-api-service" .Release.Name -}}
+{{- $webService := printf "%s-onyx-webserver" .Release.Name -}}
+---
+# API Ingress - handles /api path with stripPrefix middleware
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullName }}-ingress-api
+  labels:
+    {{- include "onyx-ai.labels" . | nindent 4 }}
+  annotations:
+    {{- /* Traefik-specific annotations for middleware support */ -}}
+    {{- if eq .Values.ingress.className "traefik" }}
+    {{- if .Values.ingress.traefik.entryPoints }}
+    traefik.ingress.kubernetes.io/router.entrypoints: {{ join "," .Values.ingress.traefik.entryPoints }}
+    {{- end }}
+    traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace }}-{{ $fullName }}-strip-api-prefix@kubernetescrd
+    {{- end }}
+    {{- with .Values.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ required "ingress.host is required when ingress.enabled is true" .Values.ingress.host | quote }}
+      {{- if .Values.ingress.tls.secretName }}
+      secretName: {{ .Values.ingress.tls.secretName }}
+      {{- end }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host | quote }}
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $apiService }}
+                port:
+                  number: 8080
+---
+# Web Ingress - handles / path WITHOUT stripPrefix middleware
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $fullName }}-ingress-web
+  labels:
+    {{- include "onyx-ai.labels" . | nindent 4 }}
+  annotations:
+    {{- /* Traefik entrypoints only, NO middleware for web server */ -}}
+    {{- if eq .Values.ingress.className "traefik" }}
+    {{- if .Values.ingress.traefik.entryPoints }}
+    traefik.ingress.kubernetes.io/router.entrypoints: {{ join "," .Values.ingress.traefik.entryPoints }}
+    {{- end }}
+    {{- end }}
+    {{- with .Values.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host | quote }}
+      {{- if .Values.ingress.tls.secretName }}
+      secretName: {{ .Values.ingress.tls.secretName }}
+      {{- end }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $webService }}
+                port:
+                  number: 3000
+{{- end }}

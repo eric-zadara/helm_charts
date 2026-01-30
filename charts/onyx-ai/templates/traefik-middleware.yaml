@@ -1,0 +1,53 @@
+{{- if .Values.ingress.enabled }}
+{{/*
+Strip API Prefix Middleware
+Removes /api prefix before forwarding to API server.
+The upstream Onyx API server expects requests at root path.
+*/}}
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ include "onyx-ai.fullname" . }}-strip-api-prefix
+  labels:
+    {{- include "onyx-ai.labels" . | nindent 4 }}
+spec:
+  stripPrefix:
+    prefixes:
+      - /api
+---
+{{/*
+HTTPS Redirect Middleware
+Redirects HTTP to HTTPS when TLS is enabled.
+*/}}
+{{- if and .Values.ingress.tls.enabled .Values.ingress.tls.httpRedirect }}
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ include "onyx-ai.fullname" . }}-redirect-https
+  labels:
+    {{- include "onyx-ai.labels" . | nindent 4 }}
+spec:
+  redirectScheme:
+    scheme: https
+    permanent: true
+{{- end }}
+---
+{{/*
+Security Headers Middleware
+Adds HSTS and other security headers when enabled.
+*/}}
+{{- if .Values.ingress.tls.hsts.enabled }}
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ include "onyx-ai.fullname" . }}-security-headers
+  labels:
+    {{- include "onyx-ai.labels" . | nindent 4 }}
+spec:
+  headers:
+    stsSeconds: {{ .Values.ingress.tls.hsts.maxAge | default 31536000 }}
+    stsIncludeSubdomains: {{ .Values.ingress.tls.hsts.includeSubdomains | default true }}
+    stsPreload: {{ .Values.ingress.tls.hsts.preload | default false }}
+    forceSTSHeader: true
+{{- end }}
+{{- end }}

@@ -350,6 +350,107 @@
         }
       }
     },
+    "ingress": {
+      "type": "object",
+      "description": "Ingress configuration for exposing Onyx via Kubernetes Ingress or Traefik IngressRoute",
+      "additionalProperties": true,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable ingress resources"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["ingress", "ingressroute"],
+          "default": "ingressroute",
+          "description": "Ingress type: 'ingress' (standard K8s) or 'ingressroute' (Traefik CRD)"
+        },
+        "host": {
+          "type": "string",
+          "default": "",
+          "description": "Hostname for the application (required when enabled)"
+        },
+        "className": {
+          "type": "string",
+          "default": "traefik",
+          "description": "Ingress class name (for standard Ingress type)"
+        },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "default": {},
+          "description": "Annotations for standard Ingress"
+        },
+        "tls": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false,
+              "description": "Enable TLS termination"
+            },
+            "secretName": {
+              "type": "string",
+              "default": "",
+              "description": "TLS secret name (cert-manager or pre-created)"
+            },
+            "certResolver": {
+              "type": "string",
+              "default": "",
+              "description": "Traefik ACME certResolver name (IngressRoute only)"
+            },
+            "httpRedirect": {
+              "type": "boolean",
+              "default": true,
+              "description": "Redirect HTTP to HTTPS when TLS enabled"
+            },
+            "hsts": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "default": false,
+                  "description": "Enable HSTS headers"
+                },
+                "maxAge": {
+                  "type": "integer",
+                  "default": 31536000,
+                  "description": "HSTS max-age in seconds"
+                },
+                "includeSubdomains": {
+                  "type": "boolean",
+                  "default": true,
+                  "description": "Include subdomains in HSTS"
+                },
+                "preload": {
+                  "type": "boolean",
+                  "default": false,
+                  "description": "Enable HSTS preload"
+                }
+              }
+            }
+          }
+        },
+        "traefik": {
+          "type": "object",
+          "properties": {
+            "entryPoints": {
+              "type": "array",
+              "items": { "type": "string" },
+              "default": ["websecure"],
+              "description": "Traefik entrypoints to listen on"
+            },
+            "middlewares": {
+              "type": "array",
+              "items": { "type": "string" },
+              "default": [],
+              "description": "Additional middleware references (namespace/name@kubernetescrd format)"
+            }
+          }
+        }
+      }
+    },
     "onyx": {
       "type": "object",
       "description": "Upstream Onyx chart configuration (passthrough). See https://github.com/onyx-dot-app/onyx for options.",

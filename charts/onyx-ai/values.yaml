@@ -214,6 +214,63 @@ objectStorage:
     verify: true
 
 # ------------------------------------------------------------------------------
+# Ingress Configuration (Phase 7)
+# ------------------------------------------------------------------------------
+# Expose Onyx via Kubernetes Ingress or Traefik IngressRoute.
+# Supports standard Ingress (portable) or Traefik IngressRoute CRD (advanced features).
+# Note: Upstream nginx subchart is disabled; this chart manages ingress directly.
+
+ingress:
+  # Enable ingress resources (disabled by default - users must configure)
+  enabled: false
+
+  # Type: "ingress" (standard K8s Ingress) or "ingressroute" (Traefik CRD)
+  # IngressRoute provides Traefik-native features like middleware, certResolver
+  type: ingressroute
+
+  # Hostname for the application (REQUIRED when enabled)
+  # Example: onyx.example.com
+  host: ""
+
+  # Ingress class name (for standard Ingress type)
+  # Common values: "traefik", "nginx", "haproxy"
+  className: "traefik"
+
+  # Annotations for standard Ingress (arbitrary map)
+  # Not used for IngressRoute type
+  annotations: {}
+
+  # TLS configuration
+  tls:
+    # Enable TLS termination
+    enabled: false
+    # Use existing TLS secret (from cert-manager or pre-created)
+    # Example: "onyx-tls-secret"
+    secretName: ""
+    # OR use Traefik ACME certResolver (IngressRoute only)
+    # Example: "letsencrypt-prod"
+    certResolver: ""
+    # HTTP to HTTPS redirect (when TLS enabled)
+    httpRedirect: true
+    # HSTS configuration (disabled by default per user decision)
+    hsts:
+      enabled: false
+      maxAge: 31536000
+      includeSubdomains: true
+      preload: false
+
+  # Traefik-specific configuration (applies to both types)
+  traefik:
+    # EntryPoints to listen on
+    # Default: websecure for HTTPS traffic
+    entryPoints:
+      - websecure
+    # Additional middleware references (namespace/name format)
+    # These are applied to ALL routes in addition to chart-created middleware
+    # Example: ["myns-ratelimit@kubernetescrd", "myns-compress@kubernetescrd"]
+    middlewares: []
+
+# ------------------------------------------------------------------------------
 # Onyx Subchart Values (passthrough to upstream)
 # ------------------------------------------------------------------------------
 # All values under `onyx:` are passed directly to the upstream Onyx chart.
