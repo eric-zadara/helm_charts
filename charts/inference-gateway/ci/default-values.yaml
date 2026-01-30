@@ -2,12 +2,19 @@
 # Enable minimal deployment for actual deployment testing
 
 # EPP configuration
-# One replica for CI - EPP can start without a real InferencePool
-# It will watch for the pool but the gRPC health check is independent
 epp:
   replicas: 1
   poolName: "test-pool"
   poolNamespace: "default"
+
+# Create a test InferencePool so EPP can initialize
+# EPP requires the pool resource to exist to pass health checks
+testPool:
+  enabled: true
+  targetPort: 8000
+  selector:
+    app: test-model-server
+  failureMode: "FailOpen"
 
 # Disable internal Gateway (requires Gateway API CRDs)
 gateway:

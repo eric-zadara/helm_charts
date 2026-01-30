@@ -40,9 +40,17 @@ inference-gateway:
   enabled: true
 
   epp:
-    # One replica for CI - EPP can start without a real InferencePool
     replicas: 1
-    poolName: "ci-test-pool"  # Required by EPP, placeholder for lint
+    poolName: "ci-test-pool"
+    poolNamespace: "default"
+
+  # Create test InferencePool so EPP can initialize and pass health checks
+  testPool:
+    enabled: true
+    targetPort: 8000
+    selector:
+      app: test-model-server
+    failureMode: "FailOpen"
 
   # Gateway requires Gateway API CRDs - disable for lint
   gateway:

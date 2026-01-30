@@ -128,3 +128,17 @@ dashboards:
   enabled: false
   # -- Grafana folder annotation for dashboard organization
   folderAnnotation: "LLM Platform"
+
+# -- Test InferencePool for CI testing
+# In production, InferencePool is created by model-serving chart.
+# Enable this only for CI/testing when no real InferencePool exists.
+testPool:
+  # -- Enable test InferencePool creation
+  enabled: false
+  # -- Target port for model servers (placeholder)
+  targetPort: 8000
+  # -- Pod selector (placeholder - won't match real pods in CI)
+  selector:
+    app: test-model-server
+  # -- Failure mode when EPP is unavailable (FailOpen for CI tolerance)
+  failureMode: "FailOpen"

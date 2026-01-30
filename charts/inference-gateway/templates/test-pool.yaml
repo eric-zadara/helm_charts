@@ -1,0 +1,25 @@
+{{- if .Values.testPool.enabled }}
+# Test InferencePool for CI testing
+# Creates a minimal InferencePool so EPP can initialize and pass health checks.
+# In production, the InferencePool is created by model-serving chart.
+apiVersion: inference.networking.k8s.io/v1
+kind: InferencePool
+metadata:
+  name: {{ .Values.epp.poolName | required "epp.poolName is required when testPool.enabled" }}
+  namespace: {{ .Values.epp.poolNamespace | default .Release.Namespace }}
+  labels:
+    {{- include "inference-gateway.labels" . | nindent 4 }}
+    app.kubernetes.io/component: test-pool
+spec:
+  # Target port on model server pods (placeholder for CI)
+  targetPorts:
+    - number: {{ .Values.testPool.targetPort }}
+  # Selector for model server pods (placeholder for CI - won't match real pods)
+  selector:
+    {{- toYaml .Values.testPool.selector | nindent 4 }}
+  # Reference to EPP service for routing decisions
+  extensionRef:
+    name: {{ include "inference-gateway.eppName" . }}
+    port: 9002
+    failureMode: {{ .Values.testPool.failureMode | default "FailOpen" }}
+{{- end }}
