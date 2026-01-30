@@ -1,0 +1,90 @@
+# ArgoCD Application manifest for deploying Onyx via Helm
+#
+# Prerequisites:
+# - ArgoCD installed in cluster
+# - CloudNative-PG operator installed (for PostgreSQL HA)
+# - cert-manager installed (optional, for TLS)
+# - Spotahome Redis Operator (optional, for Redis HA)
+#
+# Usage:
+# 1. Update spec.source.repoURL to your Helm repository URL
+# 2. Update spec.source.targetRevision to desired chart version
+# 3. Customize helm.valuesObject for your environment
+# 4. Apply: kubectl apply -f argocd-application.yaml
+#
+# Sync-wave ordering:
+# - Wave -1: Secrets, ConfigMaps (configuration)
+# - Wave 0: CNPG Cluster, Redis, Middleware (infrastructure)
+# - Wave 1: IngressRoute/Ingress (routing)
+# - Wave 0 (default): Upstream Onyx Deployments (applications)
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: onyx
+  namespace: argocd
+  # Optional: Add to an ArgoCD project
+  # finalizers:
+  #   - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  source:
+    # Helm repository URL - UPDATE THIS
+    repoURL: https://your-helm-repo.example.com/charts
+    chart: onyx-ai
+    # Chart version - UPDATE THIS
+    targetRevision: "0.1.0"
+
+    helm:
+      releaseName: onyx
+      # Inline values - customize for your environment
+      valuesObject:
+        # Ingress configuration
+        ingress:
+          enabled: true
+          type: ingressroute  # or "ingress" for standard K8s Ingress
+          host: onyx.example.com
+          tls:
+            enabled: true
+            certResolver: letsencrypt-prod  # or use secretName
+
+        # PostgreSQL HA (uses CNPG)
+        cnpg:
+          enabled: true
+          instances: 3
+          storage:
+            size: 20Gi
+
+        # Object storage (external S3)
+        objectStorage:
+          endpoint: "https://s3.example.com"
+          bucket: "onyx-files"
+          existingSecret: "onyx-s3-credentials"
+
+        # Credential passthrough (required for S3)
+        onyx:
+          auth:
+            objectstorage:
+              enabled: true
+              existingSecret: "onyx-s3-credentials"
+
+  destination:
+    # Target cluster (in-cluster)
+    server: https://kubernetes.default.svc
+    namespace: onyx
+
+  syncPolicy:
+    automated:
+      # Automatically sync when Git changes
+      prune: true      # Delete resources removed from Git
+      selfHeal: true   # Revert manual changes in cluster
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true  # Recommended for CRDs
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

@@ -493,6 +493,10 @@ postgresql-cluster:
 
   # Cluster configuration
   cluster:
+    # ArgoCD sync-wave for proper ordering (infrastructure wave)
+    # Ensures Cluster deploys after Secrets/ConfigMaps (wave -1)
+    annotations:
+      argocd.argoproj.io/sync-wave: "0"
     instances: 3  # Matches cnpg.instances default
     storage:
       size: 20Gi  # Matches cnpg.storage.size default

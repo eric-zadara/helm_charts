@@ -10,6 +10,8 @@ metadata:
   name: {{ include "onyx-ai.fullname" . }}-strip-api-prefix
   labels:
     {{- include "onyx-ai.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
 spec:
   stripPrefix:
     prefixes:
@@ -26,6 +28,8 @@ metadata:
   name: {{ include "onyx-ai.fullname" . }}-redirect-https
   labels:
     {{- include "onyx-ai.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
 spec:
   redirectScheme:
     scheme: https
@@ -43,6 +47,8 @@ metadata:
   name: {{ include "onyx-ai.fullname" . }}-security-headers
   labels:
     {{- include "onyx-ai.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
 spec:
   headers:
     stsSeconds: {{ .Values.ingress.tls.hsts.maxAge | default 31536000 }}

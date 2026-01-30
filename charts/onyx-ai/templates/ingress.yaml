@@ -16,6 +16,7 @@ metadata:
   labels:
     {{- include "onyx-ai.labels" . | nindent 4 }}
   annotations:
+    argocd.argoproj.io/sync-wave: "1"
     {{- /* Traefik-specific annotations for middleware support */ -}}
     {{- if eq .Values.ingress.className "traefik" }}
     {{- if .Values.ingress.traefik.entryPoints }}
@@ -58,6 +59,7 @@ metadata:
   labels:
     {{- include "onyx-ai.labels" . | nindent 4 }}
   annotations:
+    argocd.argoproj.io/sync-wave: "1"
     {{- /* Traefik entrypoints only, NO middleware for web server */ -}}
     {{- if eq .Values.ingress.className "traefik" }}
     {{- if .Values.ingress.traefik.entryPoints }}

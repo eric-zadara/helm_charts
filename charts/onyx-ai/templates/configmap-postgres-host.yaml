@@ -19,6 +19,8 @@ metadata:
   labels:
     {{- include "onyx-ai.labels" . | nindent 4 }}
     app.kubernetes.io/component: database-config
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
 data:
   # PostgreSQL connection configuration
   # Used to override upstream POSTGRES_HOST when using pooler or external database

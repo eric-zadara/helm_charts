@@ -12,6 +12,8 @@ metadata:
   name: {{ $fullName }}-ingress
   labels:
     {{- include "onyx-ai.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   entryPoints:
     {{- toYaml .Values.ingress.traefik.entryPoints | nindent 4 }}
@@ -68,6 +70,8 @@ metadata:
   name: {{ $fullName }}-ingress-http
   labels:
     {{- include "onyx-ai.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   entryPoints:
     - web

@@ -27,6 +27,8 @@ metadata:
   labels:
     {{- include "onyx-ai.labels" . | nindent 4 }}
     app.kubernetes.io/component: redis-config
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
 data:
   # Redis host based on mode: External > HA > Default
   REDIS_HOST: {{ include "onyx-ai.redis.host" . | quote }}

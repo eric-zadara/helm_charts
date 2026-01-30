@@ -30,6 +30,8 @@ metadata:
   name: {{ include "onyx-ai.fullname" . }}-redis-ha
   labels:
     {{- include "onyx-ai.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
 spec:
   # Sentinel configuration
   sentinel:

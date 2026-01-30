@@ -21,6 +21,8 @@ metadata:
   labels:
     {{- include "onyx-ai.labels" . | nindent 4 }}
     app.kubernetes.io/component: env-config
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
 data:
   # ============================================================================
   # Upstream Onyx values (replicated from upstream configmap.yaml)
