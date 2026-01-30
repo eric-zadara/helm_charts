@@ -132,7 +132,7 @@ or external host when CNPG is disabled.
 cnpg/cluster chart naming convention:
   - Cluster name: {release}-postgresql-cluster (from alias)
   - RW service: {release}-postgresql-cluster-rw
-  - Pooler service: {release}-postgresql-cluster-rw (pooler named "rw")
+  - Pooler service: {release}-postgresql-cluster-pooler-rw (pooler named "rw")
 
 Usage: {{ include "onyx-ai.postgresql.host" . }}
 */}}
@@ -141,8 +141,9 @@ Usage: {{ include "onyx-ai.postgresql.host" . }}
   {{- /* External PostgreSQL mode */ -}}
   {{- required "externalPostgresql.host is required when cnpg.enabled is false" .Values.externalPostgresql.host -}}
 {{- else if .Values.cnpg.pooler.enabled -}}
-  {{- /* CNPG with PgBouncer pooler - pooler named "rw" creates same service name */ -}}
-  {{- printf "%s-postgresql-cluster-rw" .Release.Name -}}
+  {{- /* CNPG Pooler creates service: {cluster}-pooler-{pooler-name} */ -}}
+  {{- /* Our pooler is named "rw" in postgresql-cluster.poolers[0].name */ -}}
+  {{- printf "%s-postgresql-cluster-pooler-rw" .Release.Name -}}
 {{- else -}}
   {{- /* CNPG direct connection (no pooler) */ -}}
   {{- printf "%s-postgresql-cluster-rw" .Release.Name -}}
@@ -509,6 +510,55 @@ Usage: {{ include "onyx-ai.objectStorage.validate" . }}
   {{- /* Warn if accessKey provided without secretKey */ -}}
   {{- if and .Values.objectStorage.accessKey (not .Values.objectStorage.secretKey) -}}
     {{- fail "objectStorage.secretKey is required when objectStorage.accessKey is provided" -}}
+  {{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+================================================================================
+Credential Wiring Validation (Phase 8.2)
+================================================================================
+*/}}
+
+{{/*
+Validate PostgreSQL credential wiring.
+Fails if CNPG is enabled but auth.postgresql.existingSecret is not configured.
+
+Usage: {{ include "onyx-ai.postgresql.validateCredentials" . }}
+*/}}
+{{- define "onyx-ai.postgresql.validateCredentials" -}}
+{{- if .Values.cnpg.enabled -}}
+  {{- $expectedSecret := printf "%s-postgresql-cluster-app" .Release.Name -}}
+  {{- $configuredSecret := .Values.onyx.auth.postgresql.existingSecret | default "" -}}
+  {{- if eq $configuredSecret "" -}}
+    {{- fail (printf "onyx.auth.postgresql.existingSecret is required when cnpg.enabled is true. Set to: %s" $expectedSecret) -}}
+  {{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Validate Redis credential wiring.
+Fails if HA mode or external Redis is enabled but auth.redis.existingSecret is not configured.
+
+Usage: {{ include "onyx-ai.redis.validateCredentials" . }}
+*/}}
+{{- define "onyx-ai.redis.validateCredentials" -}}
+{{- if .Values.redis.ha.enabled -}}
+  {{- $expectedSecret := printf "%s-redis-ha" (include "onyx-ai.fullname" .) -}}
+  {{- $configuredSecret := .Values.onyx.auth.redis.existingSecret | default "" -}}
+  {{- if eq $configuredSecret "" -}}
+    {{- fail (printf "onyx.auth.redis.existingSecret is required when redis.ha.enabled is true. Set to: %s" $expectedSecret) -}}
+  {{- end -}}
+{{- end -}}
+{{- if .Values.externalRedis.host -}}
+  {{- $configuredSecret := .Values.onyx.auth.redis.existingSecret | default "" -}}
+  {{- if eq $configuredSecret "" -}}
+    {{- $autoSecret := printf "%s-external-redis" (include "onyx-ai.fullname" .) -}}
+    {{- if .Values.externalRedis.existingSecret -}}
+      {{- fail (printf "onyx.auth.redis.existingSecret is required when externalRedis.host is set. Set to: %s" .Values.externalRedis.existingSecret) -}}
+    {{- else -}}
+      {{- fail (printf "onyx.auth.redis.existingSecret is required when externalRedis.host is set. Set to: %s" $autoSecret) -}}
+    {{- end -}}
   {{- end -}}
 {{- end -}}
 {{- end -}}

@@ -415,6 +415,72 @@ onyx:
         S3_AWS_ACCESS_KEY_ID: s3_aws_access_key_id
         S3_AWS_SECRET_ACCESS_KEY: s3_aws_secret_access_key
 
+    # ---------------------------------------------------------------------------
+    # Phase 8.2: PostgreSQL Credentials (auth.postgresql passthrough)
+    # ---------------------------------------------------------------------------
+    # The upstream Onyx chart injects PostgreSQL credentials via auth.postgresql.
+    # When using CNPG, you MUST configure existingSecret to point to the
+    # CNPG-generated app secret.
+    #
+    # CNPG creates secret: {release}-postgresql-cluster-app
+    # Example for release "prod": existingSecret: "prod-postgresql-cluster-app"
+    #
+    # WHY MANUAL CONFIGURATION IS REQUIRED:
+    # Helm values.yaml cannot contain template expressions - they are evaluated
+    # at render time, not in values.yaml. So existingSecret cannot be auto-computed.
+    #
+    # IMPORTANT: When cnpg.enabled: true, you MUST set:
+    #   onyx.auth.postgresql.existingSecret: "{release}-postgresql-cluster-app"
+    #
+    # For external PostgreSQL (cnpg.enabled: false):
+    #   - Use externalPostgresql.existingSecret for credentials, then set:
+    #     onyx.auth.postgresql.existingSecret: (same secret name)
+    #   - OR use inline credentials (externalPostgresql.username/password), then set:
+    #     onyx.auth.postgresql.existingSecret: "{release}-onyx-ai-external-postgresql"
+    postgresql:
+      enabled: true
+      # Secret name containing PostgreSQL credentials
+      # REQUIRED when using CNPG: set to "{release}-postgresql-cluster-app"
+      # REQUIRED when using external PostgreSQL: set to match your secret
+      existingSecret: ""
+      # Key mappings (match CNPG and upstream defaults - do not change)
+      secretKeys:
+        POSTGRES_USER: username
+        POSTGRES_PASSWORD: password
+
+    # ---------------------------------------------------------------------------
+    # Phase 8.2: Redis Credentials (auth.redis passthrough)
+    # ---------------------------------------------------------------------------
+    # The upstream Onyx chart injects Redis credentials via auth.redis.
+    # Configuration depends on Redis mode:
+    #
+    # 1. Default OT Redis (redis.enabled: true):
+    #    - Upstream creates 'onyx-redis' secret automatically
+    #    - existingSecret can be left empty (uses default)
+    #
+    # 2. HA Redis (redis.ha.enabled: true):
+    #    - Wrapper creates '{release}-onyx-ai-redis-ha' secret
+    #    - You MUST set: onyx.auth.redis.existingSecret: "{release}-onyx-ai-redis-ha"
+    #
+    # 3. External Redis (externalRedis.host set):
+    #    - Use externalRedis.existingSecret for credentials, then set:
+    #      onyx.auth.redis.existingSecret: (same secret name)
+    #    - OR use inline password (externalRedis.password), then set:
+    #      onyx.auth.redis.existingSecret: "{release}-onyx-ai-external-redis"
+    #
+    # WHY MANUAL CONFIGURATION IS REQUIRED:
+    # Helm values.yaml cannot contain template expressions.
+    redis:
+      enabled: true
+      # Secret name containing Redis password
+      # For HA mode: set to "{release}-onyx-ai-redis-ha"
+      # For external: set to match your secret
+      # For default OT Redis: leave empty (uses 'onyx-redis')
+      existingSecret: ""
+      # Key mappings (match upstream defaults - do not change)
+      secretKeys:
+        REDIS_PASSWORD: redis_password
+
   # OpenSearch - optional alternative to Vespa, disabled by default upstream
   opensearch:
     enabled: false

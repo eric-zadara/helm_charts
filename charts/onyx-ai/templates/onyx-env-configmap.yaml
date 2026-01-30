@@ -15,6 +15,8 @@ All Onyx pods read this via envFrom.configMapRef in their deployment specs.
 */}}
 {{- include "onyx-ai.objectStorage.validate" . }}
 {{- include "onyx-ai.redis.validate" . }}
+{{- include "onyx-ai.postgresql.validateCredentials" . }}
+{{- include "onyx-ai.redis.validateCredentials" . }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -28,7 +30,7 @@ data:
   # ============================================================================
   # Upstream Onyx values (replicated from upstream configmap.yaml)
   # ============================================================================
-  INTERNAL_URL: "http://{{ include "onyx-ai.fullname" . }}-onyx-api-service:{{ .Values.onyx.api.service.port | default 8080 }}"
+  INTERNAL_URL: "http://{{ .Release.Name }}-onyx-api-service:{{ .Values.onyx.api.service.port | default 8080 }}"
   {{- if .Values.onyx.vespa.enabled }}
   VESPA_HOST: {{ .Values.onyx.vespa.name | default "vespa" }}.{{ .Values.onyx.vespa.service.name | default "vespa" }}.{{ .Release.Namespace }}.svc.cluster.local
   {{- end }}
@@ -38,8 +40,8 @@ data:
   ENABLE_OPENSEARCH_INDEXING_FOR_ONYX: "true"
   ENABLE_OPENSEARCH_RETRIEVAL_FOR_ONYX: "false"
   {{- end }}
-  MODEL_SERVER_HOST: "{{ include "onyx-ai.fullname" . }}-onyx-inference-model-service"
-  INDEXING_MODEL_SERVER_HOST: "{{ include "onyx-ai.fullname" . }}-onyx-indexing-model-service"
+  MODEL_SERVER_HOST: "{{ .Release.Name }}-onyx-inference-model-service"
+  INDEXING_MODEL_SERVER_HOST: "{{ .Release.Name }}-onyx-indexing-model-service"
   {{- range $key, $value := .Values.onyx.configMap }}
   {{- if and (not (empty $value)) (not (hasPrefix "S3_" $key)) (ne $key "AWS_REGION_NAME") }}
   {{ $key }}: {{ $value | quote }}
