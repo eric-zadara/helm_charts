@@ -125,7 +125,16 @@ jobs:
       - name: Install chart
         run: |
           helm dependency build charts/${{ matrix.chart }} 2>/dev/null || true
+
+          # Use CI values file if it exists
+          VALUES_ARGS=""
+          if [[ -f "charts/${{ matrix.chart }}/ci/default-values.yaml" ]]; then
+            VALUES_ARGS="-f charts/${{ matrix.chart }}/ci/default-values.yaml"
+            echo "Using CI values file: charts/${{ matrix.chart }}/ci/default-values.yaml"
+          fi
+
           helm install ${{ matrix.chart }} charts/${{ matrix.chart }} \
+            $VALUES_ARGS \
             --namespace default \
             --wait \
             --timeout 600s
@@ -247,7 +256,16 @@ jobs:
       - name: Install chart
         run: |
           helm dependency build charts/${{ matrix.chart }} 2>/dev/null || true
+
+          # Use CI values file if it exists
+          VALUES_ARGS=""
+          if [[ -f "charts/${{ matrix.chart }}/ci/default-values.yaml" ]]; then
+            VALUES_ARGS="-f charts/${{ matrix.chart }}/ci/default-values.yaml"
+            echo "Using CI values file: charts/${{ matrix.chart }}/ci/default-values.yaml"
+          fi
+
           helm install ${{ matrix.chart }} charts/${{ matrix.chart }} \
+            $VALUES_ARGS \
             --namespace default \
             --wait \
             --timeout 600s
@@ -317,7 +335,15 @@ jobs:
           # Install component charts that umbrella charts may depend on
           for component_chart in networking-layer litellm-proxy model-serving inference-gateway; do
             helm dependency build "charts/$component_chart" 2>/dev/null || true
-            helm install "$component_chart" "charts/$component_chart" --namespace default --wait --timeout 600s || true
+
+            # Use CI values file if it exists
+            VALUES_ARGS=""
+            if [[ -f "charts/$component_chart/ci/default-values.yaml" ]]; then
+              VALUES_ARGS="-f charts/$component_chart/ci/default-values.yaml"
+              echo "Using CI values file: charts/$component_chart/ci/default-values.yaml"
+            fi
+
+            helm install "$component_chart" "charts/$component_chart" $VALUES_ARGS --namespace default --wait --timeout 600s || true
           done
 
           echo "Component prerequisites installed"
@@ -325,7 +351,16 @@ jobs:
       - name: Install chart
         run: |
           helm dependency build charts/${{ matrix.chart }} 2>/dev/null || true
+
+          # Use CI values file if it exists
+          VALUES_ARGS=""
+          if [[ -f "charts/${{ matrix.chart }}/ci/default-values.yaml" ]]; then
+            VALUES_ARGS="-f charts/${{ matrix.chart }}/ci/default-values.yaml"
+            echo "Using CI values file: charts/${{ matrix.chart }}/ci/default-values.yaml"
+          fi
+
           helm install ${{ matrix.chart }} charts/${{ matrix.chart }} \
+            $VALUES_ARGS \
             --namespace default \
             --wait \
             --timeout 600s

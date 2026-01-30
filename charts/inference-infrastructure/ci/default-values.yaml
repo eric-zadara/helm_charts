@@ -4,10 +4,22 @@
 
 networking-layer:
   enabled: true
+  # Disable envoyGateway - requires Gateway API CRDs and creates resources
+  # with camelCase names (envoyGateway) that violate RFC 1123
   envoyGateway:
-    enabled: true
+    enabled: false
+  # Disable kourier - requires Knative Serving CRDs
   kourier:
-    enabled: true
+    enabled: false
+  # Disable gateway - requires GatewayClass from Envoy Gateway
+  gateway:
+    name: ""
+  # Disable TLS - requires cert-manager
+  tls:
+    enabled: false
+  # Disable Knative ConfigMaps - requires Knative Serving namespace
+  knative:
+    enabled: false
 
 litellm-proxy:
   enabled: true
