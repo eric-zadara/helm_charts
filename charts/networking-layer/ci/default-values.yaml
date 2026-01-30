@@ -2,7 +2,7 @@
 # Disable components requiring CRDs/operators not available in CI
 
 # Envoy Gateway subchart requires Gateway API CRDs
-envoyGateway:
+envoy-gateway:
   enabled: false
 
 # Kourier requires Knative Serving CRDs

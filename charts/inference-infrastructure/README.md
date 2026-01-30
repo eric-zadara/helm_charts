@@ -104,7 +104,7 @@ LiteLLM is pre-configured to connect to these services automatically.
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `networking-layer.enabled` | bool | `true` | Deploy networking layer |
-| `networking-layer.envoyGateway.enabled` | bool | `true` | Deploy Envoy Gateway |
+| `networking-layer.envoy-gateway.enabled` | bool | `true` | Deploy Envoy Gateway |
 | `networking-layer.kourier.enabled` | bool | `true` | Deploy Kourier for Knative |
 
 ### LiteLLM Proxy

@@ -113,7 +113,7 @@ valkey:
 networking-layer:
   # -- Enable networking layer deployment
   enabled: true
-  envoyGateway:
+  envoy-gateway:
     enabled: true
   kourier:
     enabled: true

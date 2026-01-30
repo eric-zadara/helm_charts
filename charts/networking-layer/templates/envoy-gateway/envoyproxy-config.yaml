@@ -1,5 +1,5 @@
-{{- if .Values.envoyGateway.enabled }}
-{{- if .Values.envoyGateway.preserveRequestId }}
+{{- if (index .Values "envoy-gateway").enabled }}
+{{- if (index .Values "envoy-gateway").preserveRequestId }}
 # EnvoyProxy configuration for request ID preservation
 # This ensures X-Request-ID headers flow through the entire request chain
 # for end-to-end correlation in logs and metrics

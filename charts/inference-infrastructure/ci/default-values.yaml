@@ -12,8 +12,8 @@ valkey:
 # Networking layer - minimal config for lint
 networking-layer:
   enabled: true
-  # Disable envoyGateway - requires Gateway API CRDs
-  envoyGateway:
+  # Disable envoy-gateway - requires Gateway API CRDs
+  envoy-gateway:
     enabled: false
   # Disable kourier - requires Knative Serving CRDs
   kourier:
@@ -31,7 +31,8 @@ networking-layer:
 # LiteLLM proxy - mock database connections for lint
 litellm-proxy:
   enabled: true
-  replicaCount: 1
+  # Zero replicas for CI - avoids waiting for pods that can't start due to missing DB secrets
+  replicaCount: 0
   database:
     host: "mock-postgresql-pooler-rw"
     passwordSecretName: "mock-postgresql-app"

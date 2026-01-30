@@ -40,7 +40,8 @@ inference-gateway:
   enabled: true
 
   epp:
-    replicas: 1
+    # Zero replicas for CI - avoids waiting for pods that can't connect to InferencePool CRDs
+    replicas: 0
     poolName: "ci-test-pool"  # Required by EPP, placeholder for lint
 
   # Gateway requires Gateway API CRDs - disable for lint

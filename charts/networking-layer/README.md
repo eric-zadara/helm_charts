@@ -71,8 +71,8 @@ kubectl get configmap -n knative-serving
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `envoyGateway.enabled` | bool | `true` | Deploy Envoy Gateway |
-| `envoyGateway.preserveRequestId` | bool | `true` | Preserve X-Request-ID headers for correlation |
+| `envoy-gateway.enabled` | bool | `true` | Deploy Envoy Gateway |
+| `envoy-gateway.preserveRequestId` | bool | `true` | Preserve X-Request-ID headers for correlation |
 
 ### GatewayClass and Gateway
 

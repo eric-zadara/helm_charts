@@ -1,4 +1,4 @@
-{{- if .Values.envoyGateway.enabled }}
+{{- if (index .Values "envoy-gateway").enabled }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:

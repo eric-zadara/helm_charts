@@ -1,4 +1,4 @@
-{{- if and .Values.envoyGateway.enabled .Values.extProc.stub }}
+{{- if and (index .Values "envoy-gateway").enabled .Values.extProc.stub }}
 #
 # EnvoyExtensionPolicy Stub for Phase 7 (Inference Gateway)
 #

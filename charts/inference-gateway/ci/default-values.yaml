@@ -2,8 +2,10 @@
 # Enable minimal deployment without external dependencies
 
 # EPP configuration
+# Zero replicas for CI - avoids waiting for pods that can't connect to InferencePool CRDs
+# This allows helm install --wait to succeed while testing chart template correctness
 epp:
-  replicas: 1
+  replicas: 0
   poolName: "test-pool"
   poolNamespace: "default"
 

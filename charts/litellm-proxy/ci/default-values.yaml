@@ -14,8 +14,9 @@
 #        --set masterKey.existingSecret=litellm-master-key \
 #        --set saltKey.existingSecret=litellm-salt-key
 
-# Single replica for CI
-replicaCount: 1
+# Zero replicas for CI - avoids waiting for pods that can't start due to missing DB secrets
+# This allows helm install --wait to succeed while testing chart template correctness
+replicaCount: 0
 
 # Create secrets for CI testing
 masterKey:

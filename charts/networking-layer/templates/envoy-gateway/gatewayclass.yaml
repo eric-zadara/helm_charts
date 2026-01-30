@@ -1,4 +1,4 @@
-{{- if .Values.envoyGateway.enabled }}
+{{- if (index .Values "envoy-gateway").enabled }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
 metadata:
@@ -7,7 +7,7 @@ metadata:
     {{- include "networking-layer.labels" . | nindent 4 }}
 spec:
   controllerName: gateway.envoyproxy.io/gatewayclass-controller
-  {{- if .Values.envoyGateway.preserveRequestId }}
+  {{- if (index .Values "envoy-gateway").preserveRequestId }}
   parametersRef:
     group: gateway.envoyproxy.io
     kind: EnvoyProxy

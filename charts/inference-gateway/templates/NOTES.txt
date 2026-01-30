@@ -30,7 +30,7 @@ Before this chart functions correctly, ensure:
      Both must be present BEFORE deploying this chart.
 
   2. Phase 4 Envoy Gateway running:
-     - networking-layer chart deployed with envoyGateway.enabled=true
+     - networking-layer chart deployed with envoy-gateway.enabled=true
      - GatewayClass "{{ .Values.gatewayClassName }}" must exist
      - Verify: kubectl get gatewayclass {{ .Values.gatewayClassName }}
 

@@ -6,7 +6,7 @@
  LLM Inference Platform - Networking Layer
 =======================================================================
 
-{{- if .Values.envoyGateway.enabled }}
+{{- if (index .Values "envoy-gateway").enabled }}
 
 ENVOY GATEWAY
 -------------
@@ -67,9 +67,9 @@ ENVOY GATEWAY: DISABLED
 -----------------------
 
 Using external Gateway:
-{{- if .Values.envoyGateway.external.name }}
-  - Gateway: {{ .Values.envoyGateway.external.namespace }}/{{ .Values.envoyGateway.external.name }}
-  - GatewayClass: {{ .Values.envoyGateway.external.gatewayClassName }}
+{{- if (index .Values "envoy-gateway").external.name }}
+  - Gateway: {{ (index .Values "envoy-gateway").external.namespace }}/{{ (index .Values "envoy-gateway").external.name }}
+  - GatewayClass: {{ (index .Values "envoy-gateway").external.gatewayClassName }}
 {{- else }}
   - No external Gateway configured - skipping Gateway API resources
 {{- end }}
@@ -139,7 +139,7 @@ Ext-proc Capability:
 TRAFFIC FLOW
 ------------
 
-{{- if and .Values.envoyGateway.enabled .Values.kourier.enabled }}
+{{- if and (index .Values "envoy-gateway").enabled .Values.kourier.enabled }}
 Full traffic path (completed in later phases):
 
   Internet -> NLB -> Envoy Gateway -> LiteLLM (Phase 6)
