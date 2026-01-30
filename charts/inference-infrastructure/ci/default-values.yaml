@@ -58,3 +58,8 @@ litellm-proxy:
     enabled: false
   serviceMonitor:
     enabled: false
+
+  # Disable init containers (no real database/cache in CI)
+  initContainers:
+    waitForDatabase: false
+    waitForCache: false

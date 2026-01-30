@@ -293,7 +293,7 @@ healthCheck:
     timeoutSeconds: 5
     failureThreshold: 3
 
-# -- Migration job configuration (Prisma schema migration as Helm pre-install/pre-upgrade hook)
+# -- Migration job configuration (Prisma schema migration as Helm post-install/post-upgrade hook)
 # @section -- Migration Job
 migrationJob:
   # -- Enable Prisma migration job
@@ -302,6 +302,14 @@ migrationJob:
   backoffLimit: 4
   # -- TTL after completion (seconds)
   ttlSecondsAfterFinished: 120
+
+# -- Init container configuration for waiting on dependencies
+# @section -- Init Containers
+initContainers:
+  # -- Wait for database to be reachable before starting (recommended for production)
+  waitForDatabase: true
+  # -- Wait for cache to be reachable before starting (recommended for production)
+  waitForCache: true
 
 # -- Resource requirements
 # @section -- Resources and Scaling

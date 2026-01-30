@@ -36,6 +36,11 @@ cache:
 migrationJob:
   enabled: false
 
+# Disable init containers that wait for infrastructure (not present in CI)
+initContainers:
+  waitForDatabase: false
+  waitForCache: false
+
 # Disable HTTPRoute (requires Gateway API CRDs)
 httpRoute:
   enabled: false
