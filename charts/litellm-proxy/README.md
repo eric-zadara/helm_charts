@@ -192,6 +192,12 @@ curl http://litellm-proxy.llm-platform.svc.cluster.local:4000/health
 |-----|------|---------|-------------|
 | httpRoute | object | `{"enabled":true,"gateway":{"name":"","namespace":""},"hostname":"","pathPrefix":"/"}` | HTTPRoute configuration (Envoy Gateway integration) |
 
+### Init Containers
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| initContainers | object | `{"waitForCache":true,"waitForDatabase":true}` | Init container configuration for waiting on dependencies |
+
 ### LiteLLM Configuration
 
 | Key | Type | Default | Description |
@@ -215,7 +221,7 @@ curl http://litellm-proxy.llm-platform.svc.cluster.local:4000/health
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| migrationJob | object | `{"backoffLimit":4,"enabled":true,"ttlSecondsAfterFinished":120}` | Migration job configuration (Prisma schema migration as Helm pre-install/pre-upgrade hook) |
+| migrationJob | object | `{"backoffLimit":4,"enabled":true,"ttlSecondsAfterFinished":120}` | Migration job configuration (Prisma schema migration as Helm post-install/post-upgrade hook) |
 
 ### Service Configuration
 
@@ -289,6 +295,8 @@ curl http://litellm-proxy.llm-platform.svc.cluster.local:4000/health
 | image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
 | image.repository | string | `"ghcr.io/berriai/litellm-database"` | Docker image repository (database variant includes Prisma support) |
 | image.tag | string | `"v1.80.15-stable.1"` | Image tag (pin to specific stable version for reproducibility) |
+| initContainers.waitForCache | bool | `true` | Wait for cache to be reachable before starting (recommended for production) |
+| initContainers.waitForDatabase | bool | `true` | Wait for database to be reachable before starting (recommended for production) |
 | litellm.generalSettings | object | `{"allow_requests_on_db_unavailable":true,"disable_error_logs":true,"proxy_batch_write_at":60,"request_timeout":600}` | General settings (merged into config.yaml general_settings) |
 | litellm.generalSettings.allow_requests_on_db_unavailable | bool | `true` | Allow requests if DB is temporarily unavailable |
 | litellm.generalSettings.disable_error_logs | bool | `true` | Disable verbose error logs in DB (recommended for production) |
