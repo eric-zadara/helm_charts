@@ -155,7 +155,7 @@ curl http://litellm-proxy.llm-platform.svc.cluster.local:4000/health
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| cache | object | `{"enabled":true,"host":"","passwordSecretKey":"valkey-password","passwordSecretName":"valkey","port":6379,"sentinel":{"enabled":true,"host":"valkey","port":26379,"serviceName":"mymaster"}}` | Cache and rate limiting connection (Valkey). Deploy Valkey: helm install valkey bitnami/valkey --set sentinel.enabled=true |
+| cache | object | `{"enabled":true,"external":{"host":"","passwordSecretKey":"password","port":6379,"secretName":"","sentinel":{"enabled":false,"port":26379,"serviceName":"mymaster"}},"internal":{"enabled":true,"image":"docker.io/valkey/valkey:8-alpine","password":"","persistence":{"enabled":false,"size":"1Gi","storageClass":""},"replicas":1,"resources":{"limits":{"cpu":"500m","memory":"512Mi"},"requests":{"cpu":"100m","memory":"256Mi"}}}}` | Cache configuration (Redis/Valkey) |
 
 ### Observability
 
@@ -164,11 +164,11 @@ curl http://litellm-proxy.llm-platform.svc.cluster.local:4000/health
 | dashboards | object | `{"enabled":false,"folderAnnotation":"LLM Platform"}` | Grafana dashboard configuration |
 | serviceMonitor | object | `{"enabled":false,"interval":"15s","scrapeTimeout":"10s"}` | Prometheus ServiceMonitor |
 
-### Database Connection
+### Database Configuration
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| database | object | `{"connectionPoolLimit":10,"connectionTimeout":60,"host":"postgresql-pooler-rw","name":"app","passwordSecretKey":"password","passwordSecretName":"postgresql-app","port":5432,"user":"app"}` | Database connection (PostgreSQL via CNPG). Deploy CNPG cluster: helm install postgresql cnpg/cluster Service name follows: <release>-pooler-rw |
+| database | object | `{"connectionPoolLimit":10,"connectionTimeout":60,"external":{"host":"","name":"litellm","passwordSecretKey":"password","port":5432,"secretName":"","user":"litellm"},"internal":{"database":"litellm","enabled":true,"imageName":"ghcr.io/cloudnative-pg/postgresql:17.4","instances":1,"owner":"litellm","parameters":{"max_connections":"200","shared_buffers":"256MB"},"pooler":{"defaultPoolSize":50,"enabled":true,"instances":2,"maxClientConn":1000,"poolMode":"transaction"},"resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"250m","memory":"512Mi"}},"storageClass":"","storageSize":"10Gi"}}` | Database configuration (PostgreSQL) |
 
 ### Image Configuration
 
@@ -208,8 +208,8 @@ curl http://litellm-proxy.llm-platform.svc.cluster.local:4000/health
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| masterKey | object | `{"create":false,"existingSecret":"","existingSecretKey":"master-key","value":""}` | Master key configuration for admin API authentication |
-| saltKey | object | `{"create":false,"existingSecret":"","existingSecretKey":"salt-key","value":""}` | Salt key for encrypting API credentials stored in PostgreSQL. WARNING: Never change after initial deployment with data -- existing encrypted data becomes unreadable if the salt key changes. |
+| masterKey | object | `{"create":true,"existingSecret":"","existingSecretKey":"master-key","value":""}` | Master key configuration for admin API authentication |
+| saltKey | object | `{"create":true,"existingSecret":"","existingSecretKey":"salt-key","value":""}` | Salt key for encrypting API credentials stored in PostgreSQL. WARNING: Never change after initial deployment with data -- existing encrypted data becomes unreadable if the salt key changes. |
 
 ### Migration Job
 
@@ -232,26 +232,49 @@ curl http://litellm-proxy.llm-platform.svc.cluster.local:4000/health
 | autoscaling.minReplicas | int | `2` | Minimum replicas |
 | autoscaling.targetCPUUtilizationPercentage | int | `80` | Target CPU utilization percentage |
 | autoscaling.targetMemoryUtilizationPercentage | string | `""` | Target memory utilization percentage (optional, empty to disable) |
-| cache.enabled | bool | `true` | Enable Valkey integration for caching and distributed rate limiting |
-| cache.host | string | `""` | Direct connection host (used when sentinel.enabled=false) |
-| cache.passwordSecretKey | string | `"valkey-password"` | Key within password secret |
-| cache.passwordSecretName | string | `"valkey"` | Secret containing Valkey password. Secret name follows: <release> (bitnami convention) |
-| cache.port | int | `6379` | Direct connection port (used when sentinel.enabled=false) |
-| cache.sentinel | object | `{"enabled":true,"host":"valkey","port":26379,"serviceName":"mymaster"}` | Sentinel HA configuration |
-| cache.sentinel.enabled | bool | `true` | Enable Sentinel discovery for automatic failover |
-| cache.sentinel.host | string | `"valkey"` | Sentinel host (Valkey service). Service name follows: <release> |
-| cache.sentinel.port | int | `26379` | Sentinel port |
-| cache.sentinel.serviceName | string | `"mymaster"` | Sentinel service name (master group name) |
+| cache.enabled | bool | `true` | Enable caching and distributed rate limiting |
+| cache.external | object | `{"host":"","passwordSecretKey":"password","port":6379,"secretName":"","sentinel":{"enabled":false,"port":26379,"serviceName":"mymaster"}}` | External cache connection (used when internal.enabled=false) |
+| cache.external.host | string | `""` | Redis/Valkey host |
+| cache.external.passwordSecretKey | string | `"password"` | Key within the password secret |
+| cache.external.port | int | `6379` | Redis/Valkey port |
+| cache.external.secretName | string | `""` | Secret containing the password (required when internal.enabled=false) |
+| cache.external.sentinel | object | `{"enabled":false,"port":26379,"serviceName":"mymaster"}` | Enable Sentinel mode for HA |
+| cache.external.sentinel.port | int | `26379` | Sentinel port |
+| cache.external.sentinel.serviceName | string | `"mymaster"` | Sentinel master name |
+| cache.internal | object | `{"enabled":true,"image":"docker.io/valkey/valkey:8-alpine","password":"","persistence":{"enabled":false,"size":"1Gi","storageClass":""},"replicas":1,"resources":{"limits":{"cpu":"500m","memory":"512Mi"},"requests":{"cpu":"100m","memory":"256Mi"}}}` | Internal Valkey deployment (enabled by default) Creates a Valkey instance for caching and rate limiting |
+| cache.internal.enabled | bool | `true` | Enable internal Valkey deployment |
+| cache.internal.image | string | `"docker.io/valkey/valkey:8-alpine"` | Valkey image |
+| cache.internal.password | string | `""` | Password for Valkey (auto-generated if empty) |
+| cache.internal.persistence | object | `{"enabled":false,"size":"1Gi","storageClass":""}` | Storage persistence |
+| cache.internal.replicas | int | `1` | Number of Valkey replicas |
+| cache.internal.resources | object | `{"limits":{"cpu":"500m","memory":"512Mi"},"requests":{"cpu":"100m","memory":"256Mi"}}` | Resource requests/limits |
 | dashboards.enabled | bool | `false` | Enable dashboard ConfigMap creation (requires Grafana sidecar) |
 | dashboards.folderAnnotation | string | `"LLM Platform"` | Grafana folder annotation for dashboard organization |
-| database.connectionPoolLimit | int | `10` | Connection pool limit per worker process. Formula: PgBouncer_max_client_conn / (num_workers x num_pods) |
+| database.connectionPoolLimit | int | `10` | Connection pool limit per worker process Formula: PgBouncer_max_client_conn / (num_workers x num_pods) |
 | database.connectionTimeout | int | `60` | Connection timeout in seconds |
-| database.host | string | `"postgresql-pooler-rw"` | PostgreSQL host (PgBouncer service) |
-| database.name | string | `"app"` | Database name |
-| database.passwordSecretKey | string | `"password"` | Key within password secret |
-| database.passwordSecretName | string | `"postgresql-app"` | Secret containing PostgreSQL password. Secret name follows: <release>-app (CNPG convention) |
-| database.port | int | `5432` | PostgreSQL port |
-| database.user | string | `"app"` | Database user |
+| database.external | object | `{"host":"","name":"litellm","passwordSecretKey":"password","port":5432,"secretName":"","user":"litellm"}` | External database connection (used when internal.enabled=false) |
+| database.external.host | string | `""` | PostgreSQL host |
+| database.external.name | string | `"litellm"` | Database name |
+| database.external.passwordSecretKey | string | `"password"` | Key within the password secret |
+| database.external.port | int | `5432` | PostgreSQL port |
+| database.external.secretName | string | `""` | Secret containing the password (required when internal.enabled=false) Secret must have key specified in passwordSecretKey |
+| database.external.user | string | `"litellm"` | Database user |
+| database.internal | object | `{"database":"litellm","enabled":true,"imageName":"ghcr.io/cloudnative-pg/postgresql:17.4","instances":1,"owner":"litellm","parameters":{"max_connections":"200","shared_buffers":"256MB"},"pooler":{"defaultPoolSize":50,"enabled":true,"instances":2,"maxClientConn":1000,"poolMode":"transaction"},"resources":{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"250m","memory":"512Mi"}},"storageClass":"","storageSize":"10Gi"}` | Internal CNPG PostgreSQL cluster (enabled by default) Creates a highly-available PostgreSQL cluster with PgBouncer pooling |
+| database.internal.database | string | `"litellm"` | Database name to create |
+| database.internal.enabled | bool | `true` | Enable internal CNPG cluster deployment |
+| database.internal.imageName | string | `"ghcr.io/cloudnative-pg/postgresql:17.4"` | PostgreSQL image |
+| database.internal.instances | int | `1` | Number of PostgreSQL instances (1 for dev, 3 for HA) |
+| database.internal.owner | string | `"litellm"` | Owner username |
+| database.internal.parameters | object | `{"max_connections":"200","shared_buffers":"256MB"}` | PostgreSQL parameters |
+| database.internal.pooler | object | `{"defaultPoolSize":50,"enabled":true,"instances":2,"maxClientConn":1000,"poolMode":"transaction"}` | PgBouncer pooler configuration |
+| database.internal.pooler.defaultPoolSize | int | `50` | Default connections per pool |
+| database.internal.pooler.enabled | bool | `true` | Enable PgBouncer connection pooling |
+| database.internal.pooler.instances | int | `2` | Number of pooler instances |
+| database.internal.pooler.maxClientConn | int | `1000` | Maximum client connections |
+| database.internal.pooler.poolMode | string | `"transaction"` | Pool mode (transaction recommended) |
+| database.internal.resources | object | `{"limits":{"cpu":"1000m","memory":"1Gi"},"requests":{"cpu":"250m","memory":"512Mi"}}` | Resource requests/limits |
+| database.internal.storageClass | string | `""` | Storage class (leave empty for default) |
+| database.internal.storageSize | string | `"10Gi"` | Storage size for PostgreSQL data |
 | healthCheck.liveness | object | `{"failureThreshold":3,"periodSeconds":15,"timeoutSeconds":5}` | Liveness probe |
 | healthCheck.readiness | object | `{"failureThreshold":3,"periodSeconds":10,"timeoutSeconds":5}` | Readiness probe |
 | healthCheck.separateApp | bool | `true` | Use separate health check app/port (recommended for production). Prevents health check timeouts under heavy load. |
@@ -292,24 +315,49 @@ curl http://litellm-proxy.llm-platform.svc.cluster.local:4000/health
 | logging.retentionInterval | string | `"1d"` | Retention cleanup interval |
 | logging.retentionPeriod | string | `"30d"` | Spend log retention period (e.g., "30d", "90d") |
 | logging.storePrompts | bool | `false` | Store prompts/responses in spend_logs (false for privacy) |
-| masterKey.create | bool | `false` | Create a Kubernetes Secret from the value below (set false to use existing) |
+| masterKey.create | bool | `true` | Create a Kubernetes Secret from the value below (set false to use existing) |
 | masterKey.existingSecret | string | `""` | Name of an existing secret containing the master key |
 | masterKey.existingSecretKey | string | `"master-key"` | Key within the existing secret |
-| masterKey.value | string | `""` | Master key value (only used if create=true; should start with "sk-") |
+| masterKey.value | string | `""` | Master key value (auto-generated if empty and create=true) |
 | migrationJob.backoffLimit | int | `4` | Job retry limit |
 | migrationJob.enabled | bool | `true` | Enable Prisma migration job |
 | migrationJob.ttlSecondsAfterFinished | int | `120` | TTL after completion (seconds) |
 | podDisruptionBudget.enabled | bool | `false` | Enable PDB |
 | podDisruptionBudget.minAvailable | int | `1` | Minimum available pods during disruptions |
-| saltKey.create | bool | `false` | Create a Kubernetes Secret from the value below (set false to use existing) |
+| postgresql.cluster.imageName | string | `"ghcr.io/cloudnative-pg/postgresql:17.4"` |  |
+| postgresql.cluster.instances | int | `1` |  |
+| postgresql.cluster.postgresql.parameters.max_connections | string | `"200"` |  |
+| postgresql.cluster.postgresql.parameters.shared_buffers | string | `"256MB"` |  |
+| postgresql.cluster.resources.limits.cpu | string | `"1000m"` |  |
+| postgresql.cluster.resources.limits.memory | string | `"1Gi"` |  |
+| postgresql.cluster.resources.requests.cpu | string | `"250m"` |  |
+| postgresql.cluster.resources.requests.memory | string | `"512Mi"` |  |
+| postgresql.cluster.storage.size | string | `"10Gi"` |  |
+| postgresql.mode | string | `"standalone"` |  |
+| postgresql.poolers[0].instances | int | `2` |  |
+| postgresql.poolers[0].name | string | `"rw"` |  |
+| postgresql.poolers[0].parameters.default_pool_size | string | `"50"` |  |
+| postgresql.poolers[0].parameters.max_client_conn | string | `"1000"` |  |
+| postgresql.poolers[0].poolMode | string | `"transaction"` |  |
+| postgresql.poolers[0].type | string | `"rw"` |  |
+| postgresql.type | string | `"postgresql"` |  |
+| saltKey.create | bool | `true` | Create a Kubernetes Secret from the value below (set false to use existing) |
 | saltKey.existingSecret | string | `""` | Name of an existing secret containing the salt key |
 | saltKey.existingSecretKey | string | `"salt-key"` | Key within the existing secret |
-| saltKey.value | string | `""` | Salt key value (only used if create=true) |
+| saltKey.value | string | `""` | Salt key value (auto-generated if empty and create=true) |
 | service.port | int | `4000` | Service port (LiteLLM default) |
 | service.type | string | `"ClusterIP"` | Service type |
 | serviceMonitor.enabled | bool | `false` | Enable ServiceMonitor creation |
 | serviceMonitor.interval | string | `"15s"` | Scrape interval |
 | serviceMonitor.scrapeTimeout | string | `"10s"` | Scrape timeout |
+| valkey.architecture | string | `"standalone"` |  |
+| valkey.auth.enabled | bool | `true` |  |
+| valkey.auth.password | string | `""` |  |
+| valkey.master.persistence.enabled | bool | `false` |  |
+| valkey.master.resources.limits.cpu | string | `"500m"` |  |
+| valkey.master.resources.limits.memory | string | `"512Mi"` |  |
+| valkey.master.resources.requests.cpu | string | `"100m"` |  |
+| valkey.master.resources.requests.memory | string | `"256Mi"` |  |
 
 ## Model Configuration
 
