@@ -70,7 +70,46 @@ are deprecated.
 For more information, visit: https://docs.onyx.app/
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-{{- if or .Values.objectStorage.existingSecret .Values.objectStorage.accessKey }}
+{{- if .Values.garage.enabled }}
+
+GARAGEFS OBJECT STORAGE
+=======================
+
+GarageFS is enabled as the built-in S3-compatible object storage backend.
+
+Endpoint: http://{{ .Release.Name }}-garage:3900
+Bucket: {{ include "onyx-ai.objectStorage.bucket" . }}
+Credentials Secret: {{ include "onyx-ai.objectStorage.secretName" . }}
+
+GarageFS is a lightweight, distributed object storage system that provides
+an S3-compatible API for storing and retrieving files. It is configured
+automatically and requires no external S3 credentials.
+
+To access GarageFS externally (for debugging):
+
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ .Release.Name }}-garage 3900:3900
+
+Then use any S3 client with:
+  Endpoint: http://localhost:3900
+  Access Key: (from secret {{ include "onyx-ai.objectStorage.secretName" . }})
+  Secret Key: (from secret {{ include "onyx-ai.objectStorage.secretName" . }})
+
+To retrieve credentials:
+
+  kubectl get secret -n {{ .Release.Namespace }} {{ include "onyx-ai.objectStorage.secretName" . }} \
+    -o jsonpath='{.data.s3_aws_access_key_id}' | base64 -d && echo
+  kubectl get secret -n {{ .Release.Namespace }} {{ include "onyx-ai.objectStorage.secretName" . }} \
+    -o jsonpath='{.data.s3_aws_secret_access_key}' | base64 -d && echo
+
+Scaling: GarageFS supports scaling from 1 to N nodes. To scale:
+
+  helm upgrade {{ .Release.Name }} {{ .Chart.Name }} --set garage.deployment.replicaCount=3
+
+GarageFS will automatically rebalance data across nodes.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{{- end }}
+{{- if and (not .Values.garage.enabled) (or .Values.objectStorage.existingSecret .Values.objectStorage.accessKey) }}
 
 OBJECT STORAGE CONFIGURATION
 ============================
