@@ -1,3 +1,4 @@
 *.swp
 charts/*/charts
 *.lock
+.kind-test/
