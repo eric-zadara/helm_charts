@@ -219,6 +219,57 @@ objectStorage:
     verify: true
 
 # ------------------------------------------------------------------------------
+# GarageFS Built-in Object Storage (Phase 8.4)
+# ------------------------------------------------------------------------------
+# Optional built-in S3-compatible object storage for dev/testing.
+# When enabled, auto-wires S3 endpoint and credentials to Onyx pods.
+# Disabled by default - production deployments should use external S3.
+#
+# IMPORTANT: When garage.enabled is true, the objectStorage section is ignored.
+# The chart auto-generates credentials and configures the bucket automatically.
+# You do NOT need to touch objectStorage.* settings when using GarageFS.
+
+garage:
+  # Enable built-in GarageFS object storage (disabled by default)
+  enabled: false
+
+  # Bucket name (defaults to release-scoped name for multi-tenancy)
+  # Default: {{ .Release.Name }}-files
+  bucket: ""
+
+  # Credentials (auto-generated if not provided, persisted across upgrades)
+  # Only set these if you need specific credential values
+  accessKey: ""
+  secretKey: ""
+
+  # Replication factor (1 for single node, 2-3 for production-like durability)
+  # IMPORTANT: Must be <= number of garage replicas (replicaCount)
+  replicationFactor: 1
+
+  # Number of GarageFS nodes
+  replicaCount: 1
+
+  # Resource limits for GarageFS pods
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # Storage configuration
+  persistence:
+    # Metadata storage (small, fast)
+    meta:
+      size: 100Mi
+      storageClass: ""  # Empty = use global.storageClass or cluster default
+    # Data storage (bulk file storage)
+    data:
+      size: 10Gi
+      storageClass: ""
+
+# ------------------------------------------------------------------------------
 # Ingress Configuration (Phase 7)
 # ------------------------------------------------------------------------------
 # Expose Onyx via Kubernetes Ingress or Traefik IngressRoute.
@@ -599,3 +650,14 @@ postgresql-cluster:
   # Backups (disabled by default, configured via cnpg.backup.*)
   backups:
     enabled: false
+
+# ------------------------------------------------------------------------------
+# GarageFS Chart Values (alias: garage)
+# ------------------------------------------------------------------------------
+# Passthrough to datahub-local/garage-helm subchart. Only active when garage.enabled: true.
+# The wrapper chart auto-generates credentials and configures bucket via clusterConfig.
+# Users typically do not need to modify this section directly.
+
+# garage:
+#   # Passthrough values are set by the wrapper chart
+#   # See datahub-local/garage-helm for full options
