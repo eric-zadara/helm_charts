@@ -17,6 +17,7 @@ All Onyx pods read this via envFrom.configMapRef in their deployment specs.
 {{- include "onyx-ai.redis.validate" . }}
 {{- include "onyx-ai.postgresql.validateCredentials" . }}
 {{- include "onyx-ai.redis.validateCredentials" . }}
+{{- include "onyx-ai.garage.validateCredentials" . }}
 apiVersion: v1
 kind: ConfigMap
 metadata:

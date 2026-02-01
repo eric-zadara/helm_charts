@@ -590,3 +590,20 @@ Usage: {{ include "onyx-ai.redis.validateCredentials" . }}
   {{- end -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+Validate GarageFS credential wiring.
+Fails if garage.enabled=true but auth.objectstorage.existingSecret is not configured.
+
+Usage: {{ include "onyx-ai.garage.validateCredentials" . }}
+*/}}
+{{- define "onyx-ai.garage.validateCredentials" -}}
+{{- if .Values.garage.enabled -}}
+  {{- $expectedSecret := printf "%s-garage-credentials" (include "onyx-ai.fullname" .) -}}
+  {{- $configuredSecret := .Values.onyx.auth.objectstorage.existingSecret | default "" -}}
+  {{- if eq $configuredSecret "" -}}
+    {{- fail (printf "onyx.auth.objectstorage.existingSecret is required when garage.enabled is true. Set to: %s" $expectedSecret) -}}
+  {{- end -}}
+{{- end -}}
+{{- end -}}
+
