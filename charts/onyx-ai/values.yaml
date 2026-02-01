@@ -504,11 +504,33 @@ onyx:
   #        objectstorage:
   #          enabled: false  # No credentials needed
   auth:
+    # ---------------------------------------------------------------------------
+    # Object Storage Credentials (auth.objectstorage passthrough)
+    # ---------------------------------------------------------------------------
+    # The upstream Onyx chart injects S3 credentials via auth.objectstorage.
+    #
+    # GARAGEFS MODE (garage.enabled: true):
+    # When GarageFS is enabled, you MUST set existingSecret to the garage credentials:
+    #   onyx.auth.objectstorage.existingSecret: "{release}-onyx-ai-garage-credentials"
+    # The chart validates this and provides the expected value in the error message.
+    #
+    # EXTERNAL S3 MODE:
+    # When using external S3, set existingSecret to match your S3 credentials:
+    #   - If using objectStorage.existingSecret: use the same secret name
+    #   - If using inline credentials: use "{release}-onyx-ai-external-objectstorage"
+    #
+    # IAM/IRSA MODE:
+    # Set enabled: false (no credentials needed for IAM role authentication)
+    #
+    # WHY MANUAL CONFIGURATION IS REQUIRED:
+    # Helm values.yaml cannot contain template expressions. The existingSecret
+    # value must be configured explicitly based on your deployment mode.
     objectstorage:
       # Set to false when using IAM/IRSA mode
       enabled: true
       # Secret name - MUST match objectStorage.existingSecret or the auto-generated name
-      # Leave empty for now; set it when configuring objectStorage
+      # For GarageFS: "{release}-onyx-ai-garage-credentials"
+      # For external S3: "{release}-onyx-ai-external-objectstorage" or your existingSecret
       existingSecret: ""
       # Key mappings (match upstream defaults - do not change)
       secretKeys:
