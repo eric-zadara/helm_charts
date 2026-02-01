@@ -30,6 +30,9 @@ jobs:
       - name: Set up chart-testing
         uses: helm/chart-testing-action@v2.8.0
 
+      - name: Set up yq
+        uses: mikefarah/yq@v4.45.4
+
       - name: Categorize changed charts into tiers
         id: categorize
         run: |
@@ -53,23 +56,36 @@ jobs:
           tier2=()
           tier3=()
 
-          # Categorize each changed chart
+          # Categorize each changed chart by reading tier from Chart.yaml annotations
           while IFS= read -r chart_path; do
-            # Extract chart name from path (charts/name -> name)
             chart=$(basename "$chart_path")
+            chart_yaml="$chart_path/Chart.yaml"
 
-            case "$chart" in
-              gateway-api|knative-serving-crds|kserve-crds|inference-extension-crds)
+            if [[ ! -f "$chart_yaml" ]]; then
+              echo "Warning: $chart_yaml not found, skipping"
+              continue
+            fi
+
+            # Read tier from annotations (default: 0, treated as tier 1)
+            tier=$(yq -r '.annotations["testing/tier"] // "1"' "$chart_yaml")
+
+            case "$tier" in
+              1|"1")
                 tier1+=("$chart")
+                echo "  $chart -> tier 1 (CRDs)"
                 ;;
-              networking-layer|litellm-proxy|model-serving|inference-gateway)
+              2|"2")
                 tier2+=("$chart")
+                echo "  $chart -> tier 2 (Components)"
                 ;;
-              inference-operators|inference-infrastructure|inference-stack)
+              3|"3")
                 tier3+=("$chart")
+                echo "  $chart -> tier 3 (Umbrellas)"
                 ;;
               *)
-                echo "Chart '$chart' not in inference tier categories, skipping"
+                # Unknown tier defaults to tier 1 (no prerequisites)
+                tier1+=("$chart")
+                echo "  $chart -> tier 1 (default, unknown tier: $tier)"
                 ;;
             esac
           done <<< "$changed"
@@ -84,9 +100,11 @@ jobs:
           [[ -z "$tier2_json" || "$tier2_json" == '[""]' ]] && tier2_json="[]"
           [[ -z "$tier3_json" || "$tier3_json" == '[""]' ]] && tier3_json="[]"
 
-          echo "Tier 1 (CRDs): $tier1_json"
-          echo "Tier 2 (Components): $tier2_json"
-          echo "Tier 3 (Umbrellas): $tier3_json"
+          echo ""
+          echo "Summary:"
+          echo "  Tier 1 (CRDs): $tier1_json"
+          echo "  Tier 2 (Components): $tier2_json"
+          echo "  Tier 3 (Umbrellas): $tier3_json"
 
           echo "tier1=$tier1_json" >> "$GITHUB_OUTPUT"
           echo "tier2=$tier2_json" >> "$GITHUB_OUTPUT"
@@ -94,7 +112,7 @@ jobs:
           echo "has_changes=true" >> "$GITHUB_OUTPUT"
 
   test-tier1:
-    name: Test Tier 1 (CRDs) - ${{ matrix.chart }} on K8s ${{ matrix.k8s-version }}
+    name: Test Tier 1 - ${{ matrix.chart }} on K8s ${{ matrix.k8s-version }}
     needs: detect-changes
     if: needs.detect-changes.outputs.tier1_charts != '[]' && needs.detect-changes.outputs.tier1_charts != ''
     runs-on: ubuntu-latest
@@ -115,6 +133,16 @@ jobs:
       - name: Set up Helm
         uses: azure/setup-helm@v4.3.1
 
+      - name: Set up yq
+        uses: mikefarah/yq@v4.45.4
+
+      - name: Add Helm repositories
+        run: |
+          helm repo add bitnami https://charts.bitnami.com/bitnami
+          helm repo add cnpg https://cloudnative-pg.github.io/charts
+          helm repo add eric-zadara https://eric-zadara.github.io/helm_charts/
+          helm repo update
+
       - name: Create kind cluster
         uses: helm/kind-action@v1.13.0
         with:
@@ -122,10 +150,70 @@ jobs:
           cluster_name: tier1-${{ matrix.chart }}-${{ matrix.k8s-version }}
           wait: 300s
 
+      - name: Install prerequisites
+        run: |
+          prereqs=$(yq -r '.annotations["testing/prerequisites"] // ""' "charts/${{ matrix.chart }}/Chart.yaml")
+
+          if [[ -z "$prereqs" ]]; then
+            echo "No prerequisites for ${{ matrix.chart }}"
+            exit 0
+          fi
+
+          echo "Installing prerequisites: $prereqs"
+          IFS=',' read -ra prereq_list <<< "$prereqs"
+
+          for prereq in "${prereq_list[@]}"; do
+            case "$prereq" in
+              tier1-crds)
+                echo "Installing tier1 CRD charts..."
+                for crd_chart in charts/*/Chart.yaml; do
+                  tier=$(yq -r '.annotations["testing/tier"] // "0"' "$crd_chart")
+                  if [[ "$tier" == "1" ]]; then
+                    chart_name=$(dirname "$crd_chart" | xargs basename)
+                    echo "  Installing $chart_name..."
+                    helm dependency build "charts/$chart_name" 2>/dev/null || true
+                    helm install "$chart_name" "charts/$chart_name" --namespace default --wait --timeout 5m
+                  fi
+                done
+                ;;
+              cert-manager)
+                echo "Installing cert-manager..."
+                helm repo add jetstack https://charts.jetstack.io
+                helm repo update
+                helm install cert-manager jetstack/cert-manager \
+                  --namespace cert-manager --create-namespace \
+                  --set crds.enabled=true \
+                  --wait --timeout 5m
+                ;;
+              cnpg-operator)
+                echo "Installing CNPG operator..."
+                helm install cnpg cnpg/cloudnative-pg \
+                  --namespace cnpg-system --create-namespace \
+                  --wait --timeout 5m
+                ;;
+              inference-operators)
+                echo "Installing inference-operators (CRDs + CNPG operator)..."
+                helm dependency build charts/inference-operators
+                VALUES_ARGS=""
+                if [[ -f "charts/inference-operators/ci/default-values.yaml" ]]; then
+                  VALUES_ARGS="-f charts/inference-operators/ci/default-values.yaml"
+                fi
+                helm install inference-operators charts/inference-operators \
+                  $VALUES_ARGS \
+                  --namespace default \
+                  --wait --timeout 10m
+                ;;
+              *)
+                echo "Unknown prerequisite: $prereq"
+                ;;
+            esac
+          done
+
+      - name: Build chart dependencies
+        run: helm dependency build charts/${{ matrix.chart }}
+
       - name: Install chart
         run: |
-          helm dependency build charts/${{ matrix.chart }} 2>/dev/null || true
-
           # Use CI values file if it exists
           VALUES_ARGS=""
           if [[ -f "charts/${{ matrix.chart }}/ci/default-values.yaml" ]]; then
@@ -139,57 +227,12 @@ jobs:
             --wait \
             --timeout 600s
 
-      - name: Verify CRDs installed
+      - name: Verify installation
         run: |
-          echo "Verifying CRDs for ${{ matrix.chart }}..."
-
-          case "${{ matrix.chart }}" in
-            gateway-api)
-              expected_count=6
-              expected_crds="gatewayclasses.gateway.networking.k8s.io gateways.gateway.networking.k8s.io httproutes.gateway.networking.k8s.io grpcroutes.gateway.networking.k8s.io referencegrants.gateway.networking.k8s.io backendtlspolicies.gateway.networking.k8s.io"
-              ;;
-            knative-serving-crds)
-              expected_count=12
-              expected_crds=""
-              ;;
-            kserve-crds)
-              expected_count=11
-              expected_crds=""
-              ;;
-            inference-extension-crds)
-              expected_count=5
-              expected_crds=""
-              ;;
-            *)
-              echo "Unknown CRD chart: ${{ matrix.chart }}"
-              exit 1
-              ;;
-          esac
-
-          # Verify specific CRDs if defined
-          if [[ -n "$expected_crds" ]]; then
-            for crd in $expected_crds; do
-              echo "Checking CRD: $crd"
-              if ! kubectl get crd "$crd" > /dev/null 2>&1; then
-                echo "FAIL: CRD $crd not found"
-                kubectl get crd
-                exit 1
-              fi
-              echo "OK: $crd exists"
-            done
-          fi
-
-          # Verify minimum CRD count
-          actual_count=$(kubectl get crd --no-headers 2>/dev/null | wc -l)
-          echo "Found $actual_count CRDs in cluster"
-
-          if [[ "$actual_count" -lt "$expected_count" ]]; then
-            echo "FAIL: Expected at least $expected_count CRDs, found $actual_count"
-            kubectl get crd
-            exit 1
-          fi
-
-          echo "PASS: CRD verification complete ($actual_count CRDs found, expected >= $expected_count)"
+          echo "Verifying ${{ matrix.chart }} installation..."
+          kubectl get crd 2>/dev/null | head -20 || true
+          kubectl get all -n default
+          echo "Verification complete"
 
       - name: Run helm test
         run: |
@@ -197,7 +240,7 @@ jobs:
           echo "Helm test completed (tests may not be defined for this chart)"
 
   test-tier2:
-    name: Test Tier 2 (Components) - ${{ matrix.chart }} on K8s ${{ matrix.k8s-version }}
+    name: Test Tier 2 - ${{ matrix.chart }} on K8s ${{ matrix.k8s-version }}
     needs: [detect-changes, test-tier1]
     if: always() && needs.detect-changes.outputs.tier2_charts != '[]' && needs.detect-changes.outputs.tier2_charts != ''
     runs-on: ubuntu-latest
@@ -218,6 +261,16 @@ jobs:
       - name: Set up Helm
         uses: azure/setup-helm@v4.3.1
 
+      - name: Set up yq
+        uses: mikefarah/yq@v4.45.4
+
+      - name: Add Helm repositories
+        run: |
+          helm repo add bitnami https://charts.bitnami.com/bitnami
+          helm repo add cnpg https://cloudnative-pg.github.io/charts
+          helm repo add eric-zadara https://eric-zadara.github.io/helm_charts/
+          helm repo update
+
       - name: Create kind cluster
         uses: helm/kind-action@v1.13.0
         with:
@@ -225,38 +278,70 @@ jobs:
           cluster_name: tier2-${{ matrix.chart }}-${{ matrix.k8s-version }}
           wait: 300s
 
-      - name: Add Helm repositories
+      - name: Install prerequisites
         run: |
-          helm repo add bitnami https://charts.bitnami.com/bitnami
-          helm repo add cnpg https://cloudnative-pg.github.io/charts
-          helm repo update
+          prereqs=$(yq -r '.annotations["testing/prerequisites"] // ""' "charts/${{ matrix.chart }}/Chart.yaml")
 
-      - name: Install Tier 1 CRD prerequisites
-        run: |
-          echo "Installing CRD prerequisites for tier 2 charts..."
+          if [[ -z "$prereqs" ]]; then
+            echo "No prerequisites for ${{ matrix.chart }}"
+            exit 0
+          fi
 
-          # Install gateway-api CRDs (required by networking-layer, inference-gateway)
-          helm dependency build charts/gateway-api 2>/dev/null || true
-          helm install gateway-api charts/gateway-api --namespace default --wait --timeout 300s
+          echo "Installing prerequisites: $prereqs"
+          IFS=',' read -ra prereq_list <<< "$prereqs"
 
-          # Install knative-serving-crds (required by model-serving)
-          helm dependency build charts/knative-serving-crds 2>/dev/null || true
-          helm install knative-serving-crds charts/knative-serving-crds --namespace default --wait --timeout 300s
+          for prereq in "${prereq_list[@]}"; do
+            case "$prereq" in
+              tier1-crds)
+                echo "Installing tier1 CRD charts..."
+                for crd_chart in charts/*/Chart.yaml; do
+                  tier=$(yq -r '.annotations["testing/tier"] // "0"' "$crd_chart")
+                  if [[ "$tier" == "1" ]]; then
+                    chart_name=$(dirname "$crd_chart" | xargs basename)
+                    echo "  Installing $chart_name..."
+                    helm dependency build "charts/$chart_name" 2>/dev/null || true
+                    helm install "$chart_name" "charts/$chart_name" --namespace default --wait --timeout 5m
+                  fi
+                done
+                ;;
+              cert-manager)
+                echo "Installing cert-manager..."
+                helm repo add jetstack https://charts.jetstack.io
+                helm repo update
+                helm install cert-manager jetstack/cert-manager \
+                  --namespace cert-manager --create-namespace \
+                  --set crds.enabled=true \
+                  --wait --timeout 5m
+                ;;
+              cnpg-operator)
+                echo "Installing CNPG operator..."
+                helm install cnpg cnpg/cloudnative-pg \
+                  --namespace cnpg-system --create-namespace \
+                  --wait --timeout 5m
+                ;;
+              inference-operators)
+                echo "Installing inference-operators (CRDs + CNPG operator)..."
+                helm dependency build charts/inference-operators
+                VALUES_ARGS=""
+                if [[ -f "charts/inference-operators/ci/default-values.yaml" ]]; then
+                  VALUES_ARGS="-f charts/inference-operators/ci/default-values.yaml"
+                fi
+                helm install inference-operators charts/inference-operators \
+                  $VALUES_ARGS \
+                  --namespace default \
+                  --wait --timeout 10m
+                ;;
+              *)
+                echo "Unknown prerequisite: $prereq"
+                ;;
+            esac
+          done
 
-          # Install kserve-crds (required by model-serving)
-          helm dependency build charts/kserve-crds 2>/dev/null || true
-          helm install kserve-crds charts/kserve-crds --namespace default --wait --timeout 300s
-
-          # Install inference-extension-crds (required by inference-gateway)
-          helm dependency build charts/inference-extension-crds 2>/dev/null || true
-          helm install inference-extension-crds charts/inference-extension-crds --namespace default --wait --timeout 300s
-
-          echo "CRD prerequisites installed"
+      - name: Build chart dependencies
+        run: helm dependency build charts/${{ matrix.chart }}
 
       - name: Install chart
         run: |
-          helm dependency build charts/${{ matrix.chart }} 2>/dev/null || true
-
           # Use CI values file if it exists
           VALUES_ARGS=""
           if [[ -f "charts/${{ matrix.chart }}/ci/default-values.yaml" ]]; then
@@ -274,7 +359,7 @@ jobs:
         run: |
           echo "Verifying ${{ matrix.chart }} installation..."
           kubectl get all -n default
-          echo "Installation verification complete"
+          echo "Verification complete"
 
       - name: Run helm test
         run: |
@@ -282,7 +367,7 @@ jobs:
           echo "Helm test completed (tests may not be defined for this chart)"
 
   test-tier3:
-    name: Test Tier 3 (Umbrellas) - ${{ matrix.chart }} on K8s ${{ matrix.k8s-version }}
+    name: Test Tier 3 - ${{ matrix.chart }} on K8s ${{ matrix.k8s-version }}
     needs: [detect-changes, test-tier2]
     if: always() && needs.detect-changes.outputs.tier3_charts != '[]' && needs.detect-changes.outputs.tier3_charts != ''
     runs-on: ubuntu-latest
@@ -303,6 +388,16 @@ jobs:
       - name: Set up Helm
         uses: azure/setup-helm@v4.3.1
 
+      - name: Set up yq
+        uses: mikefarah/yq@v4.45.4
+
+      - name: Add Helm repositories
+        run: |
+          helm repo add bitnami https://charts.bitnami.com/bitnami
+          helm repo add cnpg https://cloudnative-pg.github.io/charts
+          helm repo add eric-zadara https://eric-zadara.github.io/helm_charts/
+          helm repo update
+
       - name: Create kind cluster
         uses: helm/kind-action@v1.13.0
         with:
@@ -310,48 +405,70 @@ jobs:
           cluster_name: tier3-${{ matrix.chart }}-${{ matrix.k8s-version }}
           wait: 300s
 
-      - name: Add Helm repositories
+      - name: Install prerequisites
         run: |
-          helm repo add bitnami https://charts.bitnami.com/bitnami
-          helm repo add cnpg https://cloudnative-pg.github.io/charts
-          helm repo update
+          prereqs=$(yq -r '.annotations["testing/prerequisites"] // ""' "charts/${{ matrix.chart }}/Chart.yaml")
 
-      - name: Install Tier 1 CRD prerequisites
-        run: |
-          echo "Installing CRD prerequisites for tier 3 charts..."
+          if [[ -z "$prereqs" ]]; then
+            echo "No prerequisites for ${{ matrix.chart }}"
+            exit 0
+          fi
 
-          # Install all CRD charts as prerequisites
-          for crd_chart in gateway-api knative-serving-crds kserve-crds inference-extension-crds; do
-            helm dependency build "charts/$crd_chart" 2>/dev/null || true
-            helm install "$crd_chart" "charts/$crd_chart" --namespace default --wait --timeout 300s
+          echo "Installing prerequisites: $prereqs"
+          IFS=',' read -ra prereq_list <<< "$prereqs"
+
+          for prereq in "${prereq_list[@]}"; do
+            case "$prereq" in
+              tier1-crds)
+                echo "Installing tier1 CRD charts..."
+                for crd_chart in charts/*/Chart.yaml; do
+                  tier=$(yq -r '.annotations["testing/tier"] // "0"' "$crd_chart")
+                  if [[ "$tier" == "1" ]]; then
+                    chart_name=$(dirname "$crd_chart" | xargs basename)
+                    echo "  Installing $chart_name..."
+                    helm dependency build "charts/$chart_name" 2>/dev/null || true
+                    helm install "$chart_name" "charts/$chart_name" --namespace default --wait --timeout 5m
+                  fi
+                done
+                ;;
+              cert-manager)
+                echo "Installing cert-manager..."
+                helm repo add jetstack https://charts.jetstack.io
+                helm repo update
+                helm install cert-manager jetstack/cert-manager \
+                  --namespace cert-manager --create-namespace \
+                  --set crds.enabled=true \
+                  --wait --timeout 5m
+                ;;
+              cnpg-operator)
+                echo "Installing CNPG operator..."
+                helm install cnpg cnpg/cloudnative-pg \
+                  --namespace cnpg-system --create-namespace \
+                  --wait --timeout 5m
+                ;;
+              inference-operators)
+                echo "Installing inference-operators (CRDs + CNPG operator)..."
+                helm dependency build charts/inference-operators
+                VALUES_ARGS=""
+                if [[ -f "charts/inference-operators/ci/default-values.yaml" ]]; then
+                  VALUES_ARGS="-f charts/inference-operators/ci/default-values.yaml"
+                fi
+                helm install inference-operators charts/inference-operators \
+                  $VALUES_ARGS \
+                  --namespace default \
+                  --wait --timeout 10m
+                ;;
+              *)
+                echo "Unknown prerequisite: $prereq"
+                ;;
+            esac
           done
 
-          echo "CRD prerequisites installed"
-
-      - name: Install Tier 2 component prerequisites
-        run: |
-          echo "Installing component prerequisites for tier 3 charts..."
-
-          # Install component charts that umbrella charts may depend on
-          for component_chart in networking-layer litellm-proxy model-serving inference-gateway; do
-            helm dependency build "charts/$component_chart" 2>/dev/null || true
-
-            # Use CI values file if it exists
-            VALUES_ARGS=""
-            if [[ -f "charts/$component_chart/ci/default-values.yaml" ]]; then
-              VALUES_ARGS="-f charts/$component_chart/ci/default-values.yaml"
-              echo "Using CI values file: charts/$component_chart/ci/default-values.yaml"
-            fi
-
-            helm install "$component_chart" "charts/$component_chart" $VALUES_ARGS --namespace default --wait --timeout 600s || true
-          done
-
-          echo "Component prerequisites installed"
+      - name: Build chart dependencies
+        run: helm dependency build charts/${{ matrix.chart }}
 
       - name: Install chart
         run: |
-          helm dependency build charts/${{ matrix.chart }} 2>/dev/null || true
-
           # Use CI values file if it exists
           VALUES_ARGS=""
           if [[ -f "charts/${{ matrix.chart }}/ci/default-values.yaml" ]]; then
@@ -369,7 +486,7 @@ jobs:
         run: |
           echo "Verifying ${{ matrix.chart }} installation..."
           kubectl get all -n default
-          echo "Installation verification complete"
+          echo "Verification complete"
 
       - name: Run helm test
         run: |

@@ -142,3 +142,14 @@ testPool:
     app: test-model-server
   # -- Failure mode when EPP is unavailable (FailOpen for CI tolerance)
   failureMode: "FailOpen"
+
+# -- CI/Test configuration (not for production)
+ci:
+  # -- Deploy a minimal mock model server for CI testing
+  # When enabled, creates a simple pod matching testPool.selector so EPP
+  # has endpoints to route to. Required for replicas > 0 CI testing.
+  modelServer:
+    enabled: false
+    image:
+      repository: busybox
+      tag: "1.36"

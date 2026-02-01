@@ -1,15 +1,23 @@
 # CI test values for inference-infrastructure
-# Disables database subcharts (require CNPG operator) for lint testing
-# Production deployment uses postgresql.enabled=true and valkey.enabled=true
+# Tests full deployment with batteries-included CNPG and LiteLLM.
+# Requires: CNPG operator (from inference-operators)
 
-# Disable database components for CI lint (require operators)
+# Enable internal CNPG PostgreSQL cluster (batteries included)
 postgresql:
-  enabled: false
+  enabled: true
+  cluster:
+    instances: 1
+    initdb:
+      database: "litellm"
+      owner: "litellm"
+    storage:
+      size: "1Gi"
 
+# Disable Valkey for simpler CI (litellm works without cache)
 valkey:
   enabled: false
 
-# Networking layer - minimal config for lint
+# Networking layer - minimal config (most requires Gateway API from envoy-gateway)
 networking-layer:
   enabled: true
   # Disable envoy-gateway - requires Gateway API CRDs
@@ -28,38 +36,47 @@ networking-layer:
   knative:
     enabled: false
 
-# LiteLLM proxy - use new internal/external structure
+# LiteLLM proxy - batteries included with internal CNPG
 litellm-proxy:
   enabled: true
-  # Zero replicas for CI - LiteLLM cannot start without a real database
-  replicaCount: 0
+  replicaCount: 1
 
-  # Disable internal resources (require CNPG operator / would create valkey)
+  # Use internal CNPG cluster from this chart's postgresql dependency
   database:
     internal:
-      enabled: false
+      enabled: false  # We use the umbrella chart's postgresql, not litellm-proxy's
     external:
-      host: "mock-postgresql-pooler-rw"
+      # Points to the postgresql cluster created by this umbrella chart
+      host: "inference-infrastructure-postgresql-rw"
       port: 5432
-      name: "app"
-      user: "app"
-      secretName: "mock-postgresql-app"
+      name: "litellm"
+      user: "litellm"
+      secretName: "inference-infrastructure-postgresql-app"
       passwordSecretKey: "password"
+    disableSchemaUpdate: "false"
 
   cache:
     enabled: false
     internal:
       enabled: false
 
-  # Disable features requiring other infrastructure
+  # Disable HTTPRoute (requires Gateway from envoy-gateway)
   httpRoute:
     enabled: false
+  # Disable migration job - let litellm handle schema on startup
   migrationJob:
     enabled: false
   serviceMonitor:
     enabled: false
 
-  # Disable init containers (no real database/cache in CI)
+  # Wait for umbrella chart's database to be ready
   initContainers:
-    waitForDatabase: false
+    waitForDatabase: true
     waitForCache: false
+
+  # Use main port for health checks
+  healthCheck:
+    separateApp: false
+    startup:
+      initialDelaySeconds: 60
+      failureThreshold: 60

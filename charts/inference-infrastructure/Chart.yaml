@@ -6,7 +6,7 @@ version: 0.6.1
 appVersion: "1.0.0"
 annotations:
   testing/tier: "3"
-  testing/prerequisites: "tier1-crds,cnpg-operator"
+  testing/prerequisites: "inference-operators"
 
 # Umbrella chart that bundles infrastructure components:
 # - PostgreSQL cluster (CNPG) - enabled by default

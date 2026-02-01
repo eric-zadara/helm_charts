@@ -133,6 +133,7 @@ Return the database user.
 {{/*
 Return the database password secret name.
 When internal is enabled, uses CNPG convention: {release}-postgresql-app
+(CNPG always uses -app suffix for application credentials secret)
 Otherwise uses the external secret name.
 */}}
 {{- define "litellm-proxy.databaseSecretName" -}}

@@ -1,46 +1,46 @@
 # CI test values for litellm-proxy chart
 #
-# LiteLLM requires a PostgreSQL database to function. Without a real database,
-# the pod cannot start or pass health checks. Similar to EPP (which requires
-# real InferencePool backends), we set replicas: 0 to validate template
-# rendering without expecting the deployment to become ready.
+# Tests the batteries-included deployment with internal CNPG cluster.
+# Requires CNPG operator to be installed (testing/prerequisites annotation).
 #
-# ZERO-CONFIG DEPLOYMENT (production):
+# ZERO-CONFIG DEPLOYMENT:
 #   helm install litellm-proxy ./charts/litellm-proxy
 #
 # This works out of the box with:
-#   - Internal CNPG PostgreSQL cluster
-#   - Internal Valkey cache
+#   - Internal CNPG PostgreSQL cluster (1 instance for CI)
+#   - Internal Valkey cache (disabled for CI simplicity)
 #   - Auto-generated master key and salt key
 
-# Zero replicas for CI - LiteLLM cannot start without a real database
-replicaCount: 0
+# One replica for CI - validates actual pod startup
+replicaCount: 1
 
-# Disable internal database (requires CNPG operator which may not be in CI)
+# Use internal CNPG cluster (batteries included)
 database:
   internal:
-    enabled: false
-  external:
-    host: "localhost"
-    port: 5432
-    name: "litellm"
-    user: "litellm"
-    secretName: "litellm-proxy-db-password"
-    passwordSecretKey: "password"
+    enabled: true
+    # Single instance for CI (production would use 3)
+    instances: 1
+    # Smaller storage for CI
+    storageSize: "1Gi"
+    # Disable pooler for simpler CI test
+    pooler:
+      enabled: false
+  # Allow litellm to create schema on startup (instead of migration job)
+  disableSchemaUpdate: "false"
 
-# Disable internal cache for CI simplicity
+# Disable cache for CI simplicity (tests database path only)
 cache:
   enabled: false
   internal:
     enabled: false
 
-# Disable migration job (requires database)
+# Disable migration job - let litellm handle schema on startup
 migrationJob:
   enabled: false
 
-# Disable init containers that wait for infrastructure (not present in CI)
+# Wait for database to be ready
 initContainers:
-  waitForDatabase: false
+  waitForDatabase: true
   waitForCache: false
 
 # Disable HTTPRoute (requires Gateway API CRDs)
@@ -62,3 +62,11 @@ podDisruptionBudget:
 # Disable Grafana dashboards (requires Grafana)
 dashboards:
   enabled: false
+
+# Use main port for health checks (separate health app doesn't start in some configs)
+healthCheck:
+  separateApp: false
+  startup:
+    # Allow time for schema migration on first startup
+    initialDelaySeconds: 60
+    failureThreshold: 60

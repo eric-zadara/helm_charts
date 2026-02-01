@@ -1,6 +1,6 @@
 # CI test values for inference-stack
-# Minimal configuration for chart-testing (ct lint)
-# Disables features requiring CRDs/operators
+# Tests EPP with mock model server for full deployment validation.
+# Requires: Gateway API Inference Extension CRDs (from inference-operators)
 
 infrastructureReleaseName: "infra"
 infrastructureNamespace: ""
@@ -8,7 +8,7 @@ infrastructureNamespace: ""
 model-serving:
   enabled: true
 
-  # ClusterServingRuntimes require KServe CRDs - disable for lint
+  # ClusterServingRuntimes require KServe CRDs - disable for CI
   servingRuntime:
     enabled: false
   llamacppRuntime:
@@ -16,7 +16,7 @@ model-serving:
   ollamaRuntime:
     enabled: false
 
-  # InferenceService requires CRDs - disable for lint
+  # InferenceService requires KServe CRDs - disable for CI
   inferenceService:
     enabled: false
   llamacppInferenceService:
@@ -24,28 +24,27 @@ model-serving:
   ollamaInferenceService:
     enabled: false
 
-  # InferencePool requires CRDs - disable for lint
+  # InferencePool requires Inference Extension CRDs - disable for CI
+  # (inference-gateway creates its own testPool for EPP)
   inferencePool:
     enabled: false
 
-  # Priority classes can be linted
   priorityClasses:
     enabled: false
 
-  # ServiceMonitor requires Prometheus CRDs
   serviceMonitor:
     enabled: false
 
 inference-gateway:
   enabled: true
 
-  # EPP requires real backends - disabled for CI
+  # EPP runs with mock backend
   epp:
-    replicas: 0
+    replicas: 1
     poolName: "ci-test-pool"
     poolNamespace: "default"
 
-  # Create test InferencePool to validate template rendering
+  # Create test InferencePool pointing to mock model server
   testPool:
     enabled: true
     targetPort: 8000
@@ -53,15 +52,19 @@ inference-gateway:
       app: test-model-server
     failureMode: "FailOpen"
 
-  # Gateway requires Gateway API CRDs - disable for lint
+  # Enable CI mock model server (satisfies EPP endpoint requirement)
+  ci:
+    modelServer:
+      enabled: true
+
+  # Disable internal Gateway (requires Gateway API CRDs from envoy-gateway)
   gateway:
     enabled: false
 
-  # EnvoyExtensionPolicy requires Envoy Gateway CRDs - disable for lint
+  # Disable EnvoyExtensionPolicy (requires Envoy Gateway CRDs)
   extensionPolicy:
     enabled: false
 
-  # RBAC can be linted
   rbac:
     create: true
 

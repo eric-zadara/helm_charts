@@ -201,6 +201,20 @@ jobs:
                   --namespace cnpg-system --create-namespace \
                   --wait --timeout 5m
                 ;;
+              inference-operators)
+                echo "Installing inference-operators (CRDs + CNPG operator)..."
+                helm repo add eric-zadara https://eric-zadara.github.io/helm_charts/ || true
+                helm repo update
+                helm dependency build charts/inference-operators
+                VALUES_ARGS=""
+                if [[ -f "charts/inference-operators/ci/default-values.yaml" ]]; then
+                  VALUES_ARGS="-f charts/inference-operators/ci/default-values.yaml"
+                fi
+                helm install inference-operators charts/inference-operators \
+                  $VALUES_ARGS \
+                  --namespace default \
+                  --wait --timeout 10m
+                ;;
               *)
                 echo "Unknown prerequisite: $prereq"
                 ;;
@@ -390,6 +404,20 @@ jobs:
                   --namespace cnpg-system --create-namespace \
                   --wait --timeout 5m
                 ;;
+              inference-operators)
+                echo "Installing inference-operators (CRDs + CNPG operator)..."
+                helm repo add eric-zadara https://eric-zadara.github.io/helm_charts/ || true
+                helm repo update
+                helm dependency build charts/inference-operators
+                VALUES_ARGS=""
+                if [[ -f "charts/inference-operators/ci/default-values.yaml" ]]; then
+                  VALUES_ARGS="-f charts/inference-operators/ci/default-values.yaml"
+                fi
+                helm install inference-operators charts/inference-operators \
+                  $VALUES_ARGS \
+                  --namespace default \
+                  --wait --timeout 10m
+                ;;
               *)
                 echo "Unknown prerequisite: $prereq"
                 ;;
@@ -506,6 +534,20 @@ jobs:
                 helm install cnpg cnpg/cloudnative-pg \
                   --namespace cnpg-system --create-namespace \
                   --wait --timeout 5m
+                ;;
+              inference-operators)
+                echo "Installing inference-operators (CRDs + CNPG operator)..."
+                helm repo add eric-zadara https://eric-zadara.github.io/helm_charts/ || true
+                helm repo update
+                helm dependency build charts/inference-operators
+                VALUES_ARGS=""
+                if [[ -f "charts/inference-operators/ci/default-values.yaml" ]]; then
+                  VALUES_ARGS="-f charts/inference-operators/ci/default-values.yaml"
+                fi
+                helm install inference-operators charts/inference-operators \
+                  $VALUES_ARGS \
+                  --namespace default \
+                  --wait --timeout 10m
                 ;;
               *)
                 echo "Unknown prerequisite: $prereq"

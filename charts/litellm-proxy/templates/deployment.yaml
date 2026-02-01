@@ -120,7 +120,7 @@ spec:
             - name: LITELLM_MODE
               value: "PRODUCTION"
             - name: DISABLE_SCHEMA_UPDATE
-              value: "true"
+              value: {{ .Values.database.disableSchemaUpdate | default "true" | quote }}
             - name: DATABASE_CONNECTION_POOL_LIMIT
               value: {{ .Values.database.connectionPoolLimit | quote }}
             - name: DATABASE_CONNECTION_TIMEOUT

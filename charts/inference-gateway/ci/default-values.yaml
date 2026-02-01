@@ -1,14 +1,14 @@
 # CI test values for inference-gateway chart
-# EPP is a controller that requires real InferencePool backends to function.
-# In CI we test template rendering but don't run EPP (it would crash without backends).
+# Tests EPP with a mock model server to validate full deployment lifecycle.
+# Requires: Gateway API Inference Extension CRDs (from inference-operators)
 
-# EPP configuration - disabled for CI (requires real backends)
+# EPP configuration - runs with mock backend
 epp:
-  replicas: 0
+  replicas: 1
   poolName: "test-pool"
   poolNamespace: "default"
 
-# Create a test InferencePool to validate template rendering
+# Create a test InferencePool pointing to mock model server
 testPool:
   enabled: true
   targetPort: 8000
@@ -16,7 +16,12 @@ testPool:
     app: test-model-server
   failureMode: "FailOpen"
 
-# Disable internal Gateway (requires Gateway API CRDs)
+# Enable CI mock model server (satisfies EPP endpoint requirement)
+ci:
+  modelServer:
+    enabled: true
+
+# Disable internal Gateway (requires Gateway API CRDs from envoy-gateway)
 gateway:
   enabled: false
 

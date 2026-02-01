@@ -13,9 +13,11 @@
 # @section -- Image Configuration
 image:
   # -- Docker image repository (database variant includes Prisma support)
+  # Use docker.litellm.ai registry as recommended by LiteLLM docs
   repository: "ghcr.io/berriai/litellm-database"
-  # -- Image tag (pin to specific stable version for reproducibility)
-  tag: "v1.80.15-stable.1"
+  # -- Image tag (use main-stable or pin to specific version like main-v1.81.0)
+  # See: https://docs.litellm.ai/docs/proxy/deploy
+  tag: "main-stable"
   # -- Image pull policy
   pullPolicy: IfNotPresent
 
@@ -407,6 +409,11 @@ postgresql:
   cluster:
     instances: 1
     imageName: "ghcr.io/cloudnative-pg/postgresql:17.4"
+
+    # Bootstrap configuration - creates database and owner
+    initdb:
+      database: "litellm"
+      owner: "litellm"
 
     postgresql:
       parameters:
