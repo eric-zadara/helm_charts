@@ -394,28 +394,39 @@ Usage: {{ include "onyx-ai.redis.validate" . }}
 
 {{/*
 ================================================================================
-Object Storage Helper Functions (Phase 5)
+Object Storage Helper Functions (Phase 5, updated Phase 8.4 for GarageFS)
 ================================================================================
 */}}
 
 {{/*
 Get S3 endpoint URL.
-Returns empty string for AWS S3 (boto3 uses default), or configured endpoint for self-hosted.
+When garage.enabled, returns GarageFS S3 API service URL.
+Otherwise returns empty string for AWS S3, or configured endpoint for self-hosted.
 
 Usage: {{ include "onyx-ai.objectStorage.endpoint" . }}
 */}}
 {{- define "onyx-ai.objectStorage.endpoint" -}}
-{{- .Values.objectStorage.endpoint | default "" -}}
+{{- if .Values.garage.enabled -}}
+  {{- /* GarageFS S3 API service: {release}-garage:3900 */ -}}
+  {{- printf "http://%s-garage:3900" .Release.Name -}}
+{{- else -}}
+  {{- .Values.objectStorage.endpoint | default "" -}}
+{{- end -}}
 {{- end -}}
 
 {{/*
 Get S3 bucket name.
-Always required - validated by onyx-ai.objectStorage.validate.
+When garage.enabled, returns release-scoped bucket name for multi-tenancy.
+Otherwise returns objectStorage.bucket.
 
 Usage: {{ include "onyx-ai.objectStorage.bucket" . }}
 */}}
 {{- define "onyx-ai.objectStorage.bucket" -}}
-{{- .Values.objectStorage.bucket | default "onyx-file-store" -}}
+{{- if .Values.garage.enabled -}}
+  {{- .Values.garage.bucket | default (printf "%s-files" .Release.Name) -}}
+{{- else -}}
+  {{- .Values.objectStorage.bucket | default "onyx-file-store" -}}
+{{- end -}}
 {{- end -}}
 
 {{/*
@@ -440,6 +451,7 @@ Usage: {{ include "onyx-ai.objectStorage.region" . }}
 {{/*
 Get S3 secret name based on configuration mode.
 Returns:
+- GarageFS credentials secret when garage.enabled
 - Empty string when useIAM is true (no credentials needed)
 - existingSecret when provided
 - Auto-generated secret name when inline credentials provided
@@ -447,7 +459,9 @@ Returns:
 Usage: {{ include "onyx-ai.objectStorage.secretName" . }}
 */}}
 {{- define "onyx-ai.objectStorage.secretName" -}}
-{{- if .Values.objectStorage.useIAM -}}
+{{- if .Values.garage.enabled -}}
+  {{- printf "%s-garage-credentials" (include "onyx-ai.fullname" .) -}}
+{{- else if .Values.objectStorage.useIAM -}}
   {{- /* IAM mode - no secret needed */ -}}
   {{- "" -}}
 {{- else if .Values.objectStorage.existingSecret -}}
@@ -464,11 +478,15 @@ Usage: {{ include "onyx-ai.objectStorage.secretName" . }}
 {{/*
 Check if object storage credentials are needed (not IAM mode).
 Returns "true" or "false" as string.
+GarageFS always needs credentials (auto-generated).
 
 Usage: {{ include "onyx-ai.objectStorage.needsCredentials" . }}
 */}}
 {{- define "onyx-ai.objectStorage.needsCredentials" -}}
-{{- if .Values.objectStorage.useIAM -}}
+{{- if .Values.garage.enabled -}}
+  {{- /* GarageFS provides its own credentials */ -}}
+  {{- "true" -}}
+{{- else if .Values.objectStorage.useIAM -}}
   {{- "false" -}}
 {{- else -}}
   {{- "true" -}}
@@ -478,11 +496,15 @@ Usage: {{ include "onyx-ai.objectStorage.needsCredentials" . }}
 {{/*
 Get SSL verification setting.
 Returns "true" or "false" as string for S3_VERIFY_SSL env var.
+GarageFS uses HTTP internally, so SSL verify is false when garage.enabled.
 
 Usage: {{ include "onyx-ai.objectStorage.sslVerify" . }}
 */}}
 {{- define "onyx-ai.objectStorage.sslVerify" -}}
-{{- if .Values.objectStorage.tls.verify -}}
+{{- if .Values.garage.enabled -}}
+  {{- /* GarageFS internal: no TLS */ -}}
+  {{- "false" -}}
+{{- else if .Values.objectStorage.tls.verify -}}
   {{- "true" -}}
 {{- else -}}
   {{- "false" -}}
@@ -492,24 +514,30 @@ Usage: {{ include "onyx-ai.objectStorage.sslVerify" . }}
 {{/*
 Validate object storage configuration.
 Fails if:
-- Bucket name is empty
-- Not IAM mode and no credentials provided (neither existingSecret nor inline)
+- Both garage.enabled AND external objectStorage configured (mutual exclusion)
+- Bucket name is empty (when garage not enabled)
+- Not IAM mode and no credentials provided (when garage not enabled)
 
 Usage: {{ include "onyx-ai.objectStorage.validate" . }}
 */}}
 {{- define "onyx-ai.objectStorage.validate" -}}
-{{- /* Validate bucket name is provided */ -}}
-{{- if not .Values.objectStorage.bucket -}}
-  {{- fail "objectStorage.bucket is required" -}}
-{{- end -}}
-{{- /* Validate credentials when not using IAM */ -}}
-{{- if not .Values.objectStorage.useIAM -}}
-  {{- if and (not .Values.objectStorage.existingSecret) (not .Values.objectStorage.accessKey) -}}
-    {{- fail "objectStorage.existingSecret or objectStorage.accessKey/secretKey required (or set useIAM: true for IAM role authentication)" -}}
+{{- if .Values.garage.enabled -}}
+  {{- /* Mutual exclusion check: garage OR external, not both */ -}}
+  {{- if or .Values.objectStorage.endpoint .Values.objectStorage.existingSecret .Values.objectStorage.accessKey -}}
+    {{- fail "Cannot use both garage.enabled: true and external objectStorage configuration. Choose one: either set garage.enabled: true OR configure objectStorage.* (not both)." -}}
   {{- end -}}
-  {{- /* Warn if accessKey provided without secretKey */ -}}
-  {{- if and .Values.objectStorage.accessKey (not .Values.objectStorage.secretKey) -}}
-    {{- fail "objectStorage.secretKey is required when objectStorage.accessKey is provided" -}}
+{{- else -}}
+  {{- /* Original external storage validation */ -}}
+  {{- if not .Values.objectStorage.bucket -}}
+    {{- fail "objectStorage.bucket is required" -}}
+  {{- end -}}
+  {{- if not .Values.objectStorage.useIAM -}}
+    {{- if and (not .Values.objectStorage.existingSecret) (not .Values.objectStorage.accessKey) -}}
+      {{- fail "objectStorage.existingSecret or objectStorage.accessKey/secretKey required (or set useIAM: true for IAM role authentication, or set garage.enabled: true for built-in storage)" -}}
+    {{- end -}}
+    {{- if and .Values.objectStorage.accessKey (not .Values.objectStorage.secretKey) -}}
+      {{- fail "objectStorage.secretKey is required when objectStorage.accessKey is provided" -}}
+    {{- end -}}
   {{- end -}}
 {{- end -}}
 {{- end -}}
