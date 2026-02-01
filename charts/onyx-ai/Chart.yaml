@@ -27,3 +27,7 @@ dependencies:
     repository: "https://cloudnative-pg.github.io/charts"
     condition: cnpg.enabled
     alias: postgresql-cluster
+  - name: garage
+    version: "0.2.1"
+    repository: "https://datahub-local.github.io/garage-helm"
+    condition: garage.enabled
