@@ -228,6 +228,14 @@ objectStorage:
 # IMPORTANT: When garage.enabled is true, the objectStorage section is ignored.
 # The chart auto-generates credentials and configures the bucket automatically.
 # You do NOT need to touch objectStorage.* settings when using GarageFS.
+#
+# GarageFS provides a lightweight S3-compatible storage backend suitable for:
+# - Development and testing environments
+# - Self-hosted deployments without external S3
+# - Single-node or small cluster deployments
+#
+# For production with high durability requirements, consider external S3
+# (AWS S3, MinIO cluster, etc.) with proper backup and replication.
 
 garage:
   # Enable built-in GarageFS object storage (disabled by default)
@@ -243,11 +251,26 @@ garage:
   secretKey: ""
 
   # Replication factor (1 for single node, 2-3 for production-like durability)
-  # IMPORTANT: Must be <= number of garage replicas (replicaCount)
+  # IMPORTANT: Must be <= number of garage replicas (deployment.replicaCount below)
   replicationFactor: 1
 
-  # Number of GarageFS nodes
-  replicaCount: 1
+  # ---------------------------------------------------------------------------
+  # GarageFS Subchart Configuration (datahub-local/garage-helm)
+  # ---------------------------------------------------------------------------
+  # Values below are passed to the garage subchart.
+  # See: https://github.com/datahub-local/garage-helm
+
+  # Garage core settings (passed to garage.toml)
+  garage:
+    replicationFactor: "1"
+    dbEngine: lmdb
+    blockSize: "1048576"
+
+  # Deployment configuration
+  deployment:
+    kind: StatefulSet
+    replicaCount: 1
+    podManagementPolicy: Parallel
 
   # Resource limits for GarageFS pods
   resources:
@@ -260,14 +283,22 @@ garage:
 
   # Storage configuration
   persistence:
-    # Metadata storage (small, fast)
+    enabled: true
     meta:
       size: 100Mi
-      storageClass: ""  # Empty = use global.storageClass or cluster default
-    # Data storage (bulk file storage)
+      storageClass: ""  # Empty = use cluster default
     data:
       size: 10Gi
-      storageClass: ""
+      storageClass: ""  # Empty = use cluster default
+
+  # Service configuration
+  service:
+    type: ClusterIP
+    ports:
+      s3Api: 3900
+      rpc: 3901
+      s3Web: 3902
+      admin: 3903
 
 # ------------------------------------------------------------------------------
 # Ingress Configuration (Phase 7)
@@ -655,9 +686,14 @@ postgresql-cluster:
 # GarageFS Chart Values (alias: garage)
 # ------------------------------------------------------------------------------
 # Passthrough to datahub-local/garage-helm subchart. Only active when garage.enabled: true.
-# The wrapper chart auto-generates credentials and configures bucket via clusterConfig.
-# Users typically do not need to modify this section directly.
-
-# garage:
-#   # Passthrough values are set by the wrapper chart
-#   # See datahub-local/garage-helm for full options
+# The wrapper chart auto-generates credentials and configures the bucket automatically.
+#
+# Subchart values are nested under garage: in the garage section above.
+# The key structure maps to datahub-local/garage-helm chart values:
+#   garage.garage.*       -> garage chart's garage.* (garage.toml config)
+#   garage.deployment.*   -> garage chart's deployment.* (StatefulSet config)
+#   garage.resources.*    -> garage chart's resources.* (pod resources)
+#   garage.persistence.*  -> garage chart's persistence.* (storage config)
+#   garage.service.*      -> garage chart's service.* (Kubernetes service config)
+#
+# See: https://github.com/datahub-local/garage-helm for full options
