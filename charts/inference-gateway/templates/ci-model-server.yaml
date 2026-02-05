@@ -32,22 +32,21 @@ spec:
             - "/bin/sh"
             - "-c"
             - |
-              # Create a simple response file
-              mkdir -p /tmp/www
+              # Create response files for health and model endpoints
+              mkdir -p /tmp/www/v1
+              echo '{"status":"ok","model":"ci-mock"}' > /tmp/www/index.html
               echo '{"status":"ok","model":"ci-mock"}' > /tmp/www/health
               echo '{"object":"list","data":[{"id":"ci-mock","object":"model"}]}' > /tmp/www/v1/models
-              cd /tmp/www
-              # Start simple HTTP server
-              while true; do
-                echo -e "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n$(cat health)" | nc -l -p 8000 -q 1 || sleep 1
-              done
+              # Start busybox httpd in foreground - reliable, always listening on port
+              httpd -f -p {{ .Values.testPool.targetPort }} -h /tmp/www
           ports:
             - containerPort: {{ .Values.testPool.targetPort }}
               name: http
           readinessProbe:
-            tcpSocket:
+            httpGet:
+              path: /health
               port: {{ .Values.testPool.targetPort }}
-            initialDelaySeconds: 5
+            initialDelaySeconds: 2
             periodSeconds: 5
           resources:
             requests:

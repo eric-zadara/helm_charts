@@ -40,9 +40,7 @@ spec:
             {{- if gt (int .Values.epp.replicas) 1 }}
             - --leader-election
             {{- end }}
-            {{- if .Values.epp.schedulingConfig.enabled }}
             - --config-file=/config/epp-config.yaml
-            {{- end }}
           env:
             - name: POD_NAMESPACE
               valueFrom:
@@ -70,18 +68,14 @@ spec:
             failureThreshold: 3
           resources:
             {{- toYaml .Values.epp.resources | nindent 12 }}
-          {{- if .Values.epp.schedulingConfig.enabled }}
           volumeMounts:
             - name: epp-config
               mountPath: /config
               readOnly: true
-          {{- end }}
-      {{- if .Values.epp.schedulingConfig.enabled }}
       volumes:
         - name: epp-config
           configMap:
             name: {{ include "inference-gateway.eppName" . }}-config
-      {{- end }}
       {{- with .Values.epp.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
