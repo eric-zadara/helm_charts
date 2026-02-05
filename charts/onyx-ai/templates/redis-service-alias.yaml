@@ -1,0 +1,26 @@
+{{/*
+Service alias for OT Redis to match the naming convention expected by upstream onyx chart.
+The upstream expects REDIS_HOST to be <release>-master, but OT Redis operator creates
+service named <crd-name> (without -master suffix).
+This alias service provides the expected name pointing to the same Redis StatefulSet.
+*/}}
+{{- if .Values.onyx.redis.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-master
+  labels:
+    {{- include "onyx-ai.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redis-alias
+spec:
+  type: ClusterIP
+  ports:
+    - port: 6379
+      targetPort: 6379
+      protocol: TCP
+      name: redis
+  selector:
+    # Match the OT Redis StatefulSet pod labels
+    app: {{ .Release.Name }}
+    redis_setup_type: standalone
+{{- end }}

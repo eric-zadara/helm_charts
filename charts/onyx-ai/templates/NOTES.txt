@@ -1,4 +1,10 @@
 {{- $fullName := include "onyx-ai.fullname" . -}}
+{{- /* Run all validations (previously in onyx-env-configmap.yaml) */ -}}
+{{- include "onyx-ai.objectStorage.validate" . -}}
+{{- include "onyx-ai.redis.validate" . -}}
+{{- include "onyx-ai.postgresql.validateCredentials" . -}}
+{{- include "onyx-ai.redis.validateCredentials" . -}}
+{{- include "onyx-ai.garage.validateCredentials" . -}}
 
 ╔═══════════════════════════════════════════════════════════════════╗
 ║                    Onyx has been deployed!                        ║

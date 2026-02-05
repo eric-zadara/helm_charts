@@ -18,7 +18,8 @@ annotations:
   category: AI/RAG
   licenses: MIT
   testing/tier: "2"
-  testing/prerequisites: "cnpg-operator"
+  testing/prerequisites: "cnpg-operator,redis-operator"
+  testing/timeout: "25m"
 
 dependencies:
   - name: onyx

@@ -1,16 +1,24 @@
 # CI test values for onyx-ai chart
 #
-# Tests the batteries-included deployment with internal CNPG cluster.
-# Requires CNPG operator to be installed (testing/prerequisites annotation).
+# Tests the batteries-included deployment with internal CNPG cluster and Redis.
+# Requires operators to be installed (testing/prerequisites annotation):
+#   - CNPG operator (for PostgreSQL)
+#   - OT Redis operator (for Redis)
 #
 # Release name in CI: "onyx-ai" (helm install "$chart_name" ...)
 #
 # This configures minimal resources for CI while still deploying real pods:
 #   - CNPG PostgreSQL: 1 instance (no pooler, smaller storage)
-#   - Redis: OT Container Kit standalone (upstream default)
+#   - Redis: 1 replica (standalone mode via OT Redis Operator)
 #   - Object storage: GarageFS built-in (no external S3 needed)
-#   - API/Web: 1 replica each (HA not needed for CI)
-#   - Vespa: enabled (required for Onyx functionality)
+#   - API/Web: 1 replica each
+#   - Vespa: 1 replica with reduced resources for CI
+#   - Celery workers: 1 replica each with minimal resources
+#
+# Components omitted from CI (upstream templates guard with replicaCount > 0):
+#   - Model servers: download multi-GB ML models at startup, cannot complete
+#     within CI timeout. Upstream templates use {{- if gt (int .Values.*.replicaCount) 0 }}
+#     so setting replicaCount: 0 omits the Deployment entirely (no empty deployments).
 
 # ------------------------------------------------------------------------------
 # CNPG PostgreSQL - single instance for CI
@@ -25,8 +33,10 @@ cnpg:
   resources: {}
 
 # ------------------------------------------------------------------------------
-# Redis - default OT standalone (simplest mode)
+# Redis - enabled for CI (requires OT Redis Operator)
 # ------------------------------------------------------------------------------
+# The OT Container Kit Redis subchart creates a Redis CRD managed by the
+# OT Redis Operator. The operator is installed via testing/prerequisites.
 redis:
   enabled: true
 
@@ -50,7 +60,6 @@ postgresql-cluster:
       size: 1Gi
     resources: {}
     enableSuperuserAccess: true
-  # No pooler for CI
   poolers: []
   backups:
     enabled: false
@@ -59,40 +68,177 @@ postgresql-cluster:
 # Onyx subchart overrides
 # ------------------------------------------------------------------------------
 onyx:
-  # Single replicas for CI
+  # ---------------------------------------------------------------------------
+  # Core components: 1 replica each with minimal resources
+  # ---------------------------------------------------------------------------
   api:
     replicaCount: 1
     resources:
       requests:
-        cpu: 100m
-        memory: 512Mi
+        cpu: 50m
+        memory: 256Mi
       limits:
-        cpu: 500m
         memory: 1Gi
 
   webserver:
     replicaCount: 1
     resources:
       requests:
-        cpu: 100m
-        memory: 256Mi
+        cpu: 50m
+        memory: 128Mi
       limits:
-        cpu: 500m
         memory: 512Mi
 
+  # ---------------------------------------------------------------------------
+  # Vespa: reduced resources for CI (upstream default is 1000m/4Gi)
+  # ---------------------------------------------------------------------------
+  vespa:
+    enabled: true
+    resources:
+      requests:
+        cpu: 200m
+        memory: 2Gi
+      limits:
+        memory: 2Gi
+    volumeClaimTemplates:
+      - metadata:
+          name: vespa-storage
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 2Gi
+
+  # ---------------------------------------------------------------------------
+  # Model servers: 1 replica each with minimal resources
+  # These download multi-GB ML models at startup, so they need extended timeout.
+  # ---------------------------------------------------------------------------
+  inferenceCapability:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
+      limits:
+        memory: 2Gi
+  indexCapability:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
+      limits:
+        memory: 2Gi
+
+  # ---------------------------------------------------------------------------
+  # Celery workers: 1 replica each with minimal resources
+  # ---------------------------------------------------------------------------
+  celery_beat:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 512Mi
+
+  celery_worker_primary:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 512Mi
+
+  celery_worker_light:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 512Mi
+
+  celery_worker_heavy:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 512Mi
+
+  celery_worker_monitoring:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 512Mi
+
+  celery_worker_docprocessing:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 512Mi
+
+  celery_worker_docfetching:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 512Mi
+
+  celery_worker_user_file_processing:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 512Mi
+
+  # ---------------------------------------------------------------------------
+  # ConfigMap overrides (injected into upstream onyx env-configmap)
+  # ---------------------------------------------------------------------------
+  # The upstream onyx chart creates env-configmap with its own values.
+  # Values below are injected via the upstream's configMap loop.
+  # Release name in CI is "onyx-ai".
+  configMap:
+    POSTGRES_HOST: "onyx-ai-postgresql-cluster-rw"
+    POSTGRES_PORT: "5432"
+    # REDIS_HOST uses upstream default (<release>-master) which now works via alias service
+    S3_ENDPOINT_URL: "http://onyx-ai-garage:3900"
+    S3_FILE_STORE_BUCKET_NAME: "onyx-ai-files"
+    S3_FILE_STORE_PREFIX: "onyx-files"
+    S3_VERIFY_SSL: "false"
+    S3_REGION: "garage"  # Garage expects region "garage" in AWS signature
+
+  # ---------------------------------------------------------------------------
   # Credential wiring (release name = "onyx-ai" in CI)
+  # ---------------------------------------------------------------------------
   auth:
     postgresql:
       enabled: true
-      existingSecret: "onyx-ai-postgresql-cluster-app"
+      # Use superuser for initial schema creation (alembic migrations)
+      existingSecret: "onyx-ai-postgresql-cluster-superuser"
     redis:
       enabled: true
-      existingSecret: ""  # Default OT Redis uses 'onyx-redis' automatically
+      # Let onyx chart create the onyx-redis secret (OT Redis CRD references it)
     objectstorage:
       enabled: true
       existingSecret: "onyx-ai-garage-credentials"
 
-  # Smaller Redis for CI
+  # ---------------------------------------------------------------------------
+  # Redis subchart - minimal standalone for CI
+  # ---------------------------------------------------------------------------
   redis:
     enabled: true
     redisStandalone:
@@ -101,7 +247,6 @@ onyx:
           cpu: 50m
           memory: 64Mi
         limits:
-          cpu: 200m
           memory: 256Mi
     storageSpec:
       volumeClaimTemplate:
