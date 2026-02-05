@@ -49,6 +49,10 @@ litellm-proxy:
   enabled: true
   replicaCount: 1
 
+  # Override image tag - subchart 0.2.1 pins a non-existent tag
+  image:
+    tag: "main-stable"
+
   # Use internal CNPG cluster from this chart's postgresql dependency
   database:
     internal:
