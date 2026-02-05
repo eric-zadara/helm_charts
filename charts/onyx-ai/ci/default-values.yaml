@@ -1,0 +1,112 @@
+# CI test values for onyx-ai chart
+#
+# Tests the batteries-included deployment with internal CNPG cluster.
+# Requires CNPG operator to be installed (testing/prerequisites annotation).
+#
+# Release name in CI: "onyx-ai" (helm install "$chart_name" ...)
+#
+# This configures minimal resources for CI while still deploying real pods:
+#   - CNPG PostgreSQL: 1 instance (no pooler, smaller storage)
+#   - Redis: OT Container Kit standalone (upstream default)
+#   - Object storage: GarageFS built-in (no external S3 needed)
+#   - API/Web: 1 replica each (HA not needed for CI)
+#   - Vespa: enabled (required for Onyx functionality)
+
+# ------------------------------------------------------------------------------
+# CNPG PostgreSQL - single instance for CI
+# ------------------------------------------------------------------------------
+cnpg:
+  enabled: true
+  instances: 1
+  storage:
+    size: 1Gi
+  pooler:
+    enabled: false  # Direct connection, simpler for CI
+  resources: {}
+
+# ------------------------------------------------------------------------------
+# Redis - default OT standalone (simplest mode)
+# ------------------------------------------------------------------------------
+redis:
+  enabled: true
+
+# ------------------------------------------------------------------------------
+# Object Storage - use built-in GarageFS (no external S3 needed)
+# ------------------------------------------------------------------------------
+garage:
+  enabled: true
+
+# Ingress not needed for CI
+ingress:
+  enabled: false
+
+# ------------------------------------------------------------------------------
+# CNPG Cluster subchart - minimal for CI
+# ------------------------------------------------------------------------------
+postgresql-cluster:
+  cluster:
+    instances: 1
+    storage:
+      size: 1Gi
+    resources: {}
+    enableSuperuserAccess: true
+  # No pooler for CI
+  poolers: []
+  backups:
+    enabled: false
+
+# ------------------------------------------------------------------------------
+# Onyx subchart overrides
+# ------------------------------------------------------------------------------
+onyx:
+  # Single replicas for CI
+  api:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+
+  webserver:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  # Credential wiring (release name = "onyx-ai" in CI)
+  auth:
+    postgresql:
+      enabled: true
+      existingSecret: "onyx-ai-postgresql-cluster-app"
+    redis:
+      enabled: true
+      existingSecret: ""  # Default OT Redis uses 'onyx-redis' automatically
+    objectstorage:
+      enabled: true
+      existingSecret: "onyx-ai-garage-credentials"
+
+  # Smaller Redis for CI
+  redis:
+    enabled: true
+    redisStandalone:
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          cpu: 200m
+          memory: 256Mi
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 1Gi

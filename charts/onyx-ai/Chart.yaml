@@ -17,6 +17,8 @@ maintainers:
 annotations:
   category: AI/RAG
   licenses: MIT
+  testing/tier: "2"
+  testing/prerequisites: "cnpg-operator"
 
 dependencies:
   - name: onyx
