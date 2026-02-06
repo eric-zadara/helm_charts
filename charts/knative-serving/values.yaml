@@ -1,0 +1,2 @@
+# -- Enable Knative Serving core deployment
+enabled: true
