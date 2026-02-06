@@ -5,5 +5,5 @@ type: application
 version: 0.1.0
 appVersion: "1.20.0"
 annotations:
-  testing/tier: "1"
+  testing/tier: "2"
   testing/prerequisites: "tier1-crds"
