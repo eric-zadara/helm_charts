@@ -1,18 +1,7 @@
-# CI test values - all operators and CRD charts enabled (default configuration)
-# Used by chart-testing (ct lint) to validate the umbrella chart
-
-# CNPG operator - enabled by default
-cloudnative-pg:
-  enabled: true
-
-gateway-api:
-  enabled: true
-
-knative-serving-crds:
-  enabled: true
-
-kserve-crds:
-  enabled: true
-
-inference-extension-crds:
-  enabled: true
+# CI test values for inference-operators
+# Minimal overlay -- production defaults are correct for CI.
+# All operators and CRD charts are enabled by default in values.yaml.
+#
+# This file is intentionally nearly empty because production defaults
+# are appropriate for CI testing. The chart-testing (ct) convention
+# requires a ci/default-values.yaml file to exist.

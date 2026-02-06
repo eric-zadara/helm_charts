@@ -1,14 +1,16 @@
 # CI test values for inference-stack
-# Tests EPP with mock model server for full deployment validation.
-# Requires: Gateway API Inference Extension CRDs (from inference-operators)
+# Minimal overlay on production defaults -- only override what differs for CI.
+# Prerequisites: inference-operators (CRDs + CNPG), inference-infrastructure (networking + DB)
 
-infrastructureReleaseName: "infra"
-infrastructureNamespace: ""
+# CI uses "inference-infrastructure" as the infrastructure release name
+infrastructureReleaseName: "inference-infrastructure"
+infrastructureNamespace: "default"
 
 model-serving:
-  enabled: true
-
-  # ClusterServingRuntimes require KServe CRDs - disable for CI
+  # ClusterServingRuntimes - DISABLED (requires KServe CONTROLLER, not just CRDs)
+  # KServe controller is not included in inference-operators.
+  # TODO(operators): Add KServe controller to inference-operators chart,
+  #   then remove these overrides to test with production defaults.
   servingRuntime:
     enabled: false
   llamacppRuntime:
@@ -16,7 +18,7 @@ model-serving:
   ollamaRuntime:
     enabled: false
 
-  # InferenceService requires KServe CRDs - disable for CI
+  # InferenceServices - DISABLED (requires KServe CONTROLLER)
   inferenceService:
     enabled: false
   llamacppInferenceService:
@@ -24,27 +26,29 @@ model-serving:
   ollamaInferenceService:
     enabled: false
 
-  # InferencePool requires Inference Extension CRDs - disable for CI
-  # (inference-gateway creates its own testPool for EPP)
+  # InferencePool - enabled (inference-extension-crds available)
   inferencePool:
-    enabled: false
+    enabled: true
 
+  # PriorityClasses - standard K8s resources
   priorityClasses:
-    enabled: false
-
-  serviceMonitor:
-    enabled: false
+    enabled: true
 
 inference-gateway:
-  enabled: true
-
-  # EPP runs with mock backend
+  # EPP - single replica and reduced resources for CI
   epp:
     replicas: 1
     poolName: "ci-test-pool"
     poolNamespace: "default"
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
 
-  # Create test InferencePool pointing to mock model server
+  # Test InferencePool for EPP to route to
   testPool:
     enabled: true
     targetPort: 8000
@@ -52,24 +56,7 @@ inference-gateway:
       app: test-model-server
     failureMode: "FailOpen"
 
-  # Enable CI mock model server (satisfies EPP endpoint requirement)
+  # CI mock model server for EPP endpoints
   ci:
     modelServer:
       enabled: true
-
-  # Disable internal Gateway (requires Gateway API CRDs from envoy-gateway)
-  gateway:
-    enabled: false
-
-  # Disable EnvoyExtensionPolicy (requires Envoy Gateway CRDs)
-  extensionPolicy:
-    enabled: false
-
-  rbac:
-    create: true
-
-  serviceMonitor:
-    enabled: false
-
-  dashboards:
-    enabled: false

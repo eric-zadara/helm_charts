@@ -1,62 +1,50 @@
 # CI test values for model-serving chart
-# Enable templates that don't require external CRDs
+# Minimal overlay on production defaults -- only override what differs for CI.
+# Prerequisites: tier1-crds (Gateway API, Inference Extension, KServe CRDs)
 
-# vLLM ClusterServingRuntime (requires KServe CRDs - disabled for CI)
+# ClusterServingRuntimes - DISABLED (requires KServe CONTROLLER, not just CRDs)
+# KServe controller is not included in inference-operators.
+# TODO(operators): Add KServe controller to inference-operators chart,
+#   then remove these overrides to test with production defaults.
 servingRuntime:
   enabled: false
-
-# llama.cpp ClusterServingRuntime (requires KServe CRDs - disabled for CI)
 llamacppRuntime:
   enabled: false
-
-# Ollama ClusterServingRuntime (requires KServe CRDs - disabled for CI)
 ollamaRuntime:
   enabled: false
 
-# vLLM InferenceService (requires KServe CRDs)
+# InferenceServices - DISABLED (requires KServe CONTROLLER)
+# Same root cause as above.
 inferenceService:
   enabled: false
-
-# llama.cpp InferenceService (requires KServe CRDs)
 llamacppInferenceService:
   enabled: false
-
-# Ollama InferenceService (requires KServe CRDs)
 ollamaInferenceService:
   enabled: false
 
-# InferencePool (requires Inference Extension CRDs)
+# InferencePool - enabled (inference-extension-crds available from tier1-crds)
+# Not enabled in prod defaults, but testable with CRDs alone.
 inferencePool:
-  enabled: false
+  enabled: true
 
-# InferenceObjective (requires Inference Extension CRDs)
+# InferenceObjective - enabled (inference-extension-crds available)
 inferenceObjective:
-  enabled: false
+  enabled: true
 
-# HTTPRoute (requires Gateway API CRDs)
+# HTTPRoute for InferencePool - enabled (gateway-api CRDs available)
 inferencePoolRoute:
-  enabled: false
+  enabled: true
 
-# PriorityClasses (standard K8s resources - safe to enable)
+# PriorityClasses - standard K8s resources, not enabled in prod defaults
 priorityClasses:
   enabled: true
-  production:
-    enabled: true
-  standard:
-    enabled: true
-  experimental:
-    enabled: true
 
-# ServiceMonitor (requires Prometheus Operator CRDs)
-serviceMonitor:
-  enabled: false
-
-# HuggingFace secret (standard K8s Secret - safe to enable)
+# HuggingFace secret - test with dummy token
 huggingface:
   secretEnabled: true
   token: "test-token-for-ci"
 
-# S3 storage (standard K8s resources - safe to enable)
+# S3 storage - test with dummy credentials
 s3Storage:
   enabled: true
   accessKeyId: "test-access-key"

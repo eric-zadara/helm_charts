@@ -2,7 +2,7 @@ apiVersion: v2
 name: inference-infrastructure
 description: Infrastructure layer for LLM inference platform - databases, networking, and API proxy
 type: application
-version: 0.6.2
+version: 0.7.0
 appVersion: "1.0.0"
 annotations:
   testing/tier: "3"
@@ -30,7 +30,7 @@ dependencies:
 
   # Envoy Gateway + Kourier networking
   - name: networking-layer
-    version: "0.2.0"
+    version: "0.3.0"
     repository: "https://eric-zadara.github.io/helm_charts/"
     condition: networking-layer.enabled
 

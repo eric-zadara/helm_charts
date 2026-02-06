@@ -1,22 +1,24 @@
 # CI test values for networking-layer chart
-# Disable components requiring CRDs/operators not available in CI
+# Minimal overlay on production defaults -- only override what differs for CI.
+# Prerequisites: tier1-crds (Gateway API, Knative CRDs), cert-manager
 
-# Envoy Gateway subchart requires Gateway API CRDs
-envoy-gateway:
-  enabled: false
-
-# Kourier requires Knative Serving CRDs
+# Kourier - use production default (enabled)
+# K8s 1.32+ requirement is satisfied by all CI K8s versions (1.33.7+)
+# Reduce replicas to 1 for CI (production defaults are 2 for HA)
 kourier:
-  enabled: false
+  controller:
+    replicas: 1
+  gateway:
+    replicas: 1
 
-# Gateway requires GatewayClass from Envoy Gateway
-gateway:
-  name: ""
-
-# TLS requires cert-manager
+# TLS - disabled (requires hostname configuration not available in CI)
 tls:
   enabled: false
 
-# Knative ConfigMaps require Knative Serving namespace
+# Knative ConfigMaps - DISABLED
+# Requires Knative Serving operator for reconciliation.
+# The operator is not included in inference-operators (only CRDs are installed).
+# TODO(operators): Add Knative Serving operator to inference-operators chart,
+#   then remove this override to test with production defaults.
 knative:
   enabled: false

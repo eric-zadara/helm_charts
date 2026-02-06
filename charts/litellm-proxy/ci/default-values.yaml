@@ -1,72 +1,46 @@
 # CI test values for litellm-proxy chart
+# Minimal overlay on production defaults -- only override what differs for CI.
+# Prerequisites: cnpg-operator (for internal PostgreSQL)
 #
-# Tests the batteries-included deployment with internal CNPG cluster.
-# Requires CNPG operator to be installed (testing/prerequisites annotation).
-#
-# ZERO-CONFIG DEPLOYMENT:
-#   helm install litellm-proxy ./charts/litellm-proxy
-#
-# This works out of the box with:
-#   - Internal CNPG PostgreSQL cluster (1 instance for CI)
-#   - Internal Valkey cache (disabled for CI simplicity)
-#   - Auto-generated master key and salt key
+# Production defaults provide zero-config deployment with internal CNPG and Valkey.
+# CI only needs to reduce replica counts, storage, and resources.
 
-# One replica for CI - validates actual pod startup
+# Single replica for CI
 replicaCount: 1
 
-# Use internal CNPG cluster (batteries included)
+# Reduce internal database resources for CI
 database:
   internal:
-    enabled: true
-    # Single instance for CI (production would use 3)
     instances: 1
-    # Smaller storage for CI
     storageSize: "1Gi"
-    # Disable pooler for simpler CI test
     pooler:
-      enabled: false
-  # Allow litellm to create schema on startup (instead of migration job)
-  disableSchemaUpdate: "false"
+      instances: 1
 
-# Disable cache for CI simplicity (tests database path only)
+# Reduce internal cache resources for CI
 cache:
-  enabled: false
   internal:
-    enabled: false
+    resources:
+      requests:
+        memory: 64Mi
+        cpu: 50m
+      limits:
+        memory: 128Mi
+        cpu: 250m
 
-# Disable migration job - let litellm handle schema on startup
-migrationJob:
-  enabled: false
-
-# Wait for database to be ready
-initContainers:
-  waitForDatabase: true
-  waitForCache: false
-
-# Disable HTTPRoute (requires Gateway API CRDs)
+# HTTPRoute requires Gateway API CRDs (not in cnpg-operator prereq)
+# Tested via inference-infrastructure which includes networking-layer.
 httpRoute:
   enabled: false
 
-# Disable ServiceMonitor (requires Prometheus Operator CRDs)
-serviceMonitor:
-  enabled: false
-
-# Disable HPA (not needed for CI)
+# Not needed for single-replica CI
 autoscaling:
   enabled: false
-
-# Disable PDB (not needed for CI)
 podDisruptionBudget:
   enabled: false
 
-# Disable Grafana dashboards (requires Grafana)
-dashboards:
-  enabled: false
-
-# Use main port for health checks (separate health app doesn't start in some configs)
+# Health checks - adjusted for startup time with migration
 healthCheck:
   separateApp: false
   startup:
-    # Allow time for schema migration on first startup
     initialDelaySeconds: 60
     failureThreshold: 60

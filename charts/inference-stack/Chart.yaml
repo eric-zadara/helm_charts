@@ -6,7 +6,7 @@ version: 0.1.2
 appVersion: "1.0.0"
 annotations:
   testing/tier: "3"
-  testing/prerequisites: "inference-operators"
+  testing/prerequisites: "inference-operators,inference-infrastructure"
 
 # Umbrella chart that bundles model serving components:
 # - model-serving: vLLM, llama.cpp, and Ollama ServingRuntimes

@@ -55,8 +55,8 @@ kourier:
   controller:
     # -- Controller image
     image: "gcr.io/knative-releases/knative.dev/net-kourier/cmd/kourier:v1.20.0"
-    # -- Controller replicas
-    replicas: 1
+    # -- Controller replicas (2 for HA)
+    replicas: 2
     # -- Controller resource requests/limits
     resources:
       requests:
@@ -69,8 +69,8 @@ kourier:
   gateway:
     # -- Gateway image
     image: "docker.io/envoyproxy/envoy:v1.31-latest"
-    # -- Gateway replicas
-    replicas: 1
+    # -- Gateway replicas (2 for HA)
+    replicas: 2
     # -- Gateway resource requests/limits
     resources:
       requests:

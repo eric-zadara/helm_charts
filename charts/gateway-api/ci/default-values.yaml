@@ -1,2 +1,3 @@
 # CI test values for gateway-api chart
-# CRD charts install with defaults - no special values needed for CI testing
+# Minimal overlay -- production defaults are correct for CI.
+# CRD charts install with defaults; no special values needed.

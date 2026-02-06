@@ -2,7 +2,7 @@ apiVersion: v2
 name: networking-layer
 description: Gateway API ingress (Envoy Gateway) and Knative networking (Kourier) for LLM inference platform
 type: application
-version: 0.2.0
+version: 0.3.0
 appVersion: "1.0.0"
 annotations:
   testing/tier: "2"

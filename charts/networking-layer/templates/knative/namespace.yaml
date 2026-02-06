@@ -1,0 +1,13 @@
+{{- if or .Values.knative.enabled .Values.kourier.enabled }}
+# Create knative-serving namespace for Knative ConfigMaps
+# Required by: config-autoscaler and config-features (when knative.enabled)
+#              config-network (when kourier.enabled)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: knative-serving
+  labels:
+    app.kubernetes.io/name: knative-serving
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    {{- include "networking-layer.labels" . | nindent 4 }}
+{{- end }}

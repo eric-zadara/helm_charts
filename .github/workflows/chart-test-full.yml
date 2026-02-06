@@ -215,6 +215,20 @@ jobs:
                   --namespace default \
                   --wait --timeout 10m
                 ;;
+              inference-infrastructure)
+                echo "Installing inference-infrastructure (PostgreSQL + Valkey + Networking + LiteLLM)..."
+                helm repo add eric-zadara https://eric-zadara.github.io/helm_charts/ || true
+                helm repo update
+                helm dependency build charts/inference-infrastructure
+                VALUES_ARGS=""
+                if [[ -f "charts/inference-infrastructure/ci/default-values.yaml" ]]; then
+                  VALUES_ARGS="-f charts/inference-infrastructure/ci/default-values.yaml"
+                fi
+                helm install inference-infrastructure charts/inference-infrastructure \
+                  $VALUES_ARGS \
+                  --namespace default \
+                  --wait --timeout 15m
+                ;;
               *)
                 echo "Unknown prerequisite: $prereq"
                 ;;
@@ -240,7 +254,7 @@ jobs:
             --timeout 10m
 
       - name: Run helm test
-        run: helm test ${{ matrix.chart }} --namespace default || echo "No tests defined"
+        run: helm test ${{ matrix.chart }} --namespace default
 
   # Tier 1: CRD charts (foundation layer)
   test-tier1:
@@ -317,7 +331,7 @@ jobs:
           kubectl get crd
 
       - name: Run helm test
-        run: helm test ${{ matrix.chart }} --namespace default || echo "No tests defined"
+        run: helm test ${{ matrix.chart }} --namespace default
 
   # Tier 2: Component charts (require CRDs and/or operators)
   test-tier2:
@@ -418,6 +432,20 @@ jobs:
                   --namespace default \
                   --wait --timeout 10m
                 ;;
+              inference-infrastructure)
+                echo "Installing inference-infrastructure (PostgreSQL + Valkey + Networking + LiteLLM)..."
+                helm repo add eric-zadara https://eric-zadara.github.io/helm_charts/ || true
+                helm repo update
+                helm dependency build charts/inference-infrastructure
+                VALUES_ARGS=""
+                if [[ -f "charts/inference-infrastructure/ci/default-values.yaml" ]]; then
+                  VALUES_ARGS="-f charts/inference-infrastructure/ci/default-values.yaml"
+                fi
+                helm install inference-infrastructure charts/inference-infrastructure \
+                  $VALUES_ARGS \
+                  --namespace default \
+                  --wait --timeout 15m
+                ;;
               *)
                 echo "Unknown prerequisite: $prereq"
                 ;;
@@ -448,7 +476,7 @@ jobs:
           kubectl get all -n default -l app.kubernetes.io/instance=${{ matrix.chart }} || true
 
       - name: Run helm test
-        run: helm test ${{ matrix.chart }} --namespace default || echo "No tests defined"
+        run: helm test ${{ matrix.chart }} --namespace default
 
   # Tier 3: Umbrella charts (aggregate multiple components)
   test-tier3:
@@ -549,6 +577,20 @@ jobs:
                   --namespace default \
                   --wait --timeout 10m
                 ;;
+              inference-infrastructure)
+                echo "Installing inference-infrastructure (PostgreSQL + Valkey + Networking + LiteLLM)..."
+                helm repo add eric-zadara https://eric-zadara.github.io/helm_charts/ || true
+                helm repo update
+                helm dependency build charts/inference-infrastructure
+                VALUES_ARGS=""
+                if [[ -f "charts/inference-infrastructure/ci/default-values.yaml" ]]; then
+                  VALUES_ARGS="-f charts/inference-infrastructure/ci/default-values.yaml"
+                fi
+                helm install inference-infrastructure charts/inference-infrastructure \
+                  $VALUES_ARGS \
+                  --namespace default \
+                  --wait --timeout 15m
+                ;;
               *)
                 echo "Unknown prerequisite: $prereq"
                 ;;
@@ -579,4 +621,4 @@ jobs:
           kubectl get all -n default -l app.kubernetes.io/instance=${{ matrix.chart }} || true
 
       - name: Run helm test
-        run: helm test ${{ matrix.chart }} --namespace default || echo "No tests defined"
+        run: helm test ${{ matrix.chart }} --namespace default

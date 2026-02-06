@@ -203,6 +203,18 @@ jobs:
                   --namespace default \
                   --wait --timeout 10m
                 ;;
+              inference-infrastructure)
+                echo "Installing inference-infrastructure (PostgreSQL + Valkey + Networking + LiteLLM)..."
+                helm dependency build charts/inference-infrastructure
+                VALUES_ARGS=""
+                if [[ -f "charts/inference-infrastructure/ci/default-values.yaml" ]]; then
+                  VALUES_ARGS="-f charts/inference-infrastructure/ci/default-values.yaml"
+                fi
+                helm install inference-infrastructure charts/inference-infrastructure \
+                  $VALUES_ARGS \
+                  --namespace default \
+                  --wait --timeout 15m
+                ;;
               *)
                 echo "Unknown prerequisite: $prereq"
                 ;;
@@ -236,8 +248,7 @@ jobs:
 
       - name: Run helm test
         run: |
-          helm test ${{ matrix.chart }} --namespace default --timeout 300s || true
-          echo "Helm test completed (tests may not be defined for this chart)"
+          helm test ${{ matrix.chart }} --namespace default --timeout 300s
 
   test-tier2:
     name: Test Tier 2 - ${{ matrix.chart }} on K8s ${{ matrix.k8s-version }}
@@ -331,6 +342,18 @@ jobs:
                   --namespace default \
                   --wait --timeout 10m
                 ;;
+              inference-infrastructure)
+                echo "Installing inference-infrastructure (PostgreSQL + Valkey + Networking + LiteLLM)..."
+                helm dependency build charts/inference-infrastructure
+                VALUES_ARGS=""
+                if [[ -f "charts/inference-infrastructure/ci/default-values.yaml" ]]; then
+                  VALUES_ARGS="-f charts/inference-infrastructure/ci/default-values.yaml"
+                fi
+                helm install inference-infrastructure charts/inference-infrastructure \
+                  $VALUES_ARGS \
+                  --namespace default \
+                  --wait --timeout 15m
+                ;;
               *)
                 echo "Unknown prerequisite: $prereq"
                 ;;
@@ -363,8 +386,7 @@ jobs:
 
       - name: Run helm test
         run: |
-          helm test ${{ matrix.chart }} --namespace default --timeout 300s || true
-          echo "Helm test completed (tests may not be defined for this chart)"
+          helm test ${{ matrix.chart }} --namespace default --timeout 300s
 
   test-tier3:
     name: Test Tier 3 - ${{ matrix.chart }} on K8s ${{ matrix.k8s-version }}
@@ -458,6 +480,18 @@ jobs:
                   --namespace default \
                   --wait --timeout 10m
                 ;;
+              inference-infrastructure)
+                echo "Installing inference-infrastructure (PostgreSQL + Valkey + Networking + LiteLLM)..."
+                helm dependency build charts/inference-infrastructure
+                VALUES_ARGS=""
+                if [[ -f "charts/inference-infrastructure/ci/default-values.yaml" ]]; then
+                  VALUES_ARGS="-f charts/inference-infrastructure/ci/default-values.yaml"
+                fi
+                helm install inference-infrastructure charts/inference-infrastructure \
+                  $VALUES_ARGS \
+                  --namespace default \
+                  --wait --timeout 15m
+                ;;
               *)
                 echo "Unknown prerequisite: $prereq"
                 ;;
@@ -490,5 +524,4 @@ jobs:
 
       - name: Run helm test
         run: |
-          helm test ${{ matrix.chart }} --namespace default --timeout 300s || true
-          echo "Helm test completed (tests may not be defined for this chart)"
+          helm test ${{ matrix.chart }} --namespace default --timeout 300s

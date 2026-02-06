@@ -1,14 +1,21 @@
-# CI test values for inference-gateway chart
-# Tests EPP with a mock model server to validate full deployment lifecycle.
-# Requires: Gateway API Inference Extension CRDs (from inference-operators)
+# CI test values for inference-gateway chart (standalone)
+# Minimal overlay on production defaults -- only override what differs for CI.
+# Prerequisites: tier1-crds (Gateway API, Inference Extension CRDs)
 
-# EPP configuration - runs with mock backend
+# EPP - single replica and reduced resources for CI
 epp:
   replicas: 1
   poolName: "test-pool"
   poolNamespace: "default"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
 
-# Create a test InferencePool pointing to mock model server
+# Test InferencePool for EPP to route to (not enabled in prod defaults)
 testPool:
   enabled: true
   targetPort: 8000
@@ -16,27 +23,17 @@ testPool:
     app: test-model-server
   failureMode: "FailOpen"
 
-# Enable CI mock model server (satisfies EPP endpoint requirement)
+# CI mock model server so EPP has endpoints (not enabled in prod defaults)
 ci:
   modelServer:
     enabled: true
 
-# Disable internal Gateway (requires Gateway API CRDs from envoy-gateway)
+# Gateway requires Envoy Gateway controller (not in standalone prereqs)
+# Tested via inference-stack which includes networking-layer with Envoy Gateway.
 gateway:
   enabled: false
 
-# Disable EnvoyExtensionPolicy (requires Envoy Gateway CRDs)
+# EnvoyExtensionPolicy requires Envoy Gateway CRDs (not in standalone prereqs)
+# Tested via inference-stack which includes networking-layer with Envoy Gateway.
 extensionPolicy:
-  enabled: false
-
-# RBAC is standard K8s - safe to enable
-rbac:
-  create: true
-
-# Disable ServiceMonitor (requires Prometheus Operator CRDs)
-serviceMonitor:
-  enabled: false
-
-# Disable Grafana dashboards (requires Grafana)
-dashboards:
   enabled: false
