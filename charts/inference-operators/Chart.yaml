@@ -1,15 +1,16 @@
 apiVersion: v2
 name: inference-operators
-description: Operators and CRDs for LLM inference platform
+description: Operators and CRDs for LLM inference platform (CNPG, KServe, Knative Serving)
 type: application
-version: 0.2.0
+version: 0.3.0
 appVersion: "1.0.0"
 annotations:
   testing/tier: "3"
   testing/prerequisites: ""
 
 # Umbrella chart that bundles operators and CRD charts for single-command installation.
-# Includes CNPG operator for PostgreSQL cluster management.
+# Includes CNPG operator for PostgreSQL, KServe controller for InferenceService
+# reconciliation, and Knative Serving core for serverless workload management.
 # CRDs are installed once and rarely updated, providing a stable foundation
 # for the inference platform.
 
@@ -19,6 +20,14 @@ dependencies:
     version: "0.27.0"
     repository: "https://cloudnative-pg.github.io/charts"
     condition: cloudnative-pg.enabled
+  - name: kserve
+    version: "v0.16.0"
+    repository: "oci://ghcr.io/kserve/charts"
+    condition: kserve.enabled
+  - name: knative-serving
+    version: "0.1.0"
+    repository: "file://../knative-serving"
+    condition: knative-serving.enabled
 
   # CRD charts
   - name: gateway-api

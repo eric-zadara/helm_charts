@@ -4,11 +4,13 @@ Umbrella chart that installs all operators and CRDs for the LLM inference platfo
 
 ## Overview
 
-This chart bundles the CNPG operator and four CRD charts into one installation:
+This chart bundles three operators and four CRD charts into one installation:
 
 | Component | Type | Description |
 |-----------|------|-------------|
 | cloudnative-pg | Operator + CRDs | PostgreSQL cluster management via CNPG |
+| kserve | Operator | KServe controller for InferenceService/ClusterServingRuntime reconciliation |
+| knative-serving | Operator | Knative Serving core (activator, autoscaler, controller, webhook) |
 | gateway-api | CRDs | Kubernetes Gateway API for ingress |
 | knative-serving-crds | CRDs | Serverless workload orchestration |
 | kserve-crds | CRDs | ML model serving lifecycle |
@@ -29,6 +31,12 @@ helm install operators ./charts/inference-operators
 
 # Verify CNPG operator is running
 kubectl get pods -l app.kubernetes.io/name=cloudnative-pg
+
+# Verify KServe controller is running
+kubectl get pods -l control-plane=kserve-controller-manager
+
+# Verify Knative Serving core is running
+kubectl get pods -n knative-serving
 
 # Verify CRDs installed
 kubectl get crd | grep -E 'gateway|knative|kserve|inference|cnpg'
@@ -52,11 +60,65 @@ cloudnative-pg:
   enabled: false
 ```
 
+## KServe Controller
+
+The KServe controller reconciles `InferenceService` and `ClusterServingRuntime` resources. Without it, these CRDs are accepted by the API server but never acted upon. It's required for the model-serving chart's serving runtimes and inference services to function.
+
+The operator installs:
+- KServe controller-manager deployment
+- KServe webhook for validation and defaulting
+- `inferenceservice-config` ConfigMap with deployment mode and runtime configuration
+
+### Configuration
+
+The controller is configured with:
+- **Knative deployment mode** -- InferenceServices create Knative Services (requires Knative Serving core)
+- **All built-in runtimes disabled** -- This project provides its own ClusterServingRuntimes via the model-serving chart (vLLM, llama.cpp, Ollama) rather than using KServe's built-in runtimes (TensorFlow, sklearn, etc.)
+
+### Disable KServe Controller
+
+If KServe is already installed in your cluster:
+
+```yaml
+kserve:
+  enabled: false
+```
+
+## Knative Serving Core
+
+Knative Serving core deploys the components that reconcile Knative Services, manage revisions, and handle autoscaling. It reads ConfigMaps (config-autoscaler, config-features, config-network) that are created by the networking-layer chart.
+
+The operator installs:
+- Activator -- buffers requests during scale-from-zero
+- Autoscaler -- scales pods based on concurrency/RPS metrics
+- Controller -- reconciles Knative Service, Configuration, Revision, Route resources
+- Webhook -- validates and defaults Knative resources
+
+All components deploy to the `knative-serving` namespace.
+
+### Configuration
+
+ConfigMaps for Knative Serving (config-autoscaler, config-features, config-network) are managed by the **networking-layer** chart, not by this chart. This separation allows infrastructure operators to tune autoscaling and networking independently of the operator lifecycle.
+
+### Disable Knative Serving Core
+
+If Knative Serving is already installed in your cluster:
+
+```yaml
+knative-serving:
+  enabled: false
+```
+
 ## Values
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `cloudnative-pg.enabled` | bool | `true` | Install CNPG operator and CRDs |
+| `kserve.enabled` | bool | `true` | Install KServe controller and webhook |
+| `kserve.kserve.controller.deploymentMode` | string | `"Knative"` | KServe deployment mode (Knative or RawDeployment) |
+| `kserve.kserve.servingruntime.<name>.disabled` | bool | `true` | Disable individual built-in serving runtimes |
+| `kserve.kserve.localmodel.enabled` | bool | `false` | Enable KServe local model support |
+| `knative-serving.enabled` | bool | `true` | Install Knative Serving core components |
 | `gateway-api.enabled` | bool | `true` | Install Gateway API CRDs |
 | `knative-serving-crds.enabled` | bool | `true` | Install Knative Serving CRDs |
 | `kserve-crds.enabled` | bool | `true` | Install KServe CRDs |
@@ -74,6 +136,14 @@ gateway-api:
 # Skip CNPG if operator already deployed
 cloudnative-pg:
   enabled: false
+
+# Skip KServe if controller already deployed
+kserve:
+  enabled: false
+
+# Skip Knative Serving if already deployed
+knative-serving:
+  enabled: false
 ```
 
 ```bash
@@ -82,7 +152,7 @@ helm install operators ./charts/inference-operators -f custom-values.yaml
 
 ## Upgrade Notes
 
-CRDs are typically additive - new fields and resources are added, but existing ones remain stable. Upgrading this chart updates both the CNPG operator and CRD definitions without affecting running workloads.
+CRDs are typically additive - new fields and resources are added, but existing ones remain stable. Upgrading this chart updates operators (CNPG, KServe, Knative Serving) and CRD definitions without affecting running workloads.
 
 ```bash
 helm upgrade operators ./charts/inference-operators
@@ -120,6 +190,26 @@ kubectl get pods -l app.kubernetes.io/name=cloudnative-pg
 
 # Check operator logs
 kubectl logs -l app.kubernetes.io/name=cloudnative-pg
+```
+
+**KServe controller not starting:**
+
+```bash
+# Check controller pods
+kubectl get pods -l control-plane=kserve-controller-manager
+
+# Check controller logs
+kubectl logs -l control-plane=kserve-controller-manager
+```
+
+**Knative Serving not starting:**
+
+```bash
+# Check all Knative Serving pods
+kubectl get pods -n knative-serving
+
+# Check controller logs
+kubectl logs -n knative-serving -l app=controller
 ```
 
 **Helm dependency issues:**

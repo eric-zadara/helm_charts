@@ -15,10 +15,5 @@ kourier:
 tls:
   enabled: false
 
-# Knative ConfigMaps - DISABLED
-# Requires Knative Serving operator for reconciliation.
-# The operator is not included in inference-operators (only CRDs are installed).
-# TODO(operators): Add Knative Serving operator to inference-operators chart,
-#   then remove this override to test with production defaults.
-knative:
-  enabled: false
+# Knative ConfigMaps - ENABLED (Knative Serving controller deployed by inference-operators)
+# Production defaults (knative.enabled: true) are used -- no override needed.

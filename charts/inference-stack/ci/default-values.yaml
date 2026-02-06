@@ -7,18 +7,13 @@ infrastructureReleaseName: "inference-infrastructure"
 infrastructureNamespace: "default"
 
 model-serving:
-  # ClusterServingRuntimes - DISABLED (requires KServe CONTROLLER, not just CRDs)
-  # KServe controller is not included in inference-operators.
-  # TODO(operators): Add KServe controller to inference-operators chart,
-  #   then remove these overrides to test with production defaults.
-  servingRuntime:
-    enabled: false
-  llamacppRuntime:
-    enabled: false
-  ollamaRuntime:
-    enabled: false
+  # ClusterServingRuntimes - ENABLED (KServe controller deployed by inference-operators)
+  # These reconcile immediately without starting any pods.
+  # Production defaults (enabled: true) are used -- no override needed.
 
-  # InferenceServices - DISABLED (requires KServe CONTROLLER)
+  # InferenceServices - DISABLED (require actual model serving pods, GPUs, storage)
+  # Even with KServe controller running, these create pods that need real infrastructure.
+  # This is a permanent CI limitation, not a TODO.
   inferenceService:
     enabled: false
   llamacppInferenceService:
