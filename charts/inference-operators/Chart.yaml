@@ -26,7 +26,7 @@ dependencies:
     condition: kserve.enabled
   - name: knative-serving
     version: "0.1.0"
-    repository: "file://../knative-serving"
+    repository: "https://eric-zadara.github.io/helm_charts/"
     condition: knative-serving.enabled
 
   # CRD charts

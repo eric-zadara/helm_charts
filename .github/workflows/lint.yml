@@ -48,6 +48,7 @@ jobs:
         run: |
           helm repo add bitnami https://charts.bitnami.com/bitnami
           helm repo add cnpg https://cloudnative-pg.github.io/charts
+          helm repo add eric-zadara https://eric-zadara.github.io/helm_charts/
           helm repo update
 
       - name: Lint changed charts

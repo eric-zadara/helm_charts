@@ -41,8 +41,8 @@ model-serving:
   # InferencePool for EPP routing - enable when deploying models
   inferencePool:
     enabled: false
-    # eppServiceName must reference the EPP from inference-gateway
-    # Convention: <stack-release>-inference-gateway-epp
+    # eppServiceName auto-wires from release name when empty.
+    # Convention: <release>-inference-gateway-epp (e.g., "stack-inference-gateway-epp")
     eppServiceName: ""
 
 # Inference Gateway (EPP for KV-cache aware routing)

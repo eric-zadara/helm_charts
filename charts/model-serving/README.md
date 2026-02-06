@@ -206,7 +206,9 @@ Connect to inference-gateway for KV-cache aware routing:
 inferencePool:
   enabled: true
   targetPort: 8080
-  eppServiceName: inference-gateway-epp
+  # eppServiceName auto-computes from release name when empty (default).
+  # Override only if your inference-gateway release has a non-standard name:
+  # eppServiceName: "my-release-inference-gateway-epp"
   eppServicePort: 9002
 
 inferencePoolRoute:

@@ -168,7 +168,7 @@ Otherwise uses the external host (or sentinel host if sentinel enabled).
 */}}
 {{- define "litellm-proxy.cacheHost" -}}
 {{- if .Values.cache.internal.enabled }}
-{{- printf "%s-valkey-master" .Release.Name }}
+{{- printf "%s-valkey-primary" .Release.Name }}
 {{- else if .Values.cache.external.sentinel.enabled }}
 {{- .Values.cache.external.host }}
 {{- else }}

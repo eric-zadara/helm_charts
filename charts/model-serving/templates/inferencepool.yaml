@@ -16,7 +16,7 @@ spec:
       serving.kserve.io/inferenceservice: {{ .Values.inferenceService.name }}
       {{- end }}
   endpointPickerRef:
-    name: {{ .Values.inferencePool.eppServiceName }}
+    name: {{ .Values.inferencePool.eppServiceName | default (printf "%s-inference-gateway-epp" .Release.Name) }}
     port:
       number: {{ .Values.inferencePool.eppServicePort }}
     failureMode: {{ .Values.inferencePool.failureMode }}

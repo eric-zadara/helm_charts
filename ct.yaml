@@ -15,6 +15,7 @@ chart-dirs:
 chart-repos:
   - bitnami=https://charts.bitnami.com/bitnami
   - cnpg=https://cloudnative-pg.github.io/charts
+  - eric-zadara=https://eric-zadara.github.io/helm_charts/
 
 # Helm arguments passed to helm install/upgrade
 helm-extra-args: --timeout 600s

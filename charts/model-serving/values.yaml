@@ -146,8 +146,9 @@ inferencePool:
   # -- Target port on model server pods (vLLM default: 8080 via KServe)
   targetPort: 8080
   # -- EPP service name. MUST match the EPP service from the inference-gateway chart.
-  # Convention: <inference-gateway-release-name>-inference-gateway-epp
-  eppServiceName: "inference-gateway-epp"
+  # Convention: <release>-inference-gateway-epp
+  # When empty (default), auto-computes from release name: <release>-inference-gateway-epp
+  eppServiceName: ""
   # -- EPP service port (gRPC ext-proc)
   eppServicePort: 9002
   # -- Failure mode when EPP is unavailable (FailClose or FailOpen)

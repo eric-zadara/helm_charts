@@ -11,7 +11,7 @@
 #
 # The "infra" release name produces these service names:
 #   - PostgreSQL pooler: infra-postgresql-pooler-rw
-#   - Valkey service: infra-valkey-master
+#   - Valkey service: infra-valkey-primary
 #
 # For external databases, disable the subcharts and override connection settings.
 
@@ -122,7 +122,7 @@ networking-layer:
 # SERVICE DISCOVERY:
 # Default values expect release name "infra" which produces:
 #   - PostgreSQL pooler: infra-postgresql-pooler-rw
-#   - Valkey service: infra-valkey-master
+#   - Valkey service: infra-valkey-primary
 #
 # The litellm-proxy chart has its own internal database/cache,
 # but in this umbrella chart we use the shared infrastructure.
@@ -149,8 +149,8 @@ litellm-proxy:
     internal:
       enabled: false
     external:
-      # Convention: Bitnami Valkey service is {release}-valkey-master
-      host: "infra-valkey-master"
+      # Convention: Bitnami Valkey service is {release}-valkey-primary
+      host: "infra-valkey-primary"
       port: 6379
       # Convention: Bitnami Valkey secret is {release}-valkey
       secretName: "infra-valkey"

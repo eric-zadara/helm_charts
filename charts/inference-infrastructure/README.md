@@ -81,8 +81,8 @@ When using release name `infra`, these services are created:
 |---------|------|-------------|
 | PostgreSQL pooler | `infra-postgresql-pooler-rw` | PgBouncer connection pooler |
 | PostgreSQL secret | `infra-postgresql-app` | Database credentials |
-| Valkey service | `infra-valkey` | Redis-compatible cache |
-| Valkey auth secret | `infra-valkey-auth` | Cache credentials |
+| Valkey service | `infra-valkey-primary` | Redis-compatible cache |
+| Valkey auth secret | `infra-valkey` | Cache credentials |
 
 LiteLLM is pre-configured to connect to these services automatically.
 
@@ -114,8 +114,8 @@ LiteLLM is pre-configured to connect to these services automatically.
 | `litellm-proxy.enabled` | bool | `true` | Deploy LiteLLM proxy |
 | `litellm-proxy.database.host` | string | `infra-postgresql-pooler-rw` | PostgreSQL host |
 | `litellm-proxy.database.passwordSecretName` | string | `infra-postgresql-app` | PostgreSQL secret |
-| `litellm-proxy.cache.host` | string | `infra-valkey` | Valkey host |
-| `litellm-proxy.cache.passwordSecretName` | string | `infra-valkey-auth` | Valkey secret |
+| `litellm-proxy.cache.host` | string | `infra-valkey-primary` | Valkey host |
+| `litellm-proxy.cache.passwordSecretName` | string | `infra-valkey` | Valkey secret |
 
 ## Using External Databases
 
@@ -173,8 +173,8 @@ If using a different release name, update the LiteLLM connection settings:
 helm install platform ./charts/inference-infrastructure \
   --set litellm-proxy.database.host=platform-postgresql-pooler-rw \
   --set litellm-proxy.database.passwordSecretName=platform-postgresql-app \
-  --set litellm-proxy.cache.host=platform-valkey \
-  --set litellm-proxy.cache.passwordSecretName=platform-valkey-auth
+  --set litellm-proxy.cache.host=platform-valkey-primary \
+  --set litellm-proxy.cache.passwordSecretName=platform-valkey
 ```
 
 ## Secrets Configuration
@@ -253,7 +253,7 @@ kubectl get secret infra-postgresql-app
 kubectl get pods -l app.kubernetes.io/name=valkey
 
 # Test connection
-kubectl exec -it deploy/infra-valkey-primary -- valkey-cli -a $(kubectl get secret infra-valkey-auth -o jsonpath='{.data.default-password}' | base64 -d) PING
+kubectl exec -it deploy/infra-valkey-primary -- valkey-cli -a $(kubectl get secret infra-valkey -o jsonpath='{.data.valkey-password}' | base64 -d) PING
 ```
 
 ### LiteLLM Cannot Connect to Database
@@ -285,7 +285,7 @@ kubectl get svc | grep -E "(postgresql|valkey)"
 # infra-postgresql-r           ClusterIP   ...
 # infra-postgresql-ro          ClusterIP   ...
 # infra-postgresql-rw          ClusterIP   ...
-# infra-valkey                 ClusterIP   ...
+# infra-valkey-primary          ClusterIP   ...
 ```
 
 ### Migration Job Failed

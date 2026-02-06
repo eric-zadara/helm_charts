@@ -185,6 +185,16 @@ litellm:
   # -- Model list (array of model definitions routed to KServe endpoints).
   # Each entry creates a model accessible via /v1/chat/completions.
   # See README for routing pattern examples.
+  #
+  # Example: Route through Internal Gateway for KV-cache aware routing
+  # modelList:
+  #   - modelName: gpt-4
+  #     litellmParams:
+  #       model: hosted_vllm/meta-llama/Llama-3.3-70B-Instruct
+  #       # Use Internal Gateway for KV-cache aware routing (recommended):
+  #       apiBase: http://inference-gateway.llm-platform.svc.cluster.local
+  #       # Or use direct predictor URL (simpler, no KV-cache routing):
+  #       # apiBase: http://llama-70b-predictor.llm-platform.svc.cluster.local
   modelList: []
 
   # -- General settings (merged into config.yaml general_settings)
