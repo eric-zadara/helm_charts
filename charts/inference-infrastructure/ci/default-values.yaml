@@ -7,14 +7,6 @@ postgresql:
   enabled: true
   cluster:
     instances: 1
-    postgresql:
-      # Disable synchronous replication for single-instance CI
-      # Default values.yaml sets synchronous.number=1 for production (3 instances),
-      # but with 1 instance there are no standbys to synchronously replicate to.
-      # Setting to null overrides the deep-merged default and causes the CNPG
-      # subchart template's {{- with .Values.cluster.postgresql.synchronous }}
-      # block to be skipped entirely.
-      synchronous: null
     initdb:
       database: "litellm"
       owner: "litellm"

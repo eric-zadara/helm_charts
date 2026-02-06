@@ -33,13 +33,17 @@ postgresql:
   type: postgresql
 
   cluster:
+    # -- Number of PostgreSQL instances (1 for dev, 3+ for HA)
+    # NOTE: If using synchronous replication, instances must be > synchronous.number
     instances: 3
     imageName: ghcr.io/cloudnative-pg/postgresql:17.4
 
     postgresql:
-      synchronous:
-        method: any
-        number: 1
+      # Synchronous replication - only enable for HA deployments (instances >= 2)
+      # Uncomment for production HA:
+      # synchronous:
+      #   method: any
+      #   number: 1
       parameters:
         max_connections: "200"
         shared_buffers: "256MB"
