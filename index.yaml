@@ -785,6 +785,21 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/k3s-helmchartconfig-0.0.1/k3s-helmchartconfig-0.0.1.tgz
     version: 0.0.1
+  knative-serving:
+  - annotations:
+      testing/prerequisites: tier1-crds
+      testing/tier: "1"
+    apiVersion: v2
+    appVersion: 1.20.0
+    created: "2026-02-06T21:06:27.308781728Z"
+    description: Knative Serving core components (activator, autoscaler, controller,
+      webhook)
+    digest: 19ac62fd1afd5d8c37a08880e10d885903ad4f624934d1d6779b0d67c7fe5d91
+    name: knative-serving
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/knative-serving-0.1.0/knative-serving-0.1.0.tgz
+    version: 0.1.0
   knative-serving-crds:
   - apiVersion: v2
     appVersion: 1.20.1
@@ -1150,6 +1165,26 @@ entries:
       testing/tier: "2"
     apiVersion: v2
     appVersion: 1.0.0
+    created: "2026-02-06T21:06:27.322142562Z"
+    dependencies:
+    - alias: envoy-gateway
+      condition: envoy-gateway.enabled
+      name: gateway-helm
+      repository: oci://docker.io/envoyproxy
+      version: 1.6.3
+    description: Gateway API ingress (Envoy Gateway) and Knative networking (Kourier)
+      for LLM inference platform
+    digest: bb8e0011c725220b89132583d1cc3a22c6ea3e3b59e2ed062293c8c7a291a3c6
+    name: networking-layer
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/networking-layer-0.3.0/networking-layer-0.3.0.tgz
+    version: 0.3.0
+  - annotations:
+      testing/prerequisites: tier1-crds,cert-manager
+      testing/tier: "2"
+    apiVersion: v2
+    appVersion: 1.0.0
     created: "2026-01-30T20:07:32.718164271Z"
     dependencies:
     - alias: envoy-gateway
@@ -1204,4 +1239,4 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/zadara-aws-config-0.0.1/zadara-aws-config-0.0.1.tgz
     version: 0.0.1
-generated: "2026-02-05T19:18:19.734494768Z"
+generated: "2026-02-06T21:06:27.307271165Z"
