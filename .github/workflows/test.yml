@@ -233,11 +233,15 @@ jobs:
             echo "Using CI values file: charts/${{ matrix.chart }}/ci/default-values.yaml"
           fi
 
+          # Per-chart timeout from annotation, default 600s
+          TIMEOUT=$(yq -r '.annotations["testing/timeout"] // "600s"' "charts/${{ matrix.chart }}/Chart.yaml")
+          echo "Install timeout: $TIMEOUT"
+
           helm install ${{ matrix.chart }} charts/${{ matrix.chart }} \
             $VALUES_ARGS \
             --namespace default \
             --wait \
-            --timeout 600s
+            --timeout "$TIMEOUT"
 
       - name: Verify installation
         run: |
@@ -372,11 +376,15 @@ jobs:
             echo "Using CI values file: charts/${{ matrix.chart }}/ci/default-values.yaml"
           fi
 
+          # Per-chart timeout from annotation, default 600s
+          TIMEOUT=$(yq -r '.annotations["testing/timeout"] // "600s"' "charts/${{ matrix.chart }}/Chart.yaml")
+          echo "Install timeout: $TIMEOUT"
+
           helm install ${{ matrix.chart }} charts/${{ matrix.chart }} \
             $VALUES_ARGS \
             --namespace default \
             --wait \
-            --timeout 600s
+            --timeout "$TIMEOUT"
 
       - name: Verify installation
         run: |
@@ -510,11 +518,15 @@ jobs:
             echo "Using CI values file: charts/${{ matrix.chart }}/ci/default-values.yaml"
           fi
 
+          # Per-chart timeout from annotation, default 600s
+          TIMEOUT=$(yq -r '.annotations["testing/timeout"] // "600s"' "charts/${{ matrix.chart }}/Chart.yaml")
+          echo "Install timeout: $TIMEOUT"
+
           helm install ${{ matrix.chart }} charts/${{ matrix.chart }} \
             $VALUES_ARGS \
             --namespace default \
             --wait \
-            --timeout 600s
+            --timeout "$TIMEOUT"
 
       - name: Verify installation
         run: |

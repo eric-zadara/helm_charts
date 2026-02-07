@@ -7,3 +7,4 @@ appVersion: "1.20.0"
 annotations:
   testing/tier: "2"
   testing/prerequisites: "tier1-crds"
+  testing/timeout: "1800s"

@@ -247,11 +247,15 @@ jobs:
             echo "Using CI values file: charts/${{ matrix.chart }}/ci/default-values.yaml"
           fi
 
+          # Per-chart timeout from annotation, default 10m
+          TIMEOUT=$(yq -r '.annotations["testing/timeout"] // "10m"' "charts/${{ matrix.chart }}/Chart.yaml")
+          echo "Install timeout: $TIMEOUT"
+
           helm install ${{ matrix.chart }} charts/${{ matrix.chart }} \
             $VALUES_ARGS \
             --namespace default \
             --wait \
-            --timeout 10m
+            --timeout "$TIMEOUT"
 
       - name: Run helm test
         run: helm test ${{ matrix.chart }} --namespace default
@@ -312,11 +316,15 @@ jobs:
             echo "Using CI values file: charts/${{ matrix.chart }}/ci/default-values.yaml"
           fi
 
+          # Per-chart timeout from annotation, default 5m
+          TIMEOUT=$(yq -r '.annotations["testing/timeout"] // "5m"' "charts/${{ matrix.chart }}/Chart.yaml")
+          echo "Install timeout: $TIMEOUT"
+
           helm install ${{ matrix.chart }} charts/${{ matrix.chart }} \
             $VALUES_ARGS \
             --namespace default \
             --wait \
-            --timeout 5m
+            --timeout "$TIMEOUT"
 
       - name: Verify CRDs installed
         run: |
@@ -464,11 +472,15 @@ jobs:
             echo "Using CI values file: charts/${{ matrix.chart }}/ci/default-values.yaml"
           fi
 
+          # Per-chart timeout from annotation, default 10m
+          TIMEOUT=$(yq -r '.annotations["testing/timeout"] // "10m"' "charts/${{ matrix.chart }}/Chart.yaml")
+          echo "Install timeout: $TIMEOUT"
+
           helm install ${{ matrix.chart }} charts/${{ matrix.chart }} \
             $VALUES_ARGS \
             --namespace default \
             --wait \
-            --timeout 10m
+            --timeout "$TIMEOUT"
 
       - name: Verify resources
         run: |
@@ -609,11 +621,15 @@ jobs:
             echo "Using CI values file: charts/${{ matrix.chart }}/ci/default-values.yaml"
           fi
 
+          # Per-chart timeout from annotation, default 15m
+          TIMEOUT=$(yq -r '.annotations["testing/timeout"] // "15m"' "charts/${{ matrix.chart }}/Chart.yaml")
+          echo "Install timeout: $TIMEOUT"
+
           helm install ${{ matrix.chart }} charts/${{ matrix.chart }} \
             $VALUES_ARGS \
             --namespace default \
             --wait \
-            --timeout 15m
+            --timeout "$TIMEOUT"
 
       - name: Verify resources
         run: |
