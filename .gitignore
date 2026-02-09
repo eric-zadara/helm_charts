@@ -2,3 +2,4 @@
 charts/*/charts
 *.lock
 .kind-test/
+.worktrees/
