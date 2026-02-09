@@ -2,40 +2,8 @@ apiVersion: v2
 name: inference-infrastructure
 description: Infrastructure layer for LLM inference platform - databases, networking, and API proxy
 type: application
-version: 0.7.0
+version: 0.8.0
 appVersion: "1.0.0"
 annotations:
   testing/tier: "3"
   testing/prerequisites: "inference-operators"
-
-# Umbrella chart that bundles infrastructure components:
-# - PostgreSQL cluster (CNPG) - enabled by default
-# - Valkey cache - enabled by default
-# - Networking layer (Envoy Gateway + Kourier)
-# - LiteLLM API proxy (auto-wired to PostgreSQL/Valkey)
-
-dependencies:
-  # CNPG PostgreSQL cluster
-  - name: cluster
-    version: "0.5.0"
-    repository: https://cloudnative-pg.github.io/charts
-    alias: postgresql
-    condition: postgresql.enabled
-
-  # Valkey cache (Bitnami chart)
-  - name: valkey
-    version: "5.1.4"
-    repository: https://charts.bitnami.com/bitnami
-    condition: valkey.enabled
-
-  # Envoy Gateway + Kourier networking
-  - name: networking-layer
-    version: "0.3.0"
-    repository: "https://eric-zadara.github.io/helm_charts/"
-    condition: networking-layer.enabled
-
-  # LiteLLM multi-tenant API proxy
-  - name: litellm-proxy
-    version: "0.2.1"
-    repository: "https://eric-zadara.github.io/helm_charts/"
-    condition: litellm-proxy.enabled

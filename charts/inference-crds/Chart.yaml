@@ -1,0 +1,9 @@
+apiVersion: v2
+name: inference-crds
+description: CRDs for LLM inference platform (Gateway API, Knative, KServe, Inference Extension)
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+annotations:
+  testing/tier: "3"
+  testing/prerequisites: ""
