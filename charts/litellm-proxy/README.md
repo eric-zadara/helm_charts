@@ -175,7 +175,7 @@ curl http://litellm-proxy.llm-platform.svc.cluster.local:4000/health
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | fullnameOverride | string | `""` | Override full release name |
-| image | object | `{"pullPolicy":"IfNotPresent","repository":"ghcr.io/berriai/litellm-database","tag":"v1.80.15-stable.1"}` | Docker image configuration |
+| image | object | `{"pullPolicy":"IfNotPresent","repository":"ghcr.io/berriai/litellm-database","tag":"main-v1.81.3-stable"}` | Docker image configuration |
 | imagePullSecrets | list | `[]` | Image pull secrets for private registries |
 | nameOverride | string | `""` | Override chart name |
 | replicaCount | int | `2` | Number of LiteLLM proxy replicas |
@@ -293,8 +293,8 @@ curl http://litellm-proxy.llm-platform.svc.cluster.local:4000/health
 | httpRoute.hostname | string | `""` | Route hostname (optional, for host-based routing) |
 | httpRoute.pathPrefix | string | `"/"` | Route path prefix |
 | image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
-| image.repository | string | `"ghcr.io/berriai/litellm-database"` | Docker image repository (database variant includes Prisma support) |
-| image.tag | string | `"v1.80.15-stable.1"` | Image tag (pin to specific stable version for reproducibility) |
+| image.repository | string | `"ghcr.io/berriai/litellm-database"` | Docker image repository (database variant includes Prisma support) Use docker.litellm.ai registry as recommended by LiteLLM docs |
+| image.tag | string | `"main-v1.81.3-stable"` | Image tag (use main-stable or pin to specific version like main-v1.81.0) See: https://docs.litellm.ai/docs/proxy/deploy |
 | initContainers.waitForCache | bool | `true` | Wait for cache to be reachable before starting (recommended for production) |
 | initContainers.waitForDatabase | bool | `true` | Wait for database to be reachable before starting (recommended for production) |
 | litellm.generalSettings | object | `{"allow_requests_on_db_unavailable":true,"disable_error_logs":true,"proxy_batch_write_at":60,"request_timeout":600}` | General settings (merged into config.yaml general_settings) |
@@ -314,7 +314,7 @@ curl http://litellm-proxy.llm-platform.svc.cluster.local:4000/health
 | litellm.litellmSettings.num_retries | int | `2` | Number of retries on failure |
 | litellm.litellmSettings.set_verbose | bool | `false` | Disable verbose output (recommended for production) |
 | litellm.litellmSettings.turn_off_message_logging | bool | `false` | Turn off message content logging (privacy) |
-| litellm.modelList | list | `[]` | Model list (array of model definitions routed to KServe endpoints). Each entry creates a model accessible via /v1/chat/completions. See README for routing pattern examples. |
+| litellm.modelList | list | `[]` | Model list (array of model definitions routed to KServe endpoints). Each entry creates a model accessible via /v1/chat/completions. See README for routing pattern examples.  Example: Route through Internal Gateway for KV-cache aware routing modelList:   - modelName: gpt-4     litellmParams:       model: hosted_vllm/meta-llama/Llama-3.3-70B-Instruct       # Use Internal Gateway for KV-cache aware routing (recommended):       apiBase: http://inference-gateway.llm-platform.svc.cluster.local       # Or use direct predictor URL (simpler, no KV-cache routing):       # apiBase: http://llama-70b-predictor.llm-platform.svc.cluster.local |
 | litellm.routerSettings | object | `{"enable_pre_call_checks":true,"model_group_alias":{},"routing_strategy":"simple-shuffle"}` | Router settings (merged into config.yaml router_settings) |
 | litellm.routerSettings.enable_pre_call_checks | bool | `true` | Enable pre-call checks (context window, model availability) |
 | litellm.routerSettings.model_group_alias | object | `{}` | Model group aliases (supports hidden models) |
@@ -333,6 +333,8 @@ curl http://litellm-proxy.llm-platform.svc.cluster.local:4000/health
 | podDisruptionBudget.enabled | bool | `false` | Enable PDB |
 | podDisruptionBudget.minAvailable | int | `1` | Minimum available pods during disruptions |
 | postgresql.cluster.imageName | string | `"ghcr.io/cloudnative-pg/postgresql:17.4"` |  |
+| postgresql.cluster.initdb.database | string | `"litellm"` |  |
+| postgresql.cluster.initdb.owner | string | `"litellm"` |  |
 | postgresql.cluster.instances | int | `1` |  |
 | postgresql.cluster.postgresql.parameters.max_connections | string | `"200"` |  |
 | postgresql.cluster.postgresql.parameters.shared_buffers | string | `"256MB"` |  |
