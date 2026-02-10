@@ -1101,6 +1101,29 @@ entries:
       testing/prerequisites: cnpg-operator
       testing/tier: "2"
     apiVersion: v2
+    appVersion: v1.81.3-stable
+    created: "2026-02-10T00:53:50.436432964Z"
+    dependencies:
+    - alias: postgresql
+      condition: database.internal.enabled
+      name: cluster
+      repository: https://cloudnative-pg.github.io/charts
+      version: 0.5.0
+    - condition: cache.internal.enabled
+      name: valkey
+      repository: https://charts.bitnami.com/bitnami
+      version: 5.1.4
+    description: LiteLLM Proxy - Multi-tenant API gateway for LLM inference
+    digest: d4a05fb73374afe4e69e3e969cd3d969dd7d9854e3680b8b382a801d32651cc3
+    name: litellm-proxy
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/litellm-proxy-0.2.2/litellm-proxy-0.2.2.tgz
+    version: 0.2.2
+  - annotations:
+      testing/prerequisites: cnpg-operator
+      testing/tier: "2"
+    apiVersion: v2
     appVersion: v1.80.15-stable.1
     created: "2026-01-30T20:36:18.035240727Z"
     dependencies:
@@ -1314,4 +1337,4 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/zadara-aws-config-0.0.1/zadara-aws-config-0.0.1.tgz
     version: 0.0.1
-generated: "2026-02-06T22:53:40.161354436Z"
+generated: "2026-02-10T00:53:50.424915073Z"
