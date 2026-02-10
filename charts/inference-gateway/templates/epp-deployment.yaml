@@ -1,3 +1,4 @@
+{{- if .Values.epp.poolName }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -30,7 +31,7 @@ spec:
           image: "{{ .Values.epp.image.repository }}:{{ .Values.epp.image.tag }}"
           imagePullPolicy: {{ .Values.epp.image.pullPolicy }}
           args:
-            - --pool-name={{ .Values.epp.poolName | required "epp.poolName is required" }}
+            - --pool-name={{ .Values.epp.poolName }}
             - --pool-namespace=$(POD_NAMESPACE)
             - --zap-log-level={{ .Values.epp.logLevel }}
             - --zap-encoder={{ .Values.epp.logEncoder }}
@@ -88,3 +89,4 @@ spec:
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+{{- end }}

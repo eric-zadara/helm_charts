@@ -7,7 +7,7 @@ metadata:
     {{- include "litellm-proxy.labels" . | nindent 4 }}
 spec:
   parentRefs:
-    - name: {{ .Values.httpRoute.gateway.name | default "networking-layer-gateway" }}
+    - name: {{ .Values.httpRoute.gateway.name | default (printf "%s-gateway" .Release.Name) }}
       {{- with .Values.httpRoute.gateway.namespace }}
       namespace: {{ . }}
       {{- end }}

@@ -1,0 +1,3 @@
+# CI: install CRDs unconditionally
+skipIfExists: false
+keepOnUninstall: false

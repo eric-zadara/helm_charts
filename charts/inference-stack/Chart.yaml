@@ -15,6 +15,6 @@ dependencies:
     condition: model-serving.enabled
 
   - name: inference-gateway
-    version: "0.1.5"
+    version: "0.1.6"
     repository: "https://eric-zadara.github.io/helm_charts/"
     condition: inference-gateway.enabled

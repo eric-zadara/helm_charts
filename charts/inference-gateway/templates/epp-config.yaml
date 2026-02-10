@@ -1,9 +1,11 @@
 {{/*
 EPP configuration file.
-Always created because EPP v1.3.0 crashes with nil pointer when no config
-file is provided. When schedulingConfig is disabled, a minimal valid config
-is used (EPP applies its built-in defaults).
+Only created when epp.poolName is set.
+EPP v1.3.0 crashes with nil pointer when no config file is provided.
+When schedulingConfig is disabled, a minimal valid config is used
+(EPP applies its built-in defaults).
 */}}
+{{- if .Values.epp.poolName }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -31,3 +33,4 @@ data:
       kvCacheUtilThreshold: {{ .Values.epp.schedulingConfig.saturationDetector.kvCacheUtilThreshold }}
       metricsStalenessThreshold: {{ .Values.epp.schedulingConfig.saturationDetector.metricsStalenessThreshold | quote }}
     {{- end }}
+{{- end }}

@@ -2,7 +2,7 @@ apiVersion: v2
 name: inference-infrastructure
 description: Infrastructure layer for LLM inference platform - databases, networking, and API proxy
 type: application
-version: 0.8.0
+version: 0.9.0
 appVersion: "1.0.0"
 annotations:
   testing/tier: "3"
@@ -10,6 +10,6 @@ annotations:
 
 dependencies:
   - name: litellm-proxy
-    version: "0.2.4"
+    version: "0.2.5"
     repository: "https://eric-zadara.github.io/helm_charts/"
     condition: litellm-proxy.enabled

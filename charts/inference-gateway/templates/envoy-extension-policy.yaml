@@ -1,4 +1,4 @@
-{{- if .Values.extensionPolicy.enabled }}
+{{- if and .Values.extensionPolicy.enabled .Values.epp.poolName }}
 apiVersion: gateway.envoyproxy.io/v1alpha1
 kind: EnvoyExtensionPolicy
 metadata:

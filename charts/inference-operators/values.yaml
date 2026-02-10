@@ -4,9 +4,9 @@
 cert-manager:
   # -- Enable cert-manager deployment
   enabled: true
-  # Install CRDs with the chart
+  # CRDs are installed by inference-crds chart (must be installed first)
   crds:
-    enabled: true
+    enabled: false
 
 # CloudNativePG operator - PostgreSQL operator for Kubernetes
 cloudnative-pg:
@@ -59,6 +59,42 @@ kserve:
 knative-operator:
   # -- Enable Knative Operator deployment
   enabled: true
+
+# KnativeServing CR - reconciled by knative-operator above.
+# Placed here (alongside operator + KServe) so Knative Serving is ready
+# before inference-stack creates InferenceServices. KServe caches a terminal
+# error if Knative isn't available at first reconciliation.
+knativeServing:
+  # -- Enable KnativeServing CR creation
+  enabled: true
+  namespace: "knative-serving"
+  spec:
+    version: "1.21"
+    ingress:
+      kourier:
+        enabled: true
+        # ClusterIP only - Envoy Gateway handles external traffic
+        service-type: ClusterIP
+    config:
+      network:
+        ingress-class: "kourier.ingress.networking.knative.dev"
+      deployment:
+        # Extended progress deadline for GPU model loading (default 600s is too short)
+        progress-deadline: "1200s"
+      autoscaler:
+        enable-scale-to-zero: "true"
+        scale-to-zero-grace-period: "30s"
+        # Extended scale-down delay to avoid thrashing on bursty LLM inference traffic
+        scale-down-delay: "300s"
+      features:
+        # Allow pods to set terminationGracePeriodSeconds for graceful model unloading
+        kubernetes.podspec-terminationGracePeriodSeconds: "Enabled"
+        # Allow tolerations for GPU node scheduling
+        kubernetes.podspec-tolerations: "Enabled"
+        # Allow nodeSelector for GPU type selection
+        kubernetes.podspec-nodeselector: "Enabled"
+        # Allow affinity rules for advanced scheduling
+        kubernetes.podspec-affinity: "Enabled"
 
 # Envoy Gateway - Gateway API controller
 envoy-gateway:

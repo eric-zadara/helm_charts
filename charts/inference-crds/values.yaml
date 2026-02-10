@@ -1,5 +1,11 @@
 # Inference CRDs umbrella chart
 
+# cert-manager CRDs (Certificate, Issuer, ClusterIssuer)
+# Required before inference-operators (KServe references cert-manager CRDs)
+cert-manager-crds:
+  # -- Enable cert-manager CRD installation
+  enabled: true
+
 # KServe CRDs (InferenceService, ServingRuntime, ClusterServingRuntime)
 kserve-crd:
   # -- Enable KServe CRD installation

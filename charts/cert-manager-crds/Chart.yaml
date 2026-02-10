@@ -1,0 +1,9 @@
+apiVersion: v2
+name: cert-manager-crds
+description: cert-manager CRDs (Certificate, Issuer, ClusterIssuer)
+type: application
+version: 0.1.0
+appVersion: "1.19.3"
+annotations:
+  testing/tier: "1"
+  testing/prerequisites: ""
