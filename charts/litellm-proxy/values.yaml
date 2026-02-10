@@ -17,7 +17,7 @@ image:
   repository: "ghcr.io/berriai/litellm-database"
   # -- Image tag (use main-stable or pin to specific version like main-v1.81.0)
   # See: https://docs.litellm.ai/docs/proxy/deploy
-  tag: "main-stable"
+  tag: "main-v1.81.3-stable"
   # -- Image pull policy
   pullPolicy: IfNotPresent
 
