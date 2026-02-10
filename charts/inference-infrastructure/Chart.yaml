@@ -10,6 +10,6 @@ annotations:
 
 dependencies:
   - name: litellm-proxy
-    version: "0.2.2"
+    version: "0.2.4"
     repository: "https://eric-zadara.github.io/helm_charts/"
     condition: litellm-proxy.enabled
