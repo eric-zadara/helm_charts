@@ -221,7 +221,7 @@ curl http://litellm-proxy.llm-platform.svc.cluster.local:4000/health
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| migrationJob | object | `{"backoffLimit":4,"enabled":true,"ttlSecondsAfterFinished":120}` | Migration job configuration (Prisma schema migration as Helm post-install/post-upgrade hook) |
+| migrationJob | object | `{"backoffLimit":4,"enabled":true,"resources":{"limits":{"cpu":"500m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"512Mi"}},"ttlSecondsAfterFinished":120}` | Migration job configuration (Prisma schema migration as Helm post-install/post-upgrade hook) |
 
 ### Service Configuration
 
@@ -329,6 +329,7 @@ curl http://litellm-proxy.llm-platform.svc.cluster.local:4000/health
 | masterKey.value | string | `""` | Master key value (auto-generated if empty and create=true) |
 | migrationJob.backoffLimit | int | `4` | Job retry limit |
 | migrationJob.enabled | bool | `true` | Enable Prisma migration job |
+| migrationJob.resources | object | `{"limits":{"cpu":"500m","memory":"1Gi"},"requests":{"cpu":"100m","memory":"512Mi"}}` | Resource requirements for migration job (Prisma can be memory-hungry) |
 | migrationJob.ttlSecondsAfterFinished | int | `120` | TTL after completion (seconds) |
 | podDisruptionBudget.enabled | bool | `false` | Enable PDB |
 | podDisruptionBudget.minAvailable | int | `1` | Minimum available pods during disruptions |
