@@ -23,6 +23,12 @@ knativeServing:
       features:
         # Allow pods to set terminationGracePeriodSeconds for graceful model unloading
         kubernetes.podspec-terminationGracePeriodSeconds: "Enabled"
+        # Allow tolerations for GPU node scheduling
+        kubernetes.podspec-tolerations: "Enabled"
+        # Allow nodeSelector for GPU type selection
+        kubernetes.podspec-nodeselector: "Enabled"
+        # Allow affinity rules for advanced scheduling
+        kubernetes.podspec-affinity: "Enabled"
 
 # Gateway API resources - GatewayClass, EnvoyProxy config, and public-facing Gateway
 gateway:

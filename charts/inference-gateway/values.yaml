@@ -98,6 +98,9 @@ extensionPolicy:
   enabled: true
   # -- Target the internal Gateway (default) or a specific HTTPRoute
   targetKind: "Gateway"
+  # -- Target Gateway/HTTPRoute name (defaults to chart's own Gateway)
+  # Set this when disabling the internal Gateway and targeting an external one.
+  targetName: ""
   # -- Response body processing mode for streaming (Streamed for SSE support)
   # Streamed mode is required for Server-Sent Events (chat/completions streaming).
   # Use "Buffered" only if streaming is not needed.

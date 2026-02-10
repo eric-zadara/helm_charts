@@ -7,3 +7,14 @@ appVersion: "1.0.0"
 annotations:
   testing/tier: "3"
   testing/prerequisites: "inference-operators,inference-infrastructure"
+
+dependencies:
+  - name: model-serving
+    version: "0.1.1"
+    repository: "https://eric-zadara.github.io/helm_charts/"
+    condition: model-serving.enabled
+
+  - name: inference-gateway
+    version: "0.1.5"
+    repository: "https://eric-zadara.github.io/helm_charts/"
+    condition: inference-gateway.enabled

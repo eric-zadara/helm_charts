@@ -30,3 +30,7 @@ dependencies:
     repository: "oci://docker.io/envoyproxy"
     alias: envoy-gateway
     condition: envoy-gateway.enabled
+  - name: gpu-operator
+    version: "v25.10.1"
+    repository: "https://helm.ngc.nvidia.com/nvidia"
+    condition: gpu-operator.enabled

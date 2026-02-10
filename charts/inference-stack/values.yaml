@@ -1,2 +1,59 @@
 # Inference stack umbrella chart
-# Dependencies will be added iteratively after manual cluster testing.
+
+# Model serving (ClusterServingRuntimes + InferenceService templates)
+model-serving:
+  enabled: true
+
+  # Example InferenceService deployments (uncomment to deploy):
+  #
+  # # vLLM GPU model (Qwen2.5-1.5B, Apache 2.0, no auth needed)
+  # inferenceService:
+  #   enabled: true
+  #   name: "qwen25-1-5b"
+  #   storageUri: "hf://Qwen/Qwen2.5-1.5B-Instruct"
+  #   gpu: 1
+  #   tensorParallelSize: 1
+  #   minReplicas: 0
+  #   maxReplicas: 3
+  #
+  # # llama.cpp CPU model (Qwen2.5-7B GGUF via S3)
+  # llamacppInferenceService:
+  #   enabled: true
+  #   name: "qwen25-7b-gguf"
+  #   storageUri: "s3://models/qwen2.5-7b-instruct-q4_k_m.gguf"
+  #   serviceAccountName: "s3-model-sa"
+  #   minReplicas: 0
+  #   maxReplicas: 3
+  #
+  # # Ollama CPU/GPU model (Qwen3-4B, pulled at runtime)
+  # ollamaInferenceService:
+  #   enabled: true
+  #   name: "qwen3-4b-ollama"
+  #   modelTag: "qwen3:4b"
+  #   gpu: 0
+  #   minReplicas: 0
+  #   maxReplicas: 3
+
+  # Enable InferencePool when deploying with inference-gateway.
+  # Requires an InferenceService to be enabled above (pool name = inferenceService.name).
+  # inferencePool:
+  #   enabled: true
+  #   targetPort: 8080
+  #   eppServicePort: 9002
+  #   failureMode: "FailClose"
+
+# Inference Gateway (KV-cache aware routing via Gateway API Inference Extension EPP)
+inference-gateway:
+  enabled: true
+  # Disable internal Gateway - use the public Gateway from inference-infrastructure instead
+  gateway:
+    enabled: false
+  # Point the EnvoyExtensionPolicy at the public Gateway from inference-infrastructure
+  # Convention: <inference-infrastructure-release-name>-gateway
+  extensionPolicy:
+    targetName: "inference-infrastructure-gateway"
+  epp:
+    # poolName must match the InferencePool name from model-serving (= inferenceService.name)
+    # Uncomment and set when enabling an InferenceService + InferencePool above:
+    # poolName: "qwen25-1-5b"
+    poolName: ""

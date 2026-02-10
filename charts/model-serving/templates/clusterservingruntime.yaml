@@ -60,10 +60,10 @@ spec:
         periodSeconds: {{ .Values.servingRuntime.readinessProbe.periodSeconds }}
         timeoutSeconds: {{ .Values.servingRuntime.readinessProbe.timeoutSeconds }}
         failureThreshold: {{ .Values.servingRuntime.readinessProbe.failureThreshold }}
-      # Liveness probe - health check
+      # Liveness probe - uses /v1/models (KServe huggingfaceserver has no /health endpoint)
       livenessProbe:
         httpGet:
-          path: /health
+          path: /v1/models
           port: 8080
         periodSeconds: {{ .Values.servingRuntime.livenessProbe.periodSeconds }}
         timeoutSeconds: {{ .Values.servingRuntime.livenessProbe.timeoutSeconds }}

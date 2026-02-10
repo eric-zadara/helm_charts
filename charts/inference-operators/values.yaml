@@ -64,3 +64,11 @@ knative-operator:
 envoy-gateway:
   # -- Enable Envoy Gateway deployment
   enabled: true
+
+# NVIDIA GPU Operator - manages GPU device plugin, runtime, monitoring
+gpu-operator:
+  # -- Enable NVIDIA GPU Operator deployment
+  enabled: true
+  # Skip driver installation (pre-installed on GPU VMs)
+  driver:
+    enabled: false
