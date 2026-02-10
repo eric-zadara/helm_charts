@@ -7,3 +7,17 @@ appVersion: "1.0.0"
 annotations:
   testing/tier: "3"
   testing/prerequisites: ""
+
+dependencies:
+  - name: kserve-crd
+    version: "v0.16.0"
+    repository: "oci://ghcr.io/kserve/charts"
+    condition: kserve-crd.enabled
+  - name: gateway-api
+    version: "0.1.0"
+    repository: "https://eric-zadara.github.io/helm_charts/"
+    condition: gateway-api.enabled
+  - name: inference-extension-crds
+    version: "0.1.0"
+    repository: "https://eric-zadara.github.io/helm_charts/"
+    condition: inference-extension-crds.enabled

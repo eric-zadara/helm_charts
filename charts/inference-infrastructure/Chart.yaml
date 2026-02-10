@@ -7,3 +7,9 @@ appVersion: "1.0.0"
 annotations:
   testing/tier: "3"
   testing/prerequisites: "inference-operators"
+
+dependencies:
+  - name: litellm-proxy
+    version: "0.2.2"
+    repository: "https://eric-zadara.github.io/helm_charts/"
+    condition: litellm-proxy.enabled

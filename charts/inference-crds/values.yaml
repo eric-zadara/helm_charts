@@ -1,2 +1,17 @@
 # Inference CRDs umbrella chart
-# Dependencies will be added iteratively after manual cluster testing.
+
+# KServe CRDs (InferenceService, ServingRuntime, ClusterServingRuntime)
+kserve-crd:
+  # -- Enable KServe CRD installation
+  enabled: true
+
+# Gateway API CRDs (HTTPRoute, Gateway, GatewayClass)
+# Disabled by default - many environments pre-install these
+gateway-api:
+  # -- Enable Gateway API CRD installation
+  enabled: false
+
+# Inference Extension CRDs (InferencePool, InferenceModel)
+inference-extension-crds:
+  # -- Enable Inference Extension CRD installation
+  enabled: true

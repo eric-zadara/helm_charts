@@ -1,2 +1,77 @@
 # Inference infrastructure umbrella chart
-# Dependencies will be added iteratively after manual cluster testing.
+
+# KnativeServing CR - reconciled by knative-operator (from inference-operators)
+knativeServing:
+  # -- Enable KnativeServing CR creation
+  enabled: true
+  namespace: "knative-serving"
+  spec:
+    version: "1.21"
+    ingress:
+      kourier:
+        enabled: true
+        # ClusterIP only - Envoy Gateway handles external traffic
+        service-type: ClusterIP
+    config:
+      network:
+        ingress-class: "kourier.ingress.networking.knative.dev"
+      autoscaler:
+        enable-scale-to-zero: "true"
+        scale-to-zero-grace-period: "30s"
+        # Extended scale-down delay to avoid thrashing on bursty LLM inference traffic
+        scale-down-delay: "300s"
+      features:
+        # Allow pods to set terminationGracePeriodSeconds for graceful model unloading
+        kubernetes.podspec-terminationGracePeriodSeconds: "Enabled"
+
+# Gateway API resources - GatewayClass, EnvoyProxy config, and public-facing Gateway
+gateway:
+  # -- Enable Gateway API resource creation
+  enabled: true
+  # GatewayClass name (referenced by HTTPRoutes across the platform)
+  className: "llm-gateway"
+  # Service configuration for the Envoy proxy
+  service:
+    # -- Service type (LoadBalancer, ClusterIP, NodePort)
+    type: LoadBalancer
+    # -- Annotations for the envoy proxy Service
+    # AWS LBC defaults to internal; explicitly set internet-facing for public access
+    annotations:
+      service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+  listeners:
+    http:
+      # -- Enable HTTP listener
+      enabled: true
+      port: 80
+    https:
+      # -- Enable HTTPS listener
+      enabled: false
+      port: 443
+      # -- Hostname for TLS (e.g. "llm.example.com"). Omit for wildcard.
+      hostname: ""
+      # -- Name of the TLS Secret (auto-created by cert-manager if enabled)
+      certificateRef: "llm-gateway-tls"
+      # cert-manager integration
+      certManager:
+        # -- Enable cert-manager annotation on Gateway for automatic certificate provisioning
+        enabled: true
+        # -- ClusterIssuer name (must exist in cluster)
+        clusterIssuer: "letsencrypt-prod"
+
+# LiteLLM API proxy (bundles internal PostgreSQL + Valkey)
+litellm-proxy:
+  # -- Enable LiteLLM proxy deployment
+  enabled: true
+  # Use internal database and cache (self-contained)
+  database:
+    internal:
+      enabled: true
+  cache:
+    internal:
+      enabled: true
+  # HTTPRoute - wire to the umbrella's Envoy Gateway
+  httpRoute:
+    enabled: true
+    gateway:
+      name: ""  # Defaults to release-name gateway
+      namespace: ""

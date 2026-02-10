@@ -1,0 +1,16 @@
+{{- if .Values.knativeServing.enabled }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.knativeServing.namespace | default "knative-serving" }}
+---
+apiVersion: operator.knative.dev/v1beta1
+kind: KnativeServing
+metadata:
+  name: knative-serving
+  namespace: {{ .Values.knativeServing.namespace | default "knative-serving" }}
+{{- with .Values.knativeServing.spec }}
+spec:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- end }}
