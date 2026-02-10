@@ -2,7 +2,7 @@ apiVersion: v2
 name: litellm-proxy
 description: "LiteLLM Proxy - Multi-tenant API gateway for LLM inference"
 type: application
-version: 0.2.2
+version: 0.2.3
 appVersion: "v1.81.3-stable"
 annotations:
   testing/tier: "2"

@@ -314,6 +314,14 @@ migrationJob:
   backoffLimit: 4
   # -- TTL after completion (seconds)
   ttlSecondsAfterFinished: 120
+  # -- Resource requirements for migration job (Prisma can be memory-hungry)
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "512Mi"
+    limits:
+      cpu: "500m"
+      memory: "1Gi"
 
 # -- Init container configuration for waiting on dependencies
 # @section -- Init Containers

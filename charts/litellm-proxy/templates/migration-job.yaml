@@ -67,10 +67,5 @@ spec:
             - name: DISABLE_SCHEMA_UPDATE
               value: "false"
           resources:
-            requests:
-              cpu: "100m"
-              memory: "256Mi"
-            limits:
-              cpu: "500m"
-              memory: "512Mi"
+            {{- toYaml .Values.migrationJob.resources | nindent 12 }}
 {{- end }}
