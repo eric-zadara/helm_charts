@@ -285,7 +285,7 @@ httpRoute:
 healthCheck:
   # -- Use separate health check app/port (recommended for production).
   # Prevents health check timeouts under heavy load.
-  separateApp: true
+  separateApp: false
   # -- Separate health check port
   separatePort: 8001
   # -- Startup probe (allows time for LiteLLM initialization)
@@ -336,10 +336,10 @@ initContainers:
 resources:
   requests:
     cpu: "500m"
-    memory: "512Mi"
+    memory: "1Gi"
   limits:
     cpu: "2000m"
-    memory: "2Gi"
+    memory: "4Gi"
 
 # -- HPA configuration
 # @section -- Resources and Scaling
