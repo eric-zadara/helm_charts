@@ -1,0 +1,778 @@
+# onyx-ai values
+# Convenience Helm chart wrapping Onyx with HA defaults
+#
+# Values under `onyx:` are passed directly to the upstream Onyx chart.
+# See: https://github.com/onyx-dot-app/onyx/blob/main/deployment/helm/charts/onyx/values.yaml
+#
+# IMPORTANT: Upstream uses aliases in Chart.yaml:
+#   - `postgresql:` (not `cloudnative-pg:`) for the CNPG cluster
+#   - `nginx:` (not `ingress-nginx:`) for the ingress controller
+# Always use the alias names when overriding subchart values.
+#
+# ------------------------------------------------------------------------------
+# BATTERIES-INCLUDED DEFAULTS (release name convention)
+# ------------------------------------------------------------------------------
+# This chart defaults all internal wiring (POSTGRES_HOST, REDIS_HOST, S3
+# endpoints, auth secrets) to assume the release name is "onyx-ai" — the
+# same as the chart name. This is the standard umbrella-chart convention:
+#
+#   helm install onyx-ai charts/onyx-ai          # works out of the box
+#   helm install onyx-ai charts/onyx-ai \
+#     --set ingress.enabled=true \
+#     --set ingress.host=onyx.lab.local           # minimal user config
+#
+# If you use a DIFFERENT release name, override the wiring values:
+#   onyx.configMap.POSTGRES_HOST, onyx.configMap.REDIS_HOST,
+#   onyx.configMap.S3_ENDPOINT_URL, onyx.auth.postgresql.existingSecret,
+#   onyx.auth.redis.existingSecret, onyx.auth.objectstorage.existingSecret
+#
+# The chart NOTES.txt will warn you when a custom release name is detected.
+
+# ------------------------------------------------------------------------------
+# Convenience Chart Values (onyx-ai specific)
+# ------------------------------------------------------------------------------
+
+# Global values accessible to all charts
+global:
+  # Variant: onyx (default), onyx-foss (explicit FOSS intent), or custom (manual image config)
+  # Note: onyx and onyx-foss use same onyxdotapp/* images; EE features require separate licensing
+  variant: "onyx"
+  # Registry prefix for air-gapped deployments (e.g., "my-registry.example.com/mirror")
+  imageRegistry: ""
+  # Pull secrets for private registries
+  imagePullSecrets: []
+  # Storage class for persistent volumes (empty = use cluster default)
+  storageClass: ""
+
+# ------------------------------------------------------------------------------
+# CNPG PostgreSQL Configuration (Phase 3)
+# ------------------------------------------------------------------------------
+# CloudNative-PG cluster for HA PostgreSQL. Requires CNPG operator pre-installed.
+# Set cnpg.enabled: false to use external PostgreSQL instead.
+
+cnpg:
+  # Enable CNPG-managed PostgreSQL (set false to use externalPostgresql)
+  enabled: true
+
+  # Cluster sizing
+  instances: 3  # 1 primary + 2 replicas (minimum 2 for HA)
+
+  # Storage configuration
+  storage:
+    size: 20Gi
+    storageClass: ""  # Empty = use global.storageClass or cluster default
+
+  # PostgreSQL resource limits
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+
+  # PgBouncer connection pooler
+  pooler:
+    enabled: true
+    instances: 2
+    # Pool mode: transaction (recommended for web apps) or session
+    poolMode: transaction
+    parameters:
+      default_pool_size: "25"
+      max_client_conn: "1000"
+
+  # Backup configuration (optional)
+  backup:
+    enabled: false
+    # Cron schedule for scheduled backups
+    schedule: "0 0 * * *"  # Daily at midnight UTC
+    # Retention policy (e.g., "7d", "30d")
+    retentionPolicy: "7d"
+    # S3 configuration for backup storage (separate from Onyx object storage)
+    s3:
+      bucket: ""
+      region: ""
+      endpoint: ""
+      # Use existingSecret for credentials (recommended)
+      # Secret must contain AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
+      existingSecret: ""
+
+# ------------------------------------------------------------------------------
+# External PostgreSQL Configuration
+# ------------------------------------------------------------------------------
+# Use when cnpg.enabled: false. Connect to existing PostgreSQL instance.
+
+externalPostgresql:
+  host: ""
+  port: 5432
+  database: "postgres"
+  # Credentials - use existingSecret (recommended) or inline values
+  existingSecret: ""  # Secret with 'username' and 'password' keys
+  # Inline credentials (only if existingSecret is empty)
+  username: ""
+  password: ""
+
+# ------------------------------------------------------------------------------
+# Redis Configuration (Phase 4 - Valkey)
+# ------------------------------------------------------------------------------
+# Redis-compatible store for Celery task queue. Three modes available:
+#   1. Default: Bitnami Valkey (standalone, Redis-compatible fork)
+#   2. HA: Spotahome Redis Operator (requires operator pre-installed)
+#   3. External: Connect to existing Redis/Valkey (AWS ElastiCache, Azure Cache, etc.)
+#
+# Priority: externalRedis.host > redis.ha.enabled > redis.enabled (default)
+
+redis:
+  # Enable Bitnami Valkey (Redis-compatible, no operator required)
+  # IMPORTANT: You MUST set this to false when using HA mode or external Redis.
+  # Helm values.yaml cannot contain template logic, so this is not auto-disabled.
+  # The chart validates that only one Redis mode is active and will fail with a
+  # clear error message if multiple modes are enabled simultaneously.
+  enabled: true
+
+  # HA mode using Spotahome Redis Operator (RedisFailover CRD)
+  # Requires: Spotahome Redis Operator pre-installed in cluster
+  # IMPORTANT: When enabling HA mode, you MUST also set:
+  #   - redis.enabled: false (in this section)
+  #   - onyx.redis.enabled: false (in onyx: section below)
+  ha:
+    enabled: false
+    # Redis instances (followers)
+    replicas: 3
+    # Sentinel instances (for failover coordination)
+    sentinels: 3
+    # Resource limits for Redis pods
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    # Resource limits for Sentinel pods
+    sentinelResources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+    # Storage configuration
+    storage:
+      # Persistence for Redis data
+      enabled: true
+      size: 2Gi
+      storageClass: ""  # Empty = use global.storageClass or cluster default
+    # Custom Redis configuration (optional)
+    customConfig: {}
+
+  # Database number for general Redis operations
+  database: 0
+
+# ------------------------------------------------------------------------------
+# External Redis Configuration
+# ------------------------------------------------------------------------------
+# Use when both redis.enabled: false AND redis.ha.enabled: false.
+# Connect to existing Redis instance (AWS ElastiCache, Azure Cache, etc.)
+
+externalRedis:
+  host: ""
+  port: 6379
+  # Credentials - use existingSecret (recommended) or inline password
+  existingSecret: ""  # Secret with 'redis_password' key
+  password: ""        # Only if existingSecret is empty
+  # Database number
+  database: 0
+  # TLS configuration
+  tls:
+    enabled: false
+    # Secret containing CA certificate (optional)
+    secretName: ""
+
+# ------------------------------------------------------------------------------
+# Object Storage Configuration (Phase 5)
+# ------------------------------------------------------------------------------
+# External S3-compatible storage for Onyx file uploads.
+# Supports AWS S3, GarageFS, MinIO, or any S3-compatible endpoint.
+# Note: Bucket must pre-exist; chart does not create buckets.
+#
+# IMPORTANT: S3 env vars are wired to pods via the env-configmap (created by
+# this chart, overriding upstream). Credentials are wired via onyx.auth.objectstorage.
+# See onyx.auth.objectstorage section below for credential configuration.
+
+objectStorage:
+  # Endpoint URL - full URL including protocol
+  # Leave empty for AWS S3 (uses default AWS endpoint)
+  # Set for self-hosted: "http://garage.storage.svc:3900" or "https://minio.example.com"
+  endpoint: ""
+
+  # Bucket name (required)
+  bucket: "onyx-file-store"
+
+  # Object key prefix (optional)
+  prefix: "onyx-files"
+
+  # AWS region - only needed for AWS S3 (optional)
+  region: ""
+
+  # Credentials - use existingSecret (recommended) or inline values
+  # Secret must contain 's3_aws_access_key_id' and 's3_aws_secret_access_key' keys
+  # IMPORTANT: Also set onyx.auth.objectstorage.existingSecret to the same value!
+  existingSecret: ""
+
+  # Inline credentials (only if existingSecret is empty)
+  # When set, creates secret: {release}-external-objectstorage
+  # IMPORTANT: Also set onyx.auth.objectstorage.existingSecret to "{release}-external-objectstorage"!
+  accessKey: ""
+  secretKey: ""
+
+  # IAM/IRSA mode - set true when using AWS IAM roles (EKS with IRSA)
+  # When true, no credentials are configured (pods use IAM role)
+  # IMPORTANT: Also set onyx.auth.objectstorage.enabled: false when using IAM!
+  useIAM: false
+
+  # TLS configuration
+  tls:
+    # Verify SSL certificates (default: true)
+    # Set false for self-signed certs on self-hosted S3 (not recommended for production)
+    verify: true
+
+# ------------------------------------------------------------------------------
+# GarageFS Built-in Object Storage (Phase 8.4)
+# ------------------------------------------------------------------------------
+# Optional built-in S3-compatible object storage for dev/testing.
+# When enabled, auto-wires S3 endpoint and credentials to Onyx pods.
+# Disabled by default - production deployments should use external S3.
+#
+# IMPORTANT: When garage.enabled is true, the objectStorage section is ignored.
+# The chart auto-generates credentials and configures the bucket automatically.
+# You do NOT need to touch objectStorage.* settings when using GarageFS.
+#
+# GarageFS provides a lightweight S3-compatible storage backend suitable for:
+# - Development and testing environments
+# - Self-hosted deployments without external S3
+# - Single-node or small cluster deployments
+#
+# For production with high durability requirements, consider external S3
+# (AWS S3, MinIO cluster, etc.) with proper backup and replication.
+
+garage:
+  # Enable built-in GarageFS object storage (batteries-included default)
+  enabled: true
+
+  # Bucket name (defaults to release-scoped name for multi-tenancy)
+  # Default: {{ .Release.Name }}-files
+  bucket: ""
+
+  # Credentials (auto-generated if not provided, persisted across upgrades)
+  # Only set these if you need specific credential values
+  accessKey: ""
+  secretKey: ""
+
+  # Replication factor (1 for single node, 2-3 for production-like durability)
+  # IMPORTANT: Must be <= number of garage replicas (deployment.replicaCount below)
+  replicationFactor: 1
+
+  # ---------------------------------------------------------------------------
+  # GarageFS Subchart Configuration (datahub-local/garage-helm)
+  # ---------------------------------------------------------------------------
+  # Values below are passed to the garage subchart.
+  # See: https://github.com/datahub-local/garage-helm
+
+  # Garage core settings (passed to garage.toml)
+  garage:
+    replicationFactor: "1"
+    dbEngine: lmdb
+    blockSize: "1048576"
+    # Secret configuration - required for garage to work
+    # If not provided, random secrets will be generated
+    secret:
+      create: true
+      rpcSecret: ""
+      adminToken: ""
+
+  # Deployment configuration
+  deployment:
+    kind: StatefulSet
+    replicaCount: 1
+    podManagementPolicy: Parallel
+
+  # Resource limits for GarageFS pods
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # Storage configuration
+  persistence:
+    enabled: true
+    meta:
+      size: 100Mi
+      storageClass: ""  # Empty = use cluster default
+    data:
+      size: 10Gi
+      storageClass: ""  # Empty = use cluster default
+
+  # Service configuration
+  service:
+    type: ClusterIP
+    ports:
+      s3Api: 3900
+      rpc: 3901
+      s3Web: 3902
+      admin: 3903
+
+  # ---------------------------------------------------------------------------
+  # Cluster configuration (post-install job: creates bucket + imports API key)
+  # ---------------------------------------------------------------------------
+  # Pre-wired for release name "onyx-ai". Override bucket name, secret name,
+  # and bucket references if using a custom release name.
+  clusterConfig:
+    enabled: true
+    buckets:
+      - name: onyx-ai-files
+    keys:
+      onyx:
+        secretName: onyx-ai-garage-credentials
+        keyId: garage_access_key_id
+        secretKey: garage_secret_access_key
+        buckets:
+          - onyx-ai-files
+
+# ------------------------------------------------------------------------------
+# Ingress Configuration (Phase 7)
+# ------------------------------------------------------------------------------
+# Expose Onyx via Kubernetes Ingress or Traefik IngressRoute.
+# Supports standard Ingress (portable) or Traefik IngressRoute CRD (advanced features).
+# Note: Upstream nginx subchart is disabled; this chart manages ingress directly.
+
+ingress:
+  # Enable ingress resources (disabled by default - users must configure)
+  enabled: false
+
+  # Type: "ingress" (standard K8s Ingress) or "ingressroute" (Traefik CRD)
+  # IngressRoute provides Traefik-native features like middleware, certResolver
+  type: ingressroute
+
+  # Hostname for the application (REQUIRED when enabled)
+  # Example: onyx.example.com
+  host: ""
+
+  # Ingress class name (for standard Ingress type)
+  # Common values: "traefik", "nginx", "haproxy"
+  className: "traefik"
+
+  # Annotations for standard Ingress (arbitrary map)
+  # Not used for IngressRoute type
+  annotations: {}
+
+  # TLS configuration
+  tls:
+    # Enable TLS termination
+    enabled: false
+    # Use existing TLS secret (from cert-manager or pre-created)
+    # Example: "onyx-tls-secret"
+    secretName: ""
+    # OR use Traefik ACME certResolver (IngressRoute only)
+    # Example: "letsencrypt-prod"
+    certResolver: ""
+    # HTTP to HTTPS redirect (when TLS enabled)
+    httpRedirect: true
+    # HSTS configuration (disabled by default per user decision)
+    hsts:
+      enabled: false
+      maxAge: 31536000
+      includeSubdomains: true
+      preload: false
+
+  # Traefik-specific configuration (applies to both types)
+  traefik:
+    # EntryPoints to listen on
+    # Default: websecure for HTTPS traffic
+    entryPoints:
+      - websecure
+    # Additional middleware references (namespace/name format)
+    # These are applied to ALL routes in addition to chart-created middleware
+    # Example: ["myns-ratelimit@kubernetescrd", "myns-compress@kubernetescrd"]
+    middlewares: []
+
+# ------------------------------------------------------------------------------
+# Onyx Subchart Values (passthrough to upstream)
+# ------------------------------------------------------------------------------
+# All values under `onyx:` are passed directly to the upstream Onyx chart.
+# Reference upstream values.yaml for full options:
+# https://github.com/onyx-dot-app/onyx/blob/main/deployment/helm/charts/onyx/values.yaml
+
+onyx:
+  # Global settings (upstream)
+  global:
+    version: "latest"
+    pullPolicy: "IfNotPresent"
+
+  # ---------------------------------------------------------------------------
+  # Components to DISABLE (replaced by our configuration in later phases)
+  # ---------------------------------------------------------------------------
+
+  # Phase 7: Replaced by Traefik ingress
+  nginx:
+    enabled: false
+
+  # Phase 5: Replaced by external S3 (GarageFS/AWS S3/etc.)
+  minio:
+    enabled: false
+
+  # ---------------------------------------------------------------------------
+  # Components to RETAIN with defaults
+  # ---------------------------------------------------------------------------
+
+  # ---------------------------------------------------------------------------
+  # Phase 3: Disable upstream CNPG operator reliance
+  # ---------------------------------------------------------------------------
+  # We use our own cnpg/cluster subchart (alias: postgresql-cluster) instead.
+  # The upstream postgresql: alias controls the CNPG operator chart, which we
+  # don't need since the operator is already installed cluster-wide.
+  postgresql:
+    enabled: false  # Disabled - using postgresql-cluster subchart instead
+
+  # Vespa search engine - required for Onyx
+  vespa:
+    enabled: true
+
+  # ---------------------------------------------------------------------------
+  # Phase 4: Redis subchart (DISABLED - using Valkey at wrapper level)
+  # ---------------------------------------------------------------------------
+  # The upstream OT Container Kit Redis subchart is disabled.
+  # Redis/Valkey is provided by the Bitnami Valkey dependency at the wrapper
+  # chart level (condition: redis.enabled). This eliminates the need for the
+  # OT Redis Operator, using a standard StatefulSet-based Valkey instead.
+  #
+  # REDIS_HOST must be set via onyx.configMap.REDIS_HOST since the upstream
+  # auto-set only fires when onyx.redis.enabled: true.
+  redis:
+    enabled: false
+
+  # ---------------------------------------------------------------------------
+  # ConfigMap overrides (injected into upstream onyx env-configmap)
+  # ---------------------------------------------------------------------------
+  # Pre-wired for release name "onyx-ai". Override if using a custom release name.
+  configMap:
+    # Next.js must bind to all interfaces for Kubernetes networking
+    HOSTNAME: "0.0.0.0"
+    POSTGRES_HOST: "onyx-ai-postgresql-cluster-rw"
+    POSTGRES_PORT: "5432"
+    REDIS_HOST: "onyx-ai-valkey-primary"
+    S3_ENDPOINT_URL: "http://onyx-ai-garage:3900"
+    S3_FILE_STORE_BUCKET_NAME: "onyx-ai-files"
+    S3_FILE_STORE_PREFIX: "onyx-files"
+    S3_VERIFY_SSL: "false"
+    AWS_REGION_NAME: "garage"
+
+  # ---------------------------------------------------------------------------
+  # Phase 5: Object Storage Credentials (auth.objectstorage passthrough)
+  # ---------------------------------------------------------------------------
+  # The upstream Onyx chart injects S3 credentials via auth.objectstorage.
+  # Configure existingSecret to point to either:
+  #   - Your pre-existing secret (same as objectStorage.existingSecret)
+  #   - The auto-generated secret: "{release}-external-objectstorage"
+  #     (created when objectStorage.accessKey is set)
+  #
+  # For IAM/IRSA mode: Set enabled: false (no credentials needed)
+  #
+  # The secret must contain keys:
+  #   - s3_aws_access_key_id
+  #   - s3_aws_secret_access_key
+  #
+  # WHY MANUAL CONFIGURATION IS REQUIRED:
+  # Helm values.yaml cannot contain template expressions - they are evaluated
+  # at render time, not in values.yaml. So existingSecret cannot be auto-computed.
+  # This is a Helm limitation, not a chart bug.
+  #
+  # IMPORTANT: This section must be kept in sync with objectStorage.* settings!
+  # Examples:
+  #
+  # 1. Using existingSecret:
+  #    objectStorage:
+  #      existingSecret: "my-s3-secret"
+  #    onyx:
+  #      auth:
+  #        objectstorage:
+  #          enabled: true
+  #          existingSecret: "my-s3-secret"  # Same as above!
+  #
+  # 2. Using inline credentials (accessKey/secretKey):
+  #    objectStorage:
+  #      accessKey: "AKIA..."
+  #      secretKey: "..."
+  #    onyx:
+  #      auth:
+  #        objectstorage:
+  #          enabled: true
+  #          existingSecret: "myrelease-onyx-ai-external-objectstorage"
+  #          # Format: {release}-{chart}-external-objectstorage
+  #
+  # 3. Using IAM/IRSA:
+  #    objectStorage:
+  #      useIAM: true
+  #    onyx:
+  #      auth:
+  #        objectstorage:
+  #          enabled: false  # No credentials needed
+  auth:
+    # ---------------------------------------------------------------------------
+    # Object Storage Credentials (auth.objectstorage passthrough)
+    # ---------------------------------------------------------------------------
+    # The upstream Onyx chart injects S3 credentials via auth.objectstorage.
+    #
+    # GARAGEFS MODE (garage.enabled: true):
+    # When GarageFS is enabled, you MUST set existingSecret to the garage credentials:
+    #   onyx.auth.objectstorage.existingSecret: "{release}-onyx-ai-garage-credentials"
+    # The chart validates this and provides the expected value in the error message.
+    #
+    # EXTERNAL S3 MODE:
+    # When using external S3, set existingSecret to match your S3 credentials:
+    #   - If using objectStorage.existingSecret: use the same secret name
+    #   - If using inline credentials: use "{release}-onyx-ai-external-objectstorage"
+    #
+    # IAM/IRSA MODE:
+    # Set enabled: false (no credentials needed for IAM role authentication)
+    #
+    # WHY MANUAL CONFIGURATION IS REQUIRED:
+    # Helm values.yaml cannot contain template expressions. The existingSecret
+    # value must be configured explicitly based on your deployment mode.
+    objectstorage:
+      # Set to false when using IAM/IRSA mode
+      enabled: true
+      # Pre-wired for GarageFS with release name "onyx-ai".
+      # Override for custom release name or external S3.
+      existingSecret: "onyx-ai-garage-credentials"
+      # Key mappings (match upstream defaults - do not change)
+      secretKeys:
+        S3_AWS_ACCESS_KEY_ID: s3_aws_access_key_id
+        S3_AWS_SECRET_ACCESS_KEY: s3_aws_secret_access_key
+
+    # ---------------------------------------------------------------------------
+    # Phase 8.2: PostgreSQL Credentials (auth.postgresql passthrough)
+    # ---------------------------------------------------------------------------
+    # The upstream Onyx chart injects PostgreSQL credentials via auth.postgresql.
+    # When using CNPG, you MUST configure existingSecret to point to the
+    # CNPG-generated app secret.
+    #
+    # CNPG creates secret: {release}-postgresql-cluster-app
+    # Example for release "prod": existingSecret: "prod-postgresql-cluster-app"
+    #
+    # WHY MANUAL CONFIGURATION IS REQUIRED:
+    # Helm values.yaml cannot contain template expressions - they are evaluated
+    # at render time, not in values.yaml. So existingSecret cannot be auto-computed.
+    #
+    # IMPORTANT: When cnpg.enabled: true, you MUST set:
+    #   onyx.auth.postgresql.existingSecret: "{release}-postgresql-cluster-app"
+    #
+    # For external PostgreSQL (cnpg.enabled: false):
+    #   - Use externalPostgresql.existingSecret for credentials, then set:
+    #     onyx.auth.postgresql.existingSecret: (same secret name)
+    #   - OR use inline credentials (externalPostgresql.username/password), then set:
+    #     onyx.auth.postgresql.existingSecret: "{release}-onyx-ai-external-postgresql"
+    postgresql:
+      enabled: true
+      # Pre-wired for CNPG with release name "onyx-ai" (superuser for alembic migrations).
+      # Override for custom release name or external PostgreSQL.
+      existingSecret: "onyx-ai-postgresql-cluster-superuser"
+      # Key mappings (match CNPG and upstream defaults - do not change)
+      secretKeys:
+        POSTGRES_USER: username
+        POSTGRES_PASSWORD: password
+
+    # ---------------------------------------------------------------------------
+    # Phase 8.2: Redis Credentials (auth.redis passthrough)
+    # ---------------------------------------------------------------------------
+    # The upstream Onyx chart injects Redis credentials via auth.redis.
+    # Configuration depends on Redis mode:
+    #
+    # 1. Default Valkey (redis.enabled: true):
+    #    - Bitnami Valkey creates secret '{release}-valkey' with key 'valkey-password'
+    #    - You MUST set: onyx.auth.redis.existingSecret: "{release}-valkey"
+    #    - secretKeys.REDIS_PASSWORD must be: valkey-password
+    #
+    # 2. HA Redis (redis.ha.enabled: true):
+    #    - Wrapper creates '{release}-onyx-ai-redis-ha' secret
+    #    - You MUST set: onyx.auth.redis.existingSecret: "{release}-onyx-ai-redis-ha"
+    #    - secretKeys.REDIS_PASSWORD must be: redis_password
+    #
+    # 3. External Redis (externalRedis.host set):
+    #    - Use externalRedis.existingSecret for credentials, then set:
+    #      onyx.auth.redis.existingSecret: (same secret name)
+    #    - OR use inline password (externalRedis.password), then set:
+    #      onyx.auth.redis.existingSecret: "{release}-onyx-ai-external-redis"
+    #    - secretKeys.REDIS_PASSWORD must be: redis_password
+    #
+    # WHY MANUAL CONFIGURATION IS REQUIRED:
+    # Helm values.yaml cannot contain template expressions.
+    redis:
+      enabled: true
+      # Pre-wired for Valkey with release name "onyx-ai".
+      # Override for custom release name, HA mode, or external Redis.
+      existingSecret: "onyx-ai-valkey"
+      # Key mappings - MUST match the secret key for your Redis mode:
+      #   Valkey (default): valkey-password
+      #   HA / External: redis_password
+      secretKeys:
+        REDIS_PASSWORD: valkey-password
+
+  # OpenSearch - optional alternative to Vespa, disabled by default upstream
+  opensearch:
+    enabled: false
+
+  # Code Interpreter - beta feature, disabled by default
+  codeInterpreter:
+    enabled: false
+
+  # Slackbot - not needed by default
+  slackbot:
+    enabled: false
+
+  # ---------------------------------------------------------------------------
+  # Phase 6: API Server HA Configuration
+  # ---------------------------------------------------------------------------
+  # API server handles REST API requests. Default: 2 replicas for HA.
+  # Resources use Guaranteed QoS (limits=requests for memory).
+  api:
+    replicaCount: 2
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+
+  # ---------------------------------------------------------------------------
+  # Phase 6: Web Server HA Configuration
+  # ---------------------------------------------------------------------------
+  # Web server handles frontend (Next.js SSR). Default: 2 replicas for HA.
+  # Resources use Guaranteed QoS (limits=requests for memory).
+  webserver:
+    replicaCount: 2
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  # ---------------------------------------------------------------------------
+  # Ingress (managed by wrapper chart in Phase 7)
+  # ---------------------------------------------------------------------------
+
+  # We manage ingress via Traefik IngressRoute in the wrapper chart
+  ingress:
+    enabled: false
+
+# ------------------------------------------------------------------------------
+# CNPG Cluster Chart Values (alias: postgresql-cluster)
+# ------------------------------------------------------------------------------
+# Passthrough to cnpg/cluster subchart. Structure matches chart expectations.
+# Only active when cnpg.enabled: true (via dependency condition).
+#
+# Key mappings from cnpg.* (our interface) to postgresql-cluster.* (chart interface):
+#   cnpg.instances             -> postgresql-cluster.cluster.instances
+#   cnpg.storage.size          -> postgresql-cluster.cluster.storage.size
+#   cnpg.storage.storageClass  -> postgresql-cluster.cluster.storage.storageClass
+#   cnpg.resources             -> postgresql-cluster.cluster.resources
+#   cnpg.pooler.enabled        -> controls whether poolers[] is populated
+#   cnpg.pooler.instances      -> postgresql-cluster.poolers[0].instances
+#   cnpg.pooler.poolMode       -> postgresql-cluster.poolers[0].poolMode
+#   cnpg.pooler.parameters     -> postgresql-cluster.poolers[0].parameters
+#   cnpg.backup.enabled        -> postgresql-cluster.backups.enabled
+
+postgresql-cluster:
+  # Cluster type and mode
+  type: postgresql
+  mode: standalone
+
+  # PostgreSQL version
+  version:
+    postgresql: "16"
+
+  # Cluster configuration
+  cluster:
+    # ArgoCD sync-wave for proper ordering (infrastructure wave)
+    # Ensures Cluster deploys after Secrets/ConfigMaps (wave -1)
+    annotations:
+      argocd.argoproj.io/sync-wave: "0"
+    instances: 3  # Matches cnpg.instances default
+    storage:
+      size: 20Gi  # Matches cnpg.storage.size default
+      storageClass: ""  # Matches cnpg.storage.storageClass default
+    resources: {}  # Override via cnpg.resources or directly
+    enableSuperuserAccess: true  # Required for Alembic migrations
+    postgresql:
+      parameters: {}
+      pg_hba: []
+
+  # PgBouncer poolers - created when cnpg.pooler.enabled: true
+  # The cnpg/cluster chart creates Pooler CRs from this list
+  poolers:
+    - name: rw
+      type: rw
+      poolMode: transaction  # Matches cnpg.pooler.poolMode default
+      instances: 2  # Matches cnpg.pooler.instances default
+      parameters:
+        default_pool_size: "25"  # Matches cnpg.pooler.parameters defaults
+        max_client_conn: "1000"
+
+  # Backups (disabled by default, configured via cnpg.backup.*)
+  backups:
+    enabled: false
+
+# ------------------------------------------------------------------------------
+# GarageFS Chart Values (alias: garage)
+# ------------------------------------------------------------------------------
+# Passthrough to datahub-local/garage-helm subchart. Only active when garage.enabled: true.
+# The wrapper chart auto-generates credentials and configures the bucket automatically.
+#
+# Subchart values are nested under garage: in the garage section above.
+# The key structure maps to datahub-local/garage-helm chart values:
+#   garage.garage.*       -> garage chart's garage.* (garage.toml config)
+#   garage.deployment.*   -> garage chart's deployment.* (StatefulSet config)
+#   garage.resources.*    -> garage chart's resources.* (pod resources)
+#   garage.persistence.*  -> garage chart's persistence.* (storage config)
+#   garage.service.*      -> garage chart's service.* (Kubernetes service config)
+#
+# See: https://github.com/datahub-local/garage-helm for full options
+
+# ------------------------------------------------------------------------------
+# Valkey Chart Values (Bitnami)
+# ------------------------------------------------------------------------------
+# Passthrough to bitnami/valkey subchart. Only active when redis.enabled: true.
+# Valkey is a Redis-compatible fork that needs no operator — just a StatefulSet.
+#
+# Service naming:
+#   - Primary: {release}-valkey-primary (port 6379)
+#   - Secret: {release}-valkey (key: valkey-password, auto-generated)
+#
+# The upstream Onyx chart does NOT deploy Redis when onyx.redis.enabled: false,
+# so REDIS_HOST must be set via onyx.configMap.REDIS_HOST passthrough.
+#
+# See: https://github.com/bitnami/charts/tree/main/bitnami/valkey
+
+valkey:
+  # Architecture: standalone (single primary) or replication (primary + replicas)
+  architecture: standalone
+  auth:
+    enabled: true
+  primary:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    persistence:
+      enabled: true
+      size: 2Gi
+      storageClass: ""  # Empty = use cluster default

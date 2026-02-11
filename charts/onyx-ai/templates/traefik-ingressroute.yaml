@@ -1,0 +1,89 @@
+{{/*
+Traefik IngressRoute for Onyx
+Routes traffic to API server (/api/*) and web server (/)
+*/}}
+{{- if and .Values.ingress.enabled (eq .Values.ingress.type "ingressroute") }}
+{{- $fullName := include "onyx-ai.fullname" . -}}
+{{- $apiService := printf "%s-api-service" .Release.Name -}}
+{{- $webService := printf "%s-webserver" .Release.Name -}}
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: {{ $fullName }}-ingress
+  labels:
+    {{- include "onyx-ai.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  entryPoints:
+    {{- toYaml .Values.ingress.traefik.entryPoints | nindent 4 }}
+  routes:
+    # API server route - more specific, must be listed first
+    - match: Host(`{{ required "ingress.host is required when ingress.enabled is true" .Values.ingress.host }}`) && PathPrefix(`/api`)
+      kind: Rule
+      middlewares:
+        - name: {{ $fullName }}-strip-api-prefix
+          namespace: {{ .Release.Namespace }}
+        {{- if .Values.ingress.tls.hsts.enabled }}
+        - name: {{ $fullName }}-security-headers
+          namespace: {{ .Release.Namespace }}
+        {{- end }}
+        {{- range .Values.ingress.traefik.middlewares }}
+        - name: {{ . }}
+        {{- end }}
+      services:
+        - name: {{ $apiService }}
+          port: 8080
+    # Web server route - catch-all, must be listed after API route
+    - match: Host(`{{ .Values.ingress.host }}`)
+      kind: Rule
+      {{- if or .Values.ingress.tls.hsts.enabled .Values.ingress.traefik.middlewares }}
+      middlewares:
+        {{- if .Values.ingress.tls.hsts.enabled }}
+        - name: {{ $fullName }}-security-headers
+          namespace: {{ .Release.Namespace }}
+        {{- end }}
+        {{- range .Values.ingress.traefik.middlewares }}
+        - name: {{ . }}
+        {{- end }}
+      {{- end }}
+      services:
+        - name: {{ $webService }}
+          port: 3000
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    {{- if .Values.ingress.tls.secretName }}
+    secretName: {{ .Values.ingress.tls.secretName }}
+    {{- else if .Values.ingress.tls.certResolver }}
+    certResolver: {{ .Values.ingress.tls.certResolver }}
+    {{- end }}
+  {{- end }}
+---
+{{/*
+HTTP to HTTPS Redirect IngressRoute
+Listens on 'web' entrypoint and redirects all traffic to HTTPS
+*/}}
+{{- if and .Values.ingress.tls.enabled .Values.ingress.tls.httpRedirect }}
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: {{ $fullName }}-ingress-http
+  labels:
+    {{- include "onyx-ai.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  entryPoints:
+    - web
+  routes:
+    - match: Host(`{{ .Values.ingress.host }}`)
+      kind: Rule
+      middlewares:
+        - name: {{ $fullName }}-redirect-https
+          namespace: {{ .Release.Namespace }}
+      services:
+        # Dummy service - redirect happens before reaching service
+        - name: {{ $webService }}
+          port: 3000
+{{- end }}
+{{- end }}

@@ -1,0 +1,89 @@
+{{/*
+Spotahome Redis Operator RedisFailover CRD
+
+This CRD creates a highly available Redis deployment with Sentinel failover.
+Created ONLY when redis.ha.enabled: true.
+
+Prerequisites:
+- Spotahome Redis Operator must be installed in the cluster
+- Operator CRDs must be present (RedisFailover)
+
+Service naming (created by operator):
+- rfs-{name}: Sentinel service (port 26379) - for Sentinel protocol
+- rfr-{name}: Redis service (port 6379) - for direct connections
+
+Note: Onyx uses direct redis:// connections, NOT Sentinel protocol.
+Therefore, our helpers point to rfr-{name} (Redis), not rfs-{name} (Sentinel).
+
+Configuration sources:
+- redis.ha.replicas: Number of Redis follower pods
+- redis.ha.sentinels: Number of Sentinel pods (minimum 3)
+- redis.ha.resources: Resources for Redis pods
+- redis.ha.sentinelResources: Resources for Sentinel pods
+- redis.ha.storage: Persistence configuration
+- redis.ha.customConfig: Additional Redis configuration
+*/}}
+{{- if .Values.redis.ha.enabled }}
+apiVersion: databases.spotahome.com/v1
+kind: RedisFailover
+metadata:
+  name: {{ include "onyx-ai.fullname" . }}-redis-ha
+  labels:
+    {{- include "onyx-ai.labels" . | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  # Sentinel configuration
+  sentinel:
+    replicas: {{ .Values.redis.ha.sentinels | default 3 }}
+    {{- with .Values.redis.ha.sentinelResources }}
+    resources:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    # Sentinel custom configuration
+    customConfig:
+      - "down-after-milliseconds 5000"
+      - "failover-timeout 10000"
+
+  # Redis configuration
+  redis:
+    replicas: {{ .Values.redis.ha.replicas | default 3 }}
+    {{- with .Values.redis.ha.resources }}
+    resources:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    # Redis custom configuration
+    customConfig:
+      # Recommended settings for Celery task queue
+      - "appendonly no"
+      - "save \"\""
+      - "maxmemory 400mb"
+      - "maxmemory-policy allkeys-lru"
+      - "timeout 0"
+      - "tcp-keepalive 300"
+      {{- range $key, $value := .Values.redis.ha.customConfig }}
+      - "{{ $key }} {{ $value }}"
+      {{- end }}
+    {{- /* Storage configuration */ -}}
+    {{- if .Values.redis.ha.storage.enabled }}
+    storage:
+      persistentVolumeClaim:
+        metadata:
+          name: {{ include "onyx-ai.fullname" . }}-redis-ha-data
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: {{ .Values.redis.ha.storage.size | default "2Gi" }}
+          {{- if .Values.redis.ha.storage.storageClass }}
+          storageClassName: {{ .Values.redis.ha.storage.storageClass }}
+          {{- else if .Values.global.storageClass }}
+          storageClassName: {{ .Values.global.storageClass }}
+          {{- end }}
+    {{- end }}
+
+  # Authentication - reference the HA secret
+  auth:
+    secretPath: {{ include "onyx-ai.fullname" . }}-redis-ha
+{{- end }}

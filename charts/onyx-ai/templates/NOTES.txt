@@ -1,0 +1,191 @@
+{{- $fullName := include "onyx-ai.fullname" . -}}
+{{- /* Run all validations (previously in onyx-env-configmap.yaml) */ -}}
+{{- include "onyx-ai.objectStorage.validate" . -}}
+{{- include "onyx-ai.redis.validate" . -}}
+{{- include "onyx-ai.postgresql.validateCredentials" . -}}
+{{- include "onyx-ai.redis.validateCredentials" . -}}
+{{- include "onyx-ai.garage.validateCredentials" . -}}
+
+╔═══════════════════════════════════════════════════════════════════╗
+║                    Onyx has been deployed!                        ║
+╚═══════════════════════════════════════════════════════════════════╝
+
+Release: {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+Chart Version: {{ .Chart.Version }}
+App Version: {{ .Chart.AppVersion }}
+Variant: {{ .Values.variant | default "onyx" }}
+{{- if not (contains "onyx-ai" .Release.Name) }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+WARNING: CUSTOM RELEASE NAME DETECTED
+======================================
+
+Your release name "{{ .Release.Name }}" does not match the chart default
+"onyx-ai". The chart defaults assume release name "onyx-ai" for all
+internal wiring (service hostnames, secret names, etc.).
+
+You MUST override the following values for correct wiring:
+
+  helm install {{ .Release.Name }} charts/onyx-ai \
+    --set onyx.configMap.POSTGRES_HOST={{ .Release.Name }}-postgresql-cluster-rw \
+    --set onyx.configMap.REDIS_HOST={{ .Release.Name }}-valkey-primary \
+    --set onyx.configMap.S3_ENDPOINT_URL=http://{{ .Release.Name }}-garage:3900 \
+    --set onyx.configMap.S3_FILE_STORE_BUCKET_NAME={{ .Release.Name }}-files \
+    --set onyx.auth.postgresql.existingSecret={{ .Release.Name }}-postgresql-cluster-superuser \
+    --set onyx.auth.redis.existingSecret={{ .Release.Name }}-valkey \
+    --set onyx.auth.objectstorage.existingSecret={{ .Release.Name }}-garage-credentials \
+    --set garage.clusterConfig.buckets[0].name={{ .Release.Name }}-files \
+    --set garage.clusterConfig.keys.onyx.secretName={{ .Release.Name }}-garage-credentials \
+    --set garage.clusterConfig.keys.onyx.buckets[0]={{ .Release.Name }}-files
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+STATUS CHECK
+============
+
+To check the status of all pods:
+
+  kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+
+To watch pods come up:
+
+  kubectl get pods -n {{ .Release.Namespace }} -w
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ACCESSING ONYX
+==============
+
+{{- if .Values.onyx.nginx.enabled }}
+
+Onyx is accessible via the nginx LoadBalancer service:
+
+  kubectl get svc -n {{ .Release.Namespace }} {{ .Release.Name }}-nginx-controller
+
+{{- else }}
+
+NOTE: The upstream nginx ingress is disabled.
+
+{{- if .Values.onyx.ingress.enabled }}
+
+Onyx is accessible via the configured ingress at:
+  {{ .Values.onyx.ingress.api.host | default "onyx.local" }}
+
+{{- else }}
+
+To access Onyx, configure an ingress controller or use port-forwarding:
+
+  # Port-forward the API server
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ .Release.Name }}-onyx-api-service 8080:8080
+
+  # Port-forward the web server
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ .Release.Name }}-onyx-webserver 3000:3000
+
+Then access the web UI at: http://localhost:3000
+
+{{- end }}
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CONFIGURATION
+=============
+
+LLM providers are configured through the Onyx admin interface after
+deployment, not via Helm values. The GEN_AI_* environment variables
+are deprecated.
+
+For more information, visit: https://docs.onyx.app/
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{{- if .Values.garage.enabled }}
+
+GARAGEFS OBJECT STORAGE
+=======================
+
+GarageFS is enabled as the built-in S3-compatible object storage backend.
+
+Endpoint: http://{{ .Release.Name }}-garage:3900
+Bucket: {{ include "onyx-ai.objectStorage.bucket" . }}
+Credentials Secret: {{ include "onyx-ai.objectStorage.secretName" . }}
+
+GarageFS is a lightweight, distributed object storage system that provides
+an S3-compatible API for storing and retrieving files. It is configured
+automatically and requires no external S3 credentials.
+
+To access GarageFS externally (for debugging):
+
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ .Release.Name }}-garage 3900:3900
+
+Then use any S3 client with:
+  Endpoint: http://localhost:3900
+  Access Key: (from secret {{ include "onyx-ai.objectStorage.secretName" . }})
+  Secret Key: (from secret {{ include "onyx-ai.objectStorage.secretName" . }})
+
+To retrieve credentials:
+
+  kubectl get secret -n {{ .Release.Namespace }} {{ include "onyx-ai.objectStorage.secretName" . }} \
+    -o jsonpath='{.data.s3_aws_access_key_id}' | base64 -d && echo
+  kubectl get secret -n {{ .Release.Namespace }} {{ include "onyx-ai.objectStorage.secretName" . }} \
+    -o jsonpath='{.data.s3_aws_secret_access_key}' | base64 -d && echo
+
+Scaling: GarageFS supports scaling from 1 to N nodes. To scale:
+
+  helm upgrade {{ .Release.Name }} {{ .Chart.Name }} --set garage.deployment.replicaCount=3
+
+GarageFS will automatically rebalance data across nodes.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{{- end }}
+{{- if and (not .Values.garage.enabled) (or .Values.objectStorage.existingSecret .Values.objectStorage.accessKey) }}
+
+OBJECT STORAGE CONFIGURATION
+============================
+{{- if .Values.objectStorage.existingSecret }}
+
+Using existing S3 credentials secret: {{ .Values.objectStorage.existingSecret }}
+{{- else if .Values.objectStorage.accessKey }}
+
+Created S3 credentials secret: {{ include "onyx-ai.fullname" . }}-external-objectstorage
+{{- end }}
+
+{{- if not .Values.objectStorage.useIAM }}
+
+IMPORTANT: S3 credentials require dual-configuration in values.yaml.
+
+WHY: Helm values.yaml cannot contain template expressions (like {{ "{{" }} include {{ "}}" }}).
+Templates are evaluated at render time, but values.yaml is parsed BEFORE rendering.
+Therefore, existingSecret cannot be auto-computed from objectStorage settings.
+
+To wire S3 credentials to Onyx pods, ensure your values include:
+
+  onyx:
+    auth:
+      objectstorage:
+        enabled: true
+{{- if .Values.objectStorage.existingSecret }}
+        existingSecret: "{{ .Values.objectStorage.existingSecret }}"
+{{- else if .Values.objectStorage.accessKey }}
+        existingSecret: "{{ include "onyx-ai.fullname" . }}-external-objectstorage"
+{{- end }}
+
+{{- if .Values.objectStorage.accessKey }}
+Example command to upgrade with correct wiring:
+
+  helm upgrade {{ .Release.Name }} {{ .Chart.Name }} \
+    --set onyx.auth.objectstorage.existingSecret="{{ include "onyx-ai.fullname" . }}-external-objectstorage" \
+    [other values...]
+{{- end }}
+{{- end }}
+
+{{- if .Values.objectStorage.useIAM }}
+
+IAM Mode: S3 credentials are not configured. Ensure pods have IAM role access.
+Set onyx.auth.objectstorage.enabled=false in your values.
+{{- end }}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{{- end }}

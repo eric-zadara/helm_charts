@@ -1,0 +1,40 @@
+apiVersion: v2
+name: onyx-ai
+description: Helm chart wrapping Onyx with HA defaults, CNPG PostgreSQL, and Traefik ingress
+type: application
+version: 0.1.0
+appVersion: "0.4.21"
+
+home: https://github.com/zadarastorage/helm-charts
+sources:
+  - https://github.com/zadarastorage/helm-charts
+  - https://github.com/onyx-dot-app/onyx
+
+maintainers:
+  - name: Zadara Storage
+    url: https://github.com/zadarastorage
+
+annotations:
+  category: AI/RAG
+  licenses: MIT
+  testing/tier: "2"
+  testing/prerequisites: "cnpg-operator"
+  testing/timeout: "25m"
+
+dependencies:
+  - name: onyx
+    version: "0.4.21"
+    repository: "https://onyx-dot-app.github.io/onyx/"
+  - name: cluster
+    version: "0.5.0"
+    repository: "https://cloudnative-pg.github.io/charts"
+    condition: cnpg.enabled
+    alias: postgresql-cluster
+  - name: garage
+    version: "0.2.1"
+    repository: "https://datahub-local.github.io/garage-helm"
+    condition: garage.enabled
+  - name: valkey
+    version: "5.1.4"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: redis.enabled

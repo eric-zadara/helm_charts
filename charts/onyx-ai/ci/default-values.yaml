@@ -1,0 +1,226 @@
+# CI test values for onyx-ai chart
+#
+# Tests the batteries-included deployment with internal CNPG cluster and Valkey.
+# Requires operators to be installed (testing/prerequisites annotation):
+#   - CNPG operator (for PostgreSQL)
+#
+# Release name in CI: "onyx-ai" (helm install "$chart_name" ...)
+#
+# This configures minimal resources for CI while still deploying real pods:
+#   - CNPG PostgreSQL: 1 instance (no pooler, smaller storage)
+#   - Valkey: 1 replica (standalone mode, no operator needed)
+#   - Object storage: GarageFS built-in (no external S3 needed)
+#   - API/Web: 1 replica each
+#   - Vespa: 1 replica with reduced resources for CI
+#   - Celery workers: 1 replica each with minimal resources
+#
+# Components omitted from CI (upstream templates guard with replicaCount > 0):
+#   - Model servers: download multi-GB ML models at startup, cannot complete
+#     within CI timeout. Upstream templates use {{- if gt (int .Values.*.replicaCount) 0 }}
+#     so setting replicaCount: 0 omits the Deployment entirely (no empty deployments).
+
+# ------------------------------------------------------------------------------
+# CNPG PostgreSQL - single instance for CI
+# ------------------------------------------------------------------------------
+cnpg:
+  enabled: true
+  instances: 1
+  storage:
+    size: 1Gi
+  pooler:
+    enabled: false  # Direct connection, simpler for CI
+  resources: {}
+
+# ------------------------------------------------------------------------------
+# Redis/Valkey - enabled for CI (Bitnami Valkey, no operator required)
+# ------------------------------------------------------------------------------
+redis:
+  enabled: true
+
+# ------------------------------------------------------------------------------
+# Object Storage - use built-in GarageFS (no external S3 needed)
+# ------------------------------------------------------------------------------
+garage:
+  enabled: true
+
+# Ingress not needed for CI
+ingress:
+  enabled: false
+
+# ------------------------------------------------------------------------------
+# CNPG Cluster subchart - minimal for CI
+# ------------------------------------------------------------------------------
+postgresql-cluster:
+  cluster:
+    instances: 1
+    storage:
+      size: 1Gi
+    resources: {}
+    enableSuperuserAccess: true
+  poolers: []
+  backups:
+    enabled: false
+
+# ------------------------------------------------------------------------------
+# Valkey subchart - minimal standalone for CI
+# ------------------------------------------------------------------------------
+valkey:
+  architecture: standalone
+  auth:
+    enabled: true
+  primary:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        memory: 256Mi
+    persistence:
+      enabled: true
+      size: 1Gi
+
+# ------------------------------------------------------------------------------
+# Onyx subchart overrides
+# ------------------------------------------------------------------------------
+onyx:
+  # ---------------------------------------------------------------------------
+  # Core components: 1 replica each with minimal resources
+  # ---------------------------------------------------------------------------
+  api:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
+      limits:
+        memory: 1Gi
+
+  webserver:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 512Mi
+
+  # ---------------------------------------------------------------------------
+  # Vespa: reduced resources for CI (upstream default is 1000m/4Gi)
+  # ---------------------------------------------------------------------------
+  vespa:
+    enabled: true
+    resources:
+      requests:
+        cpu: 200m
+        memory: 2Gi
+      limits:
+        memory: 2Gi
+    volumeClaimTemplates:
+      - metadata:
+          name: vespa-storage
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 2Gi
+
+  # ---------------------------------------------------------------------------
+  # Model servers: 1 replica each with minimal resources
+  # These download multi-GB ML models at startup, so they need extended timeout.
+  # ---------------------------------------------------------------------------
+  inferenceCapability:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
+      limits:
+        memory: 2Gi
+  indexCapability:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
+      limits:
+        memory: 2Gi
+
+  # ---------------------------------------------------------------------------
+  # Celery workers: 1 replica each with minimal resources
+  # ---------------------------------------------------------------------------
+  celery_beat:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 512Mi
+
+  celery_worker_primary:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 512Mi
+
+  celery_worker_light:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 512Mi
+
+  celery_worker_heavy:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 512Mi
+
+  celery_worker_monitoring:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 512Mi
+
+  celery_worker_docprocessing:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 512Mi
+
+  celery_worker_docfetching:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 512Mi
+
+  celery_worker_user_file_processing:
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 512Mi
+
+  # ---------------------------------------------------------------------------
+  # ConfigMap, auth, and redis overrides are NOT needed here — the chart
+  # defaults are pre-wired for release name "onyx-ai" (CI uses that name).
+  # ---------------------------------------------------------------------------

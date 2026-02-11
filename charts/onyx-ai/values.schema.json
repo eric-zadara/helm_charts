@@ -1,0 +1,654 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "onyx-ai values",
+  "description": "JSON Schema for onyx-ai Helm chart values",
+  "type": "object",
+  "required": [],
+  "additionalProperties": true,
+  "properties": {
+    "global": {
+      "type": "object",
+      "description": "Global values accessible to all charts",
+      "additionalProperties": true,
+      "properties": {
+        "variant": {
+          "type": "string",
+          "enum": ["onyx", "onyx-foss", "custom"],
+          "default": "onyx",
+          "description": "Deployment variant: onyx (default), onyx-foss (explicit FOSS), or custom (manual image config)"
+        },
+        "imageRegistry": {
+          "type": "string",
+          "default": "",
+          "description": "Optional registry prefix for air-gapped deployments (e.g., my-registry.example.com/mirror)"
+        },
+        "imagePullSecrets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" }
+            }
+          },
+          "default": [],
+          "description": "Image pull secrets for private registries"
+        },
+        "storageClass": {
+          "type": "string",
+          "default": "",
+          "description": "Storage class for persistent volumes (empty = cluster default)"
+        }
+      }
+    },
+    "cnpg": {
+      "type": "object",
+      "description": "CloudNative-PG PostgreSQL cluster configuration",
+      "additionalProperties": true,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable CNPG-managed PostgreSQL. Set false to use externalPostgresql."
+        },
+        "instances": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 3,
+          "description": "Number of PostgreSQL instances (1 primary + N-1 replicas)"
+        },
+        "storage": {
+          "type": "object",
+          "properties": {
+            "size": {
+              "type": "string",
+              "pattern": "^[0-9]+[KMGT]i$",
+              "default": "20Gi",
+              "description": "Storage size for each PostgreSQL instance"
+            },
+            "storageClass": {
+              "type": "string",
+              "default": "",
+              "description": "Storage class (empty = use global.storageClass or cluster default)"
+            }
+          }
+        },
+        "resources": {
+          "type": "object",
+          "description": "Resource requests and limits for PostgreSQL pods"
+        },
+        "pooler": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true,
+              "description": "Enable PgBouncer connection pooler"
+            },
+            "instances": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 2,
+              "description": "Number of PgBouncer pooler instances"
+            },
+            "poolMode": {
+              "type": "string",
+              "enum": ["transaction", "session", "statement"],
+              "default": "transaction",
+              "description": "PgBouncer pool mode (transaction recommended for web apps)"
+            },
+            "parameters": {
+              "type": "object",
+              "description": "PgBouncer parameters (default_pool_size, max_client_conn)"
+            }
+          }
+        },
+        "backup": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false,
+              "description": "Enable scheduled backups to S3"
+            },
+            "schedule": {
+              "type": "string",
+              "default": "0 0 * * *",
+              "description": "Cron schedule for backups"
+            },
+            "retentionPolicy": {
+              "type": "string",
+              "default": "7d",
+              "description": "Backup retention policy"
+            },
+            "s3": {
+              "type": "object",
+              "description": "S3 configuration for backup storage"
+            }
+          }
+        }
+      }
+    },
+    "externalPostgresql": {
+      "type": "object",
+      "description": "External PostgreSQL configuration (used when cnpg.enabled: false)",
+      "additionalProperties": true,
+      "properties": {
+        "host": {
+          "type": "string",
+          "default": "",
+          "description": "PostgreSQL host"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535,
+          "default": 5432,
+          "description": "PostgreSQL port"
+        },
+        "database": {
+          "type": "string",
+          "default": "postgres",
+          "description": "Database name"
+        },
+        "existingSecret": {
+          "type": "string",
+          "default": "",
+          "description": "Secret containing 'username' and 'password' keys"
+        },
+        "username": {
+          "type": "string",
+          "default": "",
+          "description": "PostgreSQL username (only if existingSecret is empty)"
+        },
+        "password": {
+          "type": "string",
+          "default": "",
+          "description": "PostgreSQL password (only if existingSecret is empty)"
+        }
+      }
+    },
+    "redis": {
+      "type": "object",
+      "description": "Wrapper-level Redis configuration (controls Valkey subchart and HA mode)",
+      "additionalProperties": true,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Bitnami Valkey (Redis-compatible). Set false when using HA or external Redis."
+        },
+        "ha": {
+          "type": "object",
+          "description": "Spotahome Redis Operator HA mode (requires operator pre-installed)",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false,
+              "description": "Enable Redis HA via Spotahome Redis Operator"
+            },
+            "replicas": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 3,
+              "description": "Number of Redis replicas"
+            },
+            "sentinels": {
+              "type": "integer",
+              "minimum": 3,
+              "default": 3,
+              "description": "Number of Sentinel instances (minimum 3 for quorum)"
+            },
+            "resources": {
+              "type": "object",
+              "description": "Resource requests and limits for Redis pods"
+            },
+            "sentinelResources": {
+              "type": "object",
+              "description": "Resource requests and limits for Sentinel pods"
+            },
+            "storage": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "default": true,
+                  "description": "Enable persistent storage for Redis"
+                },
+                "size": {
+                  "type": "string",
+                  "pattern": "^[0-9]+[KMGT]i$",
+                  "default": "2Gi",
+                  "description": "Storage size for Redis data"
+                },
+                "storageClass": {
+                  "type": "string",
+                  "default": "",
+                  "description": "Storage class (empty = use global.storageClass or cluster default)"
+                }
+              }
+            },
+            "customConfig": {
+              "type": "object",
+              "description": "Custom Redis configuration parameters"
+            }
+          }
+        },
+        "database": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 15,
+          "default": 0,
+          "description": "Redis database number (0-15)"
+        }
+      }
+    },
+    "externalRedis": {
+      "type": "object",
+      "description": "External Redis/Valkey configuration (used when redis.enabled and redis.ha.enabled are both false)",
+      "additionalProperties": true,
+      "properties": {
+        "host": {
+          "type": "string",
+          "default": "",
+          "description": "External Redis host"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535,
+          "default": 6379,
+          "description": "External Redis port"
+        },
+        "existingSecret": {
+          "type": "string",
+          "default": "",
+          "description": "Secret containing 'redis_password' key"
+        },
+        "password": {
+          "type": "string",
+          "default": "",
+          "description": "Redis password (only if existingSecret is empty)"
+        },
+        "database": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 15,
+          "default": 0,
+          "description": "Redis database number"
+        },
+        "tls": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false,
+              "description": "Enable TLS for Redis connection"
+            },
+            "secretName": {
+              "type": "string",
+              "default": "",
+              "description": "Secret containing CA certificate"
+            }
+          }
+        }
+      }
+    },
+    "objectStorage": {
+      "type": "object",
+      "description": "External S3-compatible storage configuration",
+      "additionalProperties": false,
+      "properties": {
+        "endpoint": {
+          "type": "string",
+          "default": "",
+          "description": "S3 endpoint URL with protocol (e.g., https://s3.example.com). Leave empty for AWS S3."
+        },
+        "bucket": {
+          "type": "string",
+          "default": "onyx-file-store",
+          "description": "S3 bucket name (required, must pre-exist)"
+        },
+        "prefix": {
+          "type": "string",
+          "default": "onyx-files",
+          "description": "Object key prefix within bucket"
+        },
+        "region": {
+          "type": "string",
+          "default": "",
+          "description": "AWS region (only for AWS S3, optional)"
+        },
+        "existingSecret": {
+          "type": "string",
+          "default": "",
+          "description": "Secret with 's3_aws_access_key_id' and 's3_aws_secret_access_key' keys"
+        },
+        "accessKey": {
+          "type": "string",
+          "default": "",
+          "description": "S3 access key (only if existingSecret is empty)"
+        },
+        "secretKey": {
+          "type": "string",
+          "default": "",
+          "description": "S3 secret key (only if existingSecret is empty)"
+        },
+        "useIAM": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use IAM/IRSA for authentication (no static credentials)"
+        },
+        "tls": {
+          "type": "object",
+          "properties": {
+            "verify": {
+              "type": "boolean",
+              "default": true,
+              "description": "Verify SSL certificates (set false for self-signed)"
+            }
+          }
+        }
+      }
+    },
+    "garage": {
+      "type": "object",
+      "description": "GarageFS built-in S3-compatible object storage configuration",
+      "additionalProperties": true,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable built-in GarageFS object storage (disabled by default)",
+          "default": false
+        },
+        "bucket": {
+          "type": "string",
+          "description": "Bucket name (defaults to {{ .Release.Name }}-files)"
+        },
+        "accessKey": {
+          "type": "string",
+          "description": "S3 access key (auto-generated if not provided)"
+        },
+        "secretKey": {
+          "type": "string",
+          "description": "S3 secret key (auto-generated if not provided)"
+        },
+        "replicationFactor": {
+          "type": "integer",
+          "description": "Data replication factor (1 for single node)",
+          "minimum": 1,
+          "maximum": 3,
+          "default": 1
+        },
+        "replicaCount": {
+          "type": "integer",
+          "description": "Number of GarageFS nodes",
+          "minimum": 1,
+          "default": 1
+        },
+        "resources": {
+          "type": "object",
+          "description": "Resource limits for GarageFS pods",
+          "properties": {
+            "requests": {
+              "type": "object",
+              "properties": {
+                "cpu": { "type": "string" },
+                "memory": { "type": "string" }
+              }
+            },
+            "limits": {
+              "type": "object",
+              "properties": {
+                "cpu": { "type": "string" },
+                "memory": { "type": "string" }
+              }
+            }
+          }
+        },
+        "persistence": {
+          "type": "object",
+          "description": "Storage configuration",
+          "properties": {
+            "meta": {
+              "type": "object",
+              "properties": {
+                "size": { "type": "string" },
+                "storageClass": { "type": "string" }
+              }
+            },
+            "data": {
+              "type": "object",
+              "properties": {
+                "size": { "type": "string" },
+                "storageClass": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "ingress": {
+      "type": "object",
+      "description": "Ingress configuration for exposing Onyx via Kubernetes Ingress or Traefik IngressRoute",
+      "additionalProperties": true,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable ingress resources"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["ingress", "ingressroute"],
+          "default": "ingressroute",
+          "description": "Ingress type: 'ingress' (standard K8s) or 'ingressroute' (Traefik CRD)"
+        },
+        "host": {
+          "type": "string",
+          "default": "",
+          "description": "Hostname for the application (required when enabled)"
+        },
+        "className": {
+          "type": "string",
+          "default": "traefik",
+          "description": "Ingress class name (for standard Ingress type)"
+        },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "default": {},
+          "description": "Annotations for standard Ingress"
+        },
+        "tls": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false,
+              "description": "Enable TLS termination"
+            },
+            "secretName": {
+              "type": "string",
+              "default": "",
+              "description": "TLS secret name (cert-manager or pre-created)"
+            },
+            "certResolver": {
+              "type": "string",
+              "default": "",
+              "description": "Traefik ACME certResolver name (IngressRoute only)"
+            },
+            "httpRedirect": {
+              "type": "boolean",
+              "default": true,
+              "description": "Redirect HTTP to HTTPS when TLS enabled"
+            },
+            "hsts": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "default": false,
+                  "description": "Enable HSTS headers"
+                },
+                "maxAge": {
+                  "type": "integer",
+                  "default": 31536000,
+                  "description": "HSTS max-age in seconds"
+                },
+                "includeSubdomains": {
+                  "type": "boolean",
+                  "default": true,
+                  "description": "Include subdomains in HSTS"
+                },
+                "preload": {
+                  "type": "boolean",
+                  "default": false,
+                  "description": "Enable HSTS preload"
+                }
+              }
+            }
+          }
+        },
+        "traefik": {
+          "type": "object",
+          "properties": {
+            "entryPoints": {
+              "type": "array",
+              "items": { "type": "string" },
+              "default": ["websecure"],
+              "description": "Traefik entrypoints to listen on"
+            },
+            "middlewares": {
+              "type": "array",
+              "items": { "type": "string" },
+              "default": [],
+              "description": "Additional middleware references (namespace/name@kubernetescrd format)"
+            }
+          }
+        }
+      }
+    },
+    "onyx": {
+      "type": "object",
+      "description": "Upstream Onyx chart configuration (passthrough). See https://github.com/onyx-dot-app/onyx for options.",
+      "additionalProperties": true
+    },
+    "postgresql-cluster": {
+      "type": "object",
+      "description": "Values passed to cnpg/cluster subchart (active when cnpg.enabled: true)",
+      "properties": {
+        "type": {
+          "type": "string",
+          "default": "postgresql",
+          "description": "Database type"
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["standalone", "replica", "recovery"],
+          "default": "standalone",
+          "description": "Cluster mode"
+        },
+        "version": {
+          "type": "object",
+          "properties": {
+            "postgresql": {
+              "type": "string",
+              "default": "16",
+              "description": "PostgreSQL major version"
+            }
+          }
+        },
+        "cluster": {
+          "type": "object",
+          "properties": {
+            "instances": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 3,
+              "description": "Number of PostgreSQL instances (1 primary + N-1 replicas)"
+            },
+            "storage": {
+              "type": "object",
+              "properties": {
+                "size": {
+                  "type": "string",
+                  "default": "20Gi",
+                  "description": "Storage size per instance"
+                },
+                "storageClass": {
+                  "type": "string",
+                  "default": "",
+                  "description": "Storage class (empty = cluster default)"
+                }
+              }
+            },
+            "resources": {
+              "type": "object",
+              "description": "Kubernetes resource requests/limits"
+            },
+            "enableSuperuserAccess": {
+              "type": "boolean",
+              "default": true,
+              "description": "Enable superuser access (required for migrations)"
+            },
+            "postgresql": {
+              "type": "object",
+              "properties": {
+                "parameters": {
+                  "type": "object",
+                  "description": "PostgreSQL configuration parameters"
+                },
+                "pg_hba": {
+                  "type": "array",
+                  "description": "pg_hba.conf rules"
+                }
+              }
+            }
+          }
+        },
+        "poolers": {
+          "type": "array",
+          "description": "PgBouncer pooler configurations",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Pooler name (e.g., rw, ro)"
+              },
+              "type": {
+                "type": "string",
+                "enum": ["rw", "ro"],
+                "description": "Pooler type (read-write or read-only)"
+              },
+              "poolMode": {
+                "type": "string",
+                "enum": ["transaction", "session", "statement"],
+                "description": "PgBouncer pool mode"
+              },
+              "instances": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Number of pooler instances"
+              },
+              "parameters": {
+                "type": "object",
+                "description": "PgBouncer parameters"
+              }
+            }
+          }
+        },
+        "backups": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false,
+              "description": "Enable automated backups"
+            }
+          }
+        }
+      }
+    }
+  }
+}
