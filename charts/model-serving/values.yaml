@@ -14,6 +14,10 @@ servingRuntime:
   maxModelLen: 16384
   # -- Enable vLLM prefix caching (for KV-cache optimization in chat workloads)
   enablePrefixCaching: true
+  # -- Enable automatic tool/function calling support
+  enableAutoToolChoice: true
+  # -- Tool call parser (hermes for Qwen/Hermes models, mistral for Mistral, internlm for InternLM)
+  toolCallParser: "hermes"
   # -- Resource defaults (per-InferenceService can override)
   resources:
     requests:
