@@ -11,7 +11,7 @@ annotations:
 dependencies:
   - name: model-serving
     version: "0.1.1"
-    repository: "https://eric-zadara.github.io/helm_charts/"
+    repository: "file://../model-serving"
     condition: model-serving.enabled
 
   - name: inference-gateway
