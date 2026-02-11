@@ -2,8 +2,8 @@ apiVersion: v2
 name: onyx-ai
 description: Helm chart wrapping Onyx with HA defaults, CNPG PostgreSQL, and Traefik ingress
 type: application
-version: 0.1.0
-appVersion: "0.4.21"
+version: 0.1.1
+appVersion: "0.4.27"
 
 home: https://github.com/zadarastorage/helm-charts
 sources:
@@ -23,7 +23,7 @@ annotations:
 
 dependencies:
   - name: onyx
-    version: "0.4.21"
+    version: "0.4.27"
     repository: "https://onyx-dot-app.github.io/onyx/"
   - name: cluster
     version: "0.5.0"
@@ -35,6 +35,6 @@ dependencies:
     repository: "https://datahub-local.github.io/garage-helm"
     condition: garage.enabled
   - name: valkey
-    version: "5.1.4"
+    version: "5.1.7"
     repository: "https://charts.bitnami.com/bitnami"
     condition: redis.enabled

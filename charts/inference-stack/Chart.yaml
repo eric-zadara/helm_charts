@@ -10,8 +10,8 @@ annotations:
 
 dependencies:
   - name: model-serving
-    version: "0.1.1"
-    repository: "file://../model-serving"
+    version: "0.1.2"
+    repository: "https://eric-zadara.github.io/helm_charts/"
     condition: model-serving.enabled
 
   - name: inference-gateway
