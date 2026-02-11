@@ -1,6 +1,23 @@
 # Inference infrastructure umbrella chart
+#
+# CROSS-CHART DEPENDENCY: inference-stack
+# The Gateway created by this chart is referenced by inference-stack's
+# EnvoyExtensionPolicy. The Gateway name follows the convention:
+#   <release-name>-gateway
+# If you change the release name from "inference-infrastructure", you must
+# also update inference-stack's inference-gateway.extensionPolicy.targetName.
+#
+# DEPLOYING A MODEL (requires updates to BOTH inference-infrastructure and inference-stack):
+# See inference-stack/values.yaml header for the full step-by-step guide.
+# The key step here is adding the model to litellm-proxy.litellm.modelList below.
+
+# =============================================================================
+# NETWORKING
+# =============================================================================
 
 # Gateway API resources - GatewayClass, EnvoyProxy config, and public-facing Gateway
+# This Gateway serves both LiteLLM API traffic (via HTTPRoute) and model inference
+# traffic (via EPP EnvoyExtensionPolicy from inference-stack).
 gateway:
   # -- Enable Gateway API resource creation
   enabled: true
@@ -53,34 +70,36 @@ litellm-proxy:
       namespace: ""
 
   # -- Model routing list (generates litellm config.yaml model_list)
+  #
+  # IMPORTANT: When you deploy a model via inference-stack, you must also add it here
+  # so LiteLLM knows how to route requests. See inference-stack/values.yaml for the
+  # full deployment guide.
+  #
   # Each entry maps a user-facing model name to a KServe InferenceService endpoint.
   # KServe huggingfaceserver exposes OpenAI-compatible API under /openai/v1.
   #
-  # URL pattern: http://<isvc-name>-predictor.<namespace>.svc.cluster.local/openai/v1
-  # Provider:    openai/<model-name>  (tells LiteLLM to use OpenAI-compatible protocol)
+  # URL pattern (direct to KServe):
+  #   http://<isvc-name>-predictor.<namespace>.svc.cluster.local/openai/v1
+  #
+  # URL pattern (via EPP for KV-cache aware routing):
+  #   http://<inference-stack-release>-inference-gateway-epp.<namespace>.svc.cluster.local
+  #
+  # Provider: openai/<model-name>  (tells LiteLLM to use OpenAI-compatible protocol)
+  # apiKey:   Required by OpenAI provider format; KServe has no auth, use any value.
   #
   # Examples:
-  #   # vLLM GPU model (deployed by inference-stack model-serving)
+  #   # Direct to KServe (simple, no KV-cache routing)
   #   - modelName: qwen25-1-5b
   #     litellmParams:
   #       model: openai/qwen25-1-5b
   #       apiBase: http://qwen25-1-5b-predictor.default.svc.cluster.local/openai/v1
-  #       apiKey: no-key-needed  # Required by OpenAI provider, KServe has no auth
-  #
-  #   # Multi-GPU model with rate limiting
-  #   - modelName: llama-70b
-  #     litellmParams:
-  #       model: openai/llama-70b
-  #       apiBase: http://llama-70b-predictor.default.svc.cluster.local/openai/v1
   #       apiKey: no-key-needed
-  #       rpm: 60
-  #       tpm: 100000
   #
-  #   # Route through Inference Gateway for KV-cache aware load balancing
+  #   # Via EPP for KV-cache aware load balancing (recommended for multi-replica models)
   #   - modelName: llama-70b
   #     litellmParams:
   #       model: openai/llama-70b
-  #       apiBase: http://inference-gateway-epp.default.svc.cluster.local
+  #       apiBase: http://inference-stack-inference-gateway-epp.default.svc.cluster.local
   #       apiKey: no-key-needed
   litellm:
     modelList: []

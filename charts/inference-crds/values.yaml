@@ -12,7 +12,10 @@ kserve-crd:
   enabled: true
 
 # Gateway API CRDs (HTTPRoute, Gateway, GatewayClass)
-# Disabled by default - many environments pre-install these
+# Disabled by default - many environments pre-install these (e.g. Traefik, Istio).
+# The Envoy Gateway chart (in inference-operators) also bundles Gateway API CRDs,
+# so this is only needed if Envoy Gateway is disabled or you need CRDs before operators.
+# Enable this if your cluster has NO existing Gateway API CRDs.
 gateway-api:
   # -- Enable Gateway API CRD installation
   enabled: false

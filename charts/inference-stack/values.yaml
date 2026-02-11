@@ -1,4 +1,41 @@
 # Inference stack umbrella chart
+#
+# CROSS-CHART DEPENDENCY: inference-infrastructure
+# This chart references the Gateway created by inference-infrastructure.
+# The Gateway name follows the convention: <release-name>-gateway
+# If you installed inference-infrastructure with a non-default release name,
+# you MUST update inference-gateway.extensionPolicy.targetName below to match.
+#
+# DEPLOYING A MODEL (requires updates to BOTH inference-stack and inference-infrastructure):
+#
+# Step 1: Enable an InferenceService + InferencePool + EPP in this chart:
+#   model-serving:
+#     inferenceService:
+#       enabled: true
+#       name: "qwen25-1-5b"
+#       storageUri: "hf://Qwen/Qwen2.5-1.5B-Instruct"
+#       gpu: 1
+#     inferencePool:
+#       enabled: true
+#   inference-gateway:
+#     epp:
+#       poolName: "qwen25-1-5b"  # Must match inferenceService.name
+#
+# Step 2: Add the model to LiteLLM's routing table in inference-infrastructure:
+#   litellm-proxy:
+#     litellm:
+#       modelList:
+#         - modelName: qwen25-1-5b
+#           litellmParams:
+#             model: openai/qwen25-1-5b
+#             apiBase: http://qwen25-1-5b-predictor.<namespace>.svc.cluster.local/openai/v1
+#             apiKey: no-key-needed
+#
+# Then: helm upgrade inference-stack ... && helm upgrade inference-infrastructure ...
+
+# =============================================================================
+# MODEL SERVING
+# =============================================================================
 
 # Model serving (ClusterServingRuntimes + InferenceService templates)
 model-serving:
@@ -34,26 +71,33 @@ model-serving:
   #   minReplicas: 0
   #   maxReplicas: 3
 
-  # Enable InferencePool when deploying with inference-gateway.
-  # Requires an InferenceService to be enabled above (pool name = inferenceService.name).
+  # Enable InferencePool when deploying with inference-gateway EPP routing.
+  # Pool name auto-derives from inferenceService.name.
   # inferencePool:
   #   enabled: true
   #   targetPort: 8080
   #   eppServicePort: 9002
   #   failureMode: "FailClose"
 
+# =============================================================================
+# INFERENCE GATEWAY
+# =============================================================================
+
 # Inference Gateway (KV-cache aware routing via Gateway API Inference Extension EPP)
+# Uses a single shared Gateway from inference-infrastructure rather than a separate
+# internal Gateway, avoiding double-LB routing (public LB -> cluster -> internal LB -> cluster).
 inference-gateway:
   enabled: true
-  # Disable internal Gateway - use the public Gateway from inference-infrastructure instead
+  # Disable internal Gateway - EPP attaches to the public Gateway via EnvoyExtensionPolicy
   gateway:
     enabled: false
-  # Point the EnvoyExtensionPolicy at the public Gateway from inference-infrastructure
-  # Convention: <inference-infrastructure-release-name>-gateway
+  # EnvoyExtensionPolicy targets the public Gateway from inference-infrastructure.
+  # IMPORTANT: If you installed inference-infrastructure with a different release name,
+  # update targetName to match: <your-release-name>-gateway
   extensionPolicy:
     targetName: "inference-infrastructure-gateway"
   epp:
-    # poolName must match the InferencePool name from model-serving (= inferenceService.name)
-    # Uncomment and set when enabling an InferenceService + InferencePool above:
+    # poolName must match the InferencePool name from model-serving (= inferenceService.name).
+    # Leave empty when no models are deployed - EPP resources are not created until this is set.
     # poolName: "qwen25-1-5b"
     poolName: ""

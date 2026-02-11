@@ -43,6 +43,9 @@ spec:
     - name: http
       protocol: HTTP
       port: {{ .Values.gateway.listeners.http.port }}
+      allowedRoutes:
+        namespaces:
+          from: All
 {{- end }}
 {{- if .Values.gateway.listeners.https.enabled }}
     - name: https
@@ -51,6 +54,9 @@ spec:
 {{- if .Values.gateway.listeners.https.hostname }}
       hostname: {{ .Values.gateway.listeners.https.hostname | quote }}
 {{- end }}
+      allowedRoutes:
+        namespaces:
+          from: All
       tls:
         mode: Terminate
         certificateRefs:
