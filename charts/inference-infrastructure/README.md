@@ -1,17 +1,15 @@
 # Inference Infrastructure
 
-Umbrella chart for LLM inference platform infrastructure with zero-config deployment.
+Umbrella chart that deploys LiteLLM API proxy and an Envoy Gateway for LLM inference traffic.
 
 ## What's Included
 
-| Component | Description | Default |
-|-----------|-------------|---------|
-| PostgreSQL | CNPG cluster with PgBouncer pooling | Enabled |
-| Valkey | Redis-compatible cache | Enabled |
-| Networking | Envoy Gateway + Kourier | Enabled |
-| LiteLLM | Multi-tenant API proxy | Enabled |
+| Component | Type | Description | Default |
+|-----------|------|-------------|---------|
+| LiteLLM Proxy | Subchart dependency | Multi-tenant OpenAI-compatible API proxy (bundles its own PostgreSQL via CNPG and Valkey as sub-dependencies) | Enabled |
+| Gateway API resources | Direct templates | EnvoyProxy config, GatewayClass, and Gateway for Envoy Gateway | Enabled |
 
-All components are toggleable. Disable any component and provide external endpoints.
+> **Note:** PostgreSQL (CNPG) and Valkey are **not** direct dependencies of this chart. They are bundled inside the `litellm-proxy` subchart and deployed automatically when `litellm-proxy.database.internal.enabled` and `litellm-proxy.cache.internal.enabled` are true (the defaults).
 
 ## Architecture
 
@@ -21,41 +19,51 @@ All components are toggleable. Disable any component and provide external endpoi
                           v
                 +-------------------+
                 |  Envoy Gateway    |
+                |  (GatewayClass +  |
+                |   Gateway)        |
                 +-------------------+
                           |
-          +---------------+---------------+
-          |                               |
-          v                               v
-+-------------------+           +-------------------+
-|  LiteLLM Proxy    |           |     Kourier       |
-+-------------------+           +-------------------+
-      |           |                       |
-      v           v                       v
-+-----------+  +----------+     +-------------------+
-| PostgreSQL|  |  Valkey  |     |  Knative Services |
-|  (CNPG)   |  |          |     +-------------------+
-+-----------+  +----------+
+                    HTTPRoute(s)
+                          |
+              +-----------+-----------+
+              |                       |
+              v                       v
+    +-------------------+   +-------------------+
+    |  LiteLLM Proxy    |   | Inference Models  |
+    |  (API routing)    |   | (via EPP/KServe)  |
+    +-------------------+   +-------------------+
+          |           |
+          v           v
+    +-----------+  +----------+
+    | PostgreSQL|  |  Valkey  |
+    |  (CNPG)   |  | (cache)  |
+    +-----------+  +----------+
+    [  bundled via litellm-proxy  ]
 ```
 
 ## Prerequisites
 
-- Kubernetes 1.25+
-- Helm 3.8+
-- inference-operators chart installed (provides CNPG operator + CRDs)
+This chart requires the following sibling charts to be installed first:
 
-## Zero-Config Deployment
+1. **inference-crds** -- Custom Resource Definitions for CNPG, Envoy Gateway, and Gateway API
+2. **inference-operators** -- Operators that reconcile those CRDs (CNPG operator, Envoy Gateway controller)
 
-Three commands to deploy a complete inference platform:
+The chart's CI annotation `testing/prerequisites: "inference-crds,inference-operators"` documents this ordering.
+
+## Quick Start
 
 ```bash
-# 1. Install operators (CNPG operator + CRDs)
+# 1. Install CRDs
+helm install crds ./charts/inference-crds
+
+# 2. Install operators
 helm install operators ./charts/inference-operators
 
-# 2. Install infrastructure (PostgreSQL + Valkey + Networking + LiteLLM)
+# 3. Install infrastructure (LiteLLM + Gateway)
 helm install infra ./charts/inference-infrastructure
 
-# 3. Install model serving stack
-helm install stack ./charts/inference-stack --set infrastructureReleaseName=infra
+# 4. Install model serving stack
+helm install stack ./charts/inference-stack
 ```
 
 Verify the deployment:
@@ -64,14 +72,12 @@ Verify the deployment:
 # Check all pods are running
 kubectl get pods
 
-# Check PostgreSQL cluster is ready
-kubectl get cluster
-
 # Check LiteLLM is connected
 kubectl logs -l app.kubernetes.io/name=litellm-proxy | head -20
-```
 
-LiteLLM automatically connects to the deployed PostgreSQL and Valkey using the release name convention.
+# Check Gateway is programmed
+kubectl get gateway
+```
 
 ## Service Naming Convention
 
@@ -83,54 +89,51 @@ When using release name `infra`, these services are created:
 | PostgreSQL secret | `infra-postgresql-app` | Database credentials |
 | Valkey service | `infra-valkey-primary` | Redis-compatible cache |
 | Valkey auth secret | `infra-valkey` | Cache credentials |
+| Gateway | `infra-gateway` | Envoy Gateway for external traffic |
 
 LiteLLM is pre-configured to connect to these services automatically.
 
 ## Values
 
-### Database Components
+### Gateway Configuration
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `postgresql.enabled` | bool | `true` | Deploy PostgreSQL cluster |
-| `postgresql.cluster.instances` | int | `3` | Number of PostgreSQL instances |
-| `postgresql.cluster.storage.size` | string | `50Gi` | Storage per instance |
-| `postgresql.poolers[0].instances` | int | `2` | Number of PgBouncer instances |
-| `valkey.enabled` | bool | `true` | Deploy Valkey cache |
-| `valkey.replica.replicaCount` | int | `2` | Number of Valkey replicas |
-
-### Networking Components
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `networking-layer.enabled` | bool | `true` | Deploy networking layer |
-| `networking-layer.envoy-gateway.enabled` | bool | `true` | Deploy Envoy Gateway |
-| `networking-layer.kourier.enabled` | bool | `true` | Deploy Kourier for Knative |
+| `gateway.enabled` | bool | `true` | Create Gateway API resources (EnvoyProxy, GatewayClass, Gateway) |
+| `gateway.className` | string | `"llm-gateway"` | GatewayClass name (referenced by HTTPRoutes across the platform) |
+| `gateway.service.type` | string | `"LoadBalancer"` | Envoy proxy Service type (LoadBalancer, ClusterIP, NodePort) |
+| `gateway.service.annotations` | object | AWS LBC internet-facing | Annotations for the Envoy proxy Service |
+| `gateway.listeners.http.enabled` | bool | `true` | Enable HTTP listener |
+| `gateway.listeners.http.port` | int | `80` | HTTP listener port |
+| `gateway.listeners.https.enabled` | bool | `false` | Enable HTTPS listener |
+| `gateway.listeners.https.port` | int | `443` | HTTPS listener port |
+| `gateway.listeners.https.hostname` | string | `""` | Hostname for TLS (e.g. `"llm.example.com"`). Omit for wildcard. |
+| `gateway.listeners.https.certificateRef` | string | `"llm-gateway-tls"` | Name of the TLS Secret (auto-created by cert-manager if enabled) |
+| `gateway.listeners.https.certManager.enabled` | bool | `true` | Add cert-manager annotation on Gateway for automatic certificate provisioning |
+| `gateway.listeners.https.certManager.clusterIssuer` | string | `"letsencrypt-prod"` | ClusterIssuer name (must exist in cluster) |
 
 ### LiteLLM Proxy
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | `litellm-proxy.enabled` | bool | `true` | Deploy LiteLLM proxy |
-| `litellm-proxy.database.host` | string | `infra-postgresql-pooler-rw` | PostgreSQL host |
-| `litellm-proxy.database.passwordSecretName` | string | `infra-postgresql-app` | PostgreSQL secret |
-| `litellm-proxy.cache.host` | string | `infra-valkey-primary` | Valkey host |
-| `litellm-proxy.cache.passwordSecretName` | string | `infra-valkey` | Valkey secret |
+| `litellm-proxy.database.internal.enabled` | bool | `true` | Deploy bundled PostgreSQL (CNPG) |
+| `litellm-proxy.cache.internal.enabled` | bool | `true` | Deploy bundled Valkey cache |
+| `litellm-proxy.httpRoute.enabled` | bool | `true` | Create HTTPRoute to wire LiteLLM to the Gateway |
+| `litellm-proxy.httpRoute.gateway.name` | string | `""` | Gateway name for HTTPRoute (defaults to release-name gateway) |
+| `litellm-proxy.httpRoute.gateway.namespace` | string | `""` | Gateway namespace for HTTPRoute |
+| `litellm-proxy.litellm.modelList` | list | `[]` | Model routing list (see values.yaml for format and examples) |
 
 ## Using External Databases
 
-Disable bundled databases and provide external endpoints:
+Disable the bundled databases inside litellm-proxy and provide external endpoints:
 
 ```yaml
 # values-external-db.yaml
-postgresql:
-  enabled: false
-
-valkey:
-  enabled: false
-
 litellm-proxy:
   database:
+    internal:
+      enabled: false
     host: "my-external-postgresql.database.svc.cluster.local"
     port: 5432
     name: "litellm"
@@ -138,6 +141,8 @@ litellm-proxy:
     passwordSecretName: "my-postgres-secret"
     passwordSecretKey: "password"
   cache:
+    internal:
+      enabled: false
     host: "my-external-redis.cache.svc.cluster.local"
     port: 6379
     passwordSecretName: "my-redis-secret"
@@ -148,13 +153,15 @@ litellm-proxy:
 helm install infra ./charts/inference-infrastructure -f values-external-db.yaml
 ```
 
-### External Database with Sentinel
+### External Cache with Sentinel
 
 For Redis/Valkey clusters with Sentinel:
 
 ```yaml
 litellm-proxy:
   cache:
+    internal:
+      enabled: false
     sentinel:
       enabled: true
       host: "my-sentinel.cache.svc.cluster.local"
@@ -166,55 +173,105 @@ litellm-proxy:
 
 ## Custom Release Names
 
-If using a different release name, update the LiteLLM connection settings:
+The Gateway name follows the convention `<release-name>-gateway`. This name is referenced by the `inference-stack` chart's EnvoyExtensionPolicy.
+
+If using a release name other than `infra`, update `inference-stack` accordingly:
 
 ```bash
 # Example: release name "platform" instead of "infra"
-helm install platform ./charts/inference-infrastructure \
-  --set litellm-proxy.database.host=platform-postgresql-pooler-rw \
-  --set litellm-proxy.database.passwordSecretName=platform-postgresql-app \
-  --set litellm-proxy.cache.host=platform-valkey-primary \
-  --set litellm-proxy.cache.passwordSecretName=platform-valkey
+helm install platform ./charts/inference-infrastructure
+
+# Then tell inference-stack about the gateway name
+helm install stack ./charts/inference-stack \
+  --set inference-gateway.extensionPolicy.targetName=platform-gateway
 ```
 
-## Secrets Configuration
+When using internal databases with a non-default release name, LiteLLM's bundled PostgreSQL and Valkey services will automatically use the new release name prefix -- no manual overrides are needed.
 
-LiteLLM requires master key and salt key secrets for API authentication:
+## Gateway Configuration
 
-```bash
-# Create master key secret
-kubectl create secret generic litellm-master-key \
-  --from-literal=master-key="sk-$(openssl rand -hex 16)"
+### HTTP and HTTPS Listeners
 
-# Create salt key secret
-kubectl create secret generic litellm-salt-key \
-  --from-literal=salt-key="$(openssl rand -hex 16)"
-```
+The Gateway supports HTTP, HTTPS, or both listeners simultaneously.
 
-Configure in values:
+**HTTP only (default):**
 
 ```yaml
-litellm-proxy:
-  masterKey:
-    existingSecret: "litellm-master-key"
-    existingSecretKey: "master-key"
-  saltKey:
-    existingSecret: "litellm-salt-key"
-    existingSecretKey: "salt-key"
+gateway:
+  listeners:
+    http:
+      enabled: true
+    https:
+      enabled: false
 ```
 
-## Usage with inference-stack
+**HTTPS with cert-manager:**
 
-After installing inference-infrastructure, install inference-stack:
-
-```bash
-helm install stack ./charts/inference-stack \
-  --set infrastructureReleaseName=infra
+```yaml
+gateway:
+  listeners:
+    http:
+      enabled: true   # Keep for HTTP->HTTPS redirect if desired
+    https:
+      enabled: true
+      hostname: "llm.example.com"
+      certificateRef: "llm-gateway-tls"
+      certManager:
+        enabled: true
+        clusterIssuer: "letsencrypt-prod"
 ```
 
-This allows inference-stack to discover infrastructure services.
+When `certManager.enabled` is true, the Gateway is annotated with `cert-manager.io/cluster-issuer` so cert-manager automatically provisions and manages the TLS certificate.
+
+### Service Type and Annotations
+
+Control how the Envoy proxy is exposed:
+
+```yaml
+gateway:
+  service:
+    type: LoadBalancer  # or ClusterIP, NodePort
+    annotations:
+      # AWS ALB example
+      service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+      # GCP example
+      # cloud.google.com/load-balancer-type: "External"
+```
 
 ## Troubleshooting
+
+### Gateway Not Programmed
+
+```bash
+# Check Gateway status
+kubectl get gateway
+kubectl describe gateway infra-gateway
+
+# Check GatewayClass
+kubectl get gatewayclass llm-gateway
+
+# Check Envoy Gateway controller logs
+kubectl logs -l app.kubernetes.io/name=envoy-gateway -n envoy-gateway-system
+```
+
+Common issues:
+- **GatewayClass not accepted**: Envoy Gateway controller not running. Ensure `inference-operators` was installed first.
+- **No address assigned**: Check the Envoy proxy Service and cloud load balancer provisioning.
+
+### LiteLLM Not Starting
+
+```bash
+# Check LiteLLM logs
+kubectl logs -l app.kubernetes.io/name=litellm-proxy
+
+# Check database connectivity from LiteLLM pod
+kubectl exec -it deploy/infra-litellm-proxy -- \
+  nc -zv infra-postgresql-pooler-rw 5432
+```
+
+Common issues:
+- **Connection refused**: PostgreSQL pooler not ready yet. Wait for the CNPG cluster to fully initialize.
+- **Authentication failed**: Check that secret names match between PostgreSQL and LiteLLM config.
 
 ### CNPG Cluster Not Ready
 
@@ -230,70 +287,14 @@ kubectl logs -l cnpg.io/cluster=infra-postgresql
 ```
 
 Common issues:
-- **Pending PVC**: Check storage class exists and has available capacity
-- **Operator not running**: Ensure inference-operators was installed first
-
-### PostgreSQL Pooler Connection Issues
-
-```bash
-# Check pooler pods are running
-kubectl get pods -l cnpg.io/poolerName=infra-postgresql-pooler
-
-# Check pooler logs
-kubectl logs -l cnpg.io/poolerName=infra-postgresql-pooler
-
-# Verify secret exists
-kubectl get secret infra-postgresql-app
-```
-
-### Valkey Connection Issues
-
-```bash
-# Check Valkey pods
-kubectl get pods -l app.kubernetes.io/name=valkey
-
-# Test connection
-kubectl exec -it deploy/infra-valkey-primary -- valkey-cli -a $(kubectl get secret infra-valkey -o jsonpath='{.data.valkey-password}' | base64 -d) PING
-```
-
-### LiteLLM Cannot Connect to Database
-
-```bash
-# Check LiteLLM logs
-kubectl logs -l app.kubernetes.io/name=litellm-proxy
-
-# Verify database connectivity from LiteLLM pod
-kubectl exec -it deploy/infra-litellm-proxy -- \
-  nc -zv infra-postgresql-pooler-rw 5432
-```
-
-Common issues:
-- **Connection refused**: Pooler not ready yet. Wait for cluster to be fully initialized.
-- **Authentication failed**: Check that secret names match between PostgreSQL and LiteLLM config.
-- **Database does not exist**: Migration job may have failed. Check job logs.
+- **Pending PVC**: Check that a storage class exists and has available capacity.
+- **Operator not running**: Ensure `inference-crds` and `inference-operators` were installed first.
 
 ### Service Discovery Issues
 
 Verify services exist with expected names:
 
 ```bash
-# Check database services
-kubectl get svc | grep -E "(postgresql|valkey)"
-
-# Expected output for release name "infra":
-# infra-postgresql-pooler-rw   ClusterIP   ...
-# infra-postgresql-r           ClusterIP   ...
-# infra-postgresql-ro          ClusterIP   ...
-# infra-postgresql-rw          ClusterIP   ...
-# infra-valkey-primary          ClusterIP   ...
-```
-
-### Migration Job Failed
-
-```bash
-# Check migration job status
-kubectl get jobs | grep litellm
-
-# Check migration logs
-kubectl logs job/infra-litellm-proxy-migration
+# Check infrastructure services
+kubectl get svc | grep -E "(postgresql|valkey|gateway)"
 ```
