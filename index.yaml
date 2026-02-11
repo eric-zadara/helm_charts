@@ -360,6 +360,20 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/cert-manager-clusterissuers-0.0.1/cert-manager-clusterissuers-0.0.1.tgz
     version: 0.0.1
+  cert-manager-crds:
+  - annotations:
+      testing/prerequisites: ""
+      testing/tier: "1"
+    apiVersion: v2
+    appVersion: 1.19.3
+    created: "2026-02-11T00:17:09.396067175Z"
+    description: cert-manager CRDs (Certificate, Issuer, ClusterIssuer)
+    digest: f4799a8f0914ea2d888af52541136f39e98267d70c24e324a4ca20de5c0e84ed
+    name: cert-manager-crds
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/cert-manager-crds-0.1.0/cert-manager-crds-0.1.0.tgz
+    version: 0.1.0
   convenience-ingress:
   - apiVersion: v2
     created: "2025-09-24T21:16:12.029128867Z"
@@ -474,6 +488,20 @@ entries:
     - https://github.com/eric-zadara/helm_charts/releases/download/inference-extension-crds-0.1.0/inference-extension-crds-0.1.0.tgz
     version: 0.1.0
   inference-gateway:
+  - annotations:
+      testing/prerequisites: tier1-crds
+      testing/tier: "2"
+    apiVersion: v2
+    appVersion: 1.3.0
+    created: "2026-02-11T00:17:09.396775351Z"
+    description: Inference Gateway - KV-cache aware routing via Gateway API Inference
+      Extension (EPP)
+    digest: 343bb0594b79577afd17e72986a1a42065a55780ec4d582256e1e2f3557e7f33
+    name: inference-gateway
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/inference-gateway-0.1.6/inference-gateway-0.1.6.tgz
+    version: 0.1.6
   - annotations:
       testing/prerequisites: tier1-crds
       testing/tier: "2"
@@ -677,6 +705,45 @@ entries:
     - https://github.com/eric-zadara/helm_charts/releases/download/inference-infrastructure-0.3.0/inference-infrastructure-0.3.0.tgz
     version: 0.3.0
   inference-operators:
+  - annotations:
+      testing/prerequisites: inference-crds
+      testing/tier: "3"
+    apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-02-11T00:17:09.425584798Z"
+    dependencies:
+    - condition: cert-manager.enabled
+      name: cert-manager
+      repository: oci://quay.io/jetstack/charts
+      version: v1.19.3
+    - condition: cloudnative-pg.enabled
+      name: cloudnative-pg
+      repository: oci://ghcr.io/cloudnative-pg/charts
+      version: 0.27.1
+    - condition: kserve.enabled
+      name: kserve
+      repository: oci://ghcr.io/kserve/charts
+      version: v0.16.0
+    - condition: knative-operator.enabled
+      name: knative-operator
+      repository: https://knative.github.io/operator
+      version: v1.21.0
+    - alias: envoy-gateway
+      condition: envoy-gateway.enabled
+      name: gateway-helm
+      repository: oci://docker.io/envoyproxy
+      version: v1.7.0
+    - condition: gpu-operator.enabled
+      name: gpu-operator
+      repository: https://helm.ngc.nvidia.com/nvidia
+      version: v25.10.1
+    description: Operators for LLM inference platform (CNPG, KServe, Knative Serving)
+    digest: 35a3af9f7e91d48047d86cbee0490bb137f93f3c078df0ab28cac6d38fede6d8
+    name: inference-operators
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/inference-operators-0.5.0/inference-operators-0.5.0.tgz
+    version: 0.5.0
   - annotations:
       testing/prerequisites: ""
       testing/tier: "3"
@@ -1102,6 +1169,29 @@ entries:
       testing/tier: "2"
     apiVersion: v2
     appVersion: v1.81.3-stable
+    created: "2026-02-11T00:17:09.435817204Z"
+    dependencies:
+    - alias: postgresql
+      condition: database.internal.enabled
+      name: cluster
+      repository: https://cloudnative-pg.github.io/charts
+      version: 0.5.0
+    - condition: cache.internal.enabled
+      name: valkey
+      repository: https://charts.bitnami.com/bitnami
+      version: 5.1.4
+    description: LiteLLM Proxy - Multi-tenant API gateway for LLM inference
+    digest: 1432d82dd2fa92165514f87f0fd2c300d678c01d3848e682a9071bd7b0a3f0bc
+    name: litellm-proxy
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/litellm-proxy-0.2.5/litellm-proxy-0.2.5.tgz
+    version: 0.2.5
+  - annotations:
+      testing/prerequisites: cnpg-operator
+      testing/tier: "2"
+    apiVersion: v2
+    appVersion: v1.81.3-stable
     created: "2026-02-10T06:48:46.080176079Z"
     dependencies:
     - alias: postgresql
@@ -1269,6 +1359,20 @@ entries:
     - https://github.com/eric-zadara/helm_charts/releases/download/misc-secrets-0.0.1/misc-secrets-0.0.1.tgz
     version: 0.0.1
   model-serving:
+  - annotations:
+      testing/prerequisites: tier1-crds
+      testing/tier: "2"
+    apiVersion: v2
+    appVersion: 0.16.0
+    created: "2026-02-11T00:17:09.43701744Z"
+    description: 'Multi-runtime model serving: vLLM (GPU), llama.cpp (CPU), and Ollama
+      (GPU/CPU) ServingRuntimes with InferenceService templates for LLM inference'
+    digest: a7dfd7b8ef2a6b2fe751113b7453923f3f44ba39ca36a3999aef706d2be278bf
+    name: model-serving
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/model-serving-0.1.1/model-serving-0.1.1.tgz
+    version: 0.1.1
   - apiVersion: v2
     appVersion: 0.16.0
     created: "2026-01-29T19:19:38.61422393Z"
@@ -1360,4 +1464,4 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/zadara-aws-config-0.0.1/zadara-aws-config-0.0.1.tgz
     version: 0.0.1
-generated: "2026-02-10T06:48:46.070268184Z"
+generated: "2026-02-11T00:17:09.392651142Z"
