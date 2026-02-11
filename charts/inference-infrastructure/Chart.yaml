@@ -6,7 +6,8 @@ version: 0.9.0
 appVersion: "1.0.0"
 annotations:
   testing/tier: "3"
-  testing/prerequisites: "inference-operators"
+  testing/prerequisites: "inference-crds,inference-operators"
+  testing/timeout: "15m"
 
 dependencies:
   - name: litellm-proxy

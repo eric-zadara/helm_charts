@@ -142,6 +142,7 @@ jobs:
         run: |
           helm repo add bitnami https://charts.bitnami.com/bitnami
           helm repo add cnpg https://cloudnative-pg.github.io/charts
+          helm repo add eric-zadara https://eric-zadara.github.io/helm_charts/
           helm repo update
 
       - name: Get node image
@@ -172,6 +173,25 @@ jobs:
           echo "Installing prerequisites: $prereqs"
           IFS=',' read -ra prereq_list <<< "$prereqs"
 
+          # Helper: idempotent install of a local chart prerequisite
+          install_prereq() {
+            local chart=$1 timeout=$2
+            if helm status "$chart" -n default &>/dev/null; then
+              echo "$chart already installed, skipping"
+              return 0
+            fi
+            echo "Installing $chart..."
+            helm dependency build "charts/$chart"
+            local values_args=""
+            if [[ -f "charts/$chart/ci/default-values.yaml" ]]; then
+              values_args="-f charts/$chart/ci/default-values.yaml"
+            fi
+            helm install "$chart" "charts/$chart" \
+              $values_args \
+              --namespace default \
+              --wait --timeout "$timeout"
+          }
+
           for prereq in "${prereq_list[@]}"; do
             case "$prereq" in
               tier1-crds)
@@ -201,33 +221,17 @@ jobs:
                   --namespace cnpg-system --create-namespace \
                   --wait --timeout 5m
                 ;;
+              inference-crds)
+                install_prereq inference-crds 5m
+                ;;
               inference-operators)
-                echo "Installing inference-operators (CRDs + CNPG operator)..."
-                helm repo add eric-zadara https://eric-zadara.github.io/helm_charts/ || true
-                helm repo update
-                helm dependency build charts/inference-operators
-                VALUES_ARGS=""
-                if [[ -f "charts/inference-operators/ci/default-values.yaml" ]]; then
-                  VALUES_ARGS="-f charts/inference-operators/ci/default-values.yaml"
-                fi
-                helm install inference-operators charts/inference-operators \
-                  $VALUES_ARGS \
-                  --namespace default \
-                  --wait --timeout 10m
+                install_prereq inference-crds 5m
+                install_prereq inference-operators 15m
                 ;;
               inference-infrastructure)
-                echo "Installing inference-infrastructure (PostgreSQL + Valkey + Networking + LiteLLM)..."
-                helm repo add eric-zadara https://eric-zadara.github.io/helm_charts/ || true
-                helm repo update
-                helm dependency build charts/inference-infrastructure
-                VALUES_ARGS=""
-                if [[ -f "charts/inference-infrastructure/ci/default-values.yaml" ]]; then
-                  VALUES_ARGS="-f charts/inference-infrastructure/ci/default-values.yaml"
-                fi
-                helm install inference-infrastructure charts/inference-infrastructure \
-                  $VALUES_ARGS \
-                  --namespace default \
-                  --wait --timeout 15m
+                install_prereq inference-crds 5m
+                install_prereq inference-operators 15m
+                install_prereq inference-infrastructure 15m
                 ;;
               *)
                 echo "Unknown prerequisite: $prereq"
@@ -286,6 +290,7 @@ jobs:
         run: |
           helm repo add bitnami https://charts.bitnami.com/bitnami
           helm repo add cnpg https://cloudnative-pg.github.io/charts
+          helm repo add eric-zadara https://eric-zadara.github.io/helm_charts/
           helm repo update
 
       - name: Get node image
@@ -367,6 +372,7 @@ jobs:
         run: |
           helm repo add bitnami https://charts.bitnami.com/bitnami
           helm repo add cnpg https://cloudnative-pg.github.io/charts
+          helm repo add eric-zadara https://eric-zadara.github.io/helm_charts/
           helm repo update
 
       - name: Get node image
@@ -397,6 +403,25 @@ jobs:
           echo "Installing prerequisites: $prereqs"
           IFS=',' read -ra prereq_list <<< "$prereqs"
 
+          # Helper: idempotent install of a local chart prerequisite
+          install_prereq() {
+            local chart=$1 timeout=$2
+            if helm status "$chart" -n default &>/dev/null; then
+              echo "$chart already installed, skipping"
+              return 0
+            fi
+            echo "Installing $chart..."
+            helm dependency build "charts/$chart"
+            local values_args=""
+            if [[ -f "charts/$chart/ci/default-values.yaml" ]]; then
+              values_args="-f charts/$chart/ci/default-values.yaml"
+            fi
+            helm install "$chart" "charts/$chart" \
+              $values_args \
+              --namespace default \
+              --wait --timeout "$timeout"
+          }
+
           for prereq in "${prereq_list[@]}"; do
             case "$prereq" in
               tier1-crds)
@@ -426,33 +451,17 @@ jobs:
                   --namespace cnpg-system --create-namespace \
                   --wait --timeout 5m
                 ;;
+              inference-crds)
+                install_prereq inference-crds 5m
+                ;;
               inference-operators)
-                echo "Installing inference-operators (CRDs + CNPG operator)..."
-                helm repo add eric-zadara https://eric-zadara.github.io/helm_charts/ || true
-                helm repo update
-                helm dependency build charts/inference-operators
-                VALUES_ARGS=""
-                if [[ -f "charts/inference-operators/ci/default-values.yaml" ]]; then
-                  VALUES_ARGS="-f charts/inference-operators/ci/default-values.yaml"
-                fi
-                helm install inference-operators charts/inference-operators \
-                  $VALUES_ARGS \
-                  --namespace default \
-                  --wait --timeout 10m
+                install_prereq inference-crds 5m
+                install_prereq inference-operators 15m
                 ;;
               inference-infrastructure)
-                echo "Installing inference-infrastructure (PostgreSQL + Valkey + Networking + LiteLLM)..."
-                helm repo add eric-zadara https://eric-zadara.github.io/helm_charts/ || true
-                helm repo update
-                helm dependency build charts/inference-infrastructure
-                VALUES_ARGS=""
-                if [[ -f "charts/inference-infrastructure/ci/default-values.yaml" ]]; then
-                  VALUES_ARGS="-f charts/inference-infrastructure/ci/default-values.yaml"
-                fi
-                helm install inference-infrastructure charts/inference-infrastructure \
-                  $VALUES_ARGS \
-                  --namespace default \
-                  --wait --timeout 15m
+                install_prereq inference-crds 5m
+                install_prereq inference-operators 15m
+                install_prereq inference-infrastructure 15m
                 ;;
               *)
                 echo "Unknown prerequisite: $prereq"
@@ -516,6 +525,7 @@ jobs:
         run: |
           helm repo add bitnami https://charts.bitnami.com/bitnami
           helm repo add cnpg https://cloudnative-pg.github.io/charts
+          helm repo add eric-zadara https://eric-zadara.github.io/helm_charts/
           helm repo update
 
       - name: Get node image
@@ -546,6 +556,25 @@ jobs:
           echo "Installing prerequisites: $prereqs"
           IFS=',' read -ra prereq_list <<< "$prereqs"
 
+          # Helper: idempotent install of a local chart prerequisite
+          install_prereq() {
+            local chart=$1 timeout=$2
+            if helm status "$chart" -n default &>/dev/null; then
+              echo "$chart already installed, skipping"
+              return 0
+            fi
+            echo "Installing $chart..."
+            helm dependency build "charts/$chart"
+            local values_args=""
+            if [[ -f "charts/$chart/ci/default-values.yaml" ]]; then
+              values_args="-f charts/$chart/ci/default-values.yaml"
+            fi
+            helm install "$chart" "charts/$chart" \
+              $values_args \
+              --namespace default \
+              --wait --timeout "$timeout"
+          }
+
           for prereq in "${prereq_list[@]}"; do
             case "$prereq" in
               tier1-crds)
@@ -575,33 +604,17 @@ jobs:
                   --namespace cnpg-system --create-namespace \
                   --wait --timeout 5m
                 ;;
+              inference-crds)
+                install_prereq inference-crds 5m
+                ;;
               inference-operators)
-                echo "Installing inference-operators (CRDs + CNPG operator)..."
-                helm repo add eric-zadara https://eric-zadara.github.io/helm_charts/ || true
-                helm repo update
-                helm dependency build charts/inference-operators
-                VALUES_ARGS=""
-                if [[ -f "charts/inference-operators/ci/default-values.yaml" ]]; then
-                  VALUES_ARGS="-f charts/inference-operators/ci/default-values.yaml"
-                fi
-                helm install inference-operators charts/inference-operators \
-                  $VALUES_ARGS \
-                  --namespace default \
-                  --wait --timeout 10m
+                install_prereq inference-crds 5m
+                install_prereq inference-operators 15m
                 ;;
               inference-infrastructure)
-                echo "Installing inference-infrastructure (PostgreSQL + Valkey + Networking + LiteLLM)..."
-                helm repo add eric-zadara https://eric-zadara.github.io/helm_charts/ || true
-                helm repo update
-                helm dependency build charts/inference-infrastructure
-                VALUES_ARGS=""
-                if [[ -f "charts/inference-infrastructure/ci/default-values.yaml" ]]; then
-                  VALUES_ARGS="-f charts/inference-infrastructure/ci/default-values.yaml"
-                fi
-                helm install inference-infrastructure charts/inference-infrastructure \
-                  $VALUES_ARGS \
-                  --namespace default \
-                  --wait --timeout 15m
+                install_prereq inference-crds 5m
+                install_prereq inference-operators 15m
+                install_prereq inference-infrastructure 15m
                 ;;
               *)
                 echo "Unknown prerequisite: $prereq"

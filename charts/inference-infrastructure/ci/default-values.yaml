@@ -1,3 +1,29 @@
 # CI test values for inference-infrastructure
-# Minimal overlay -- production defaults are correct for CI.
-# This file exists per chart-testing (ct) convention.
+# Tune litellm-proxy for single-node kind clusters.
+
+litellm-proxy:
+  replicaCount: 1
+  database:
+    internal:
+      instances: 1
+      storageSize: "1Gi"
+      pooler:
+        instances: 1
+  cache:
+    internal:
+      resources:
+        requests:
+          memory: 64Mi
+          cpu: 50m
+        limits:
+          memory: 128Mi
+          cpu: 250m
+  autoscaling:
+    enabled: false
+  podDisruptionBudget:
+    enabled: false
+  healthCheck:
+    separateApp: false
+    startup:
+      initialDelaySeconds: 60
+      failureThreshold: 60

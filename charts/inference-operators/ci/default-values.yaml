@@ -1,3 +1,6 @@
 # CI test values for inference-operators
-# Minimal overlay -- production defaults are correct for CI.
-# This file exists per chart-testing (ct) convention.
+# Minimal overlay on production defaults for kind clusters.
+
+# Disable GPU operator - kind clusters have no NVIDIA GPUs
+gpu-operator:
+  enabled: false

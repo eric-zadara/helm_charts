@@ -6,7 +6,7 @@ version: 0.2.0
 appVersion: "1.0.0"
 annotations:
   testing/tier: "3"
-  testing/prerequisites: "inference-operators,inference-infrastructure"
+  testing/prerequisites: "inference-crds,inference-operators,inference-infrastructure"
 
 dependencies:
   - name: model-serving
