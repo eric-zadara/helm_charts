@@ -1,4 +1,0 @@
-# CI test values for knative-serving chart
-# Prerequisites: tier1-crds (Knative Serving CRDs, Gateway API, KServe CRDs)
-# Minimal overlay -- production defaults are correct for CI.
-# CRDs are provided by knative-serving-crds (installed as tier1-crds prerequisite).

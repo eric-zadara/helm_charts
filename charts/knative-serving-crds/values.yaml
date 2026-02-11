@@ -1,7 +1,0 @@
-# -- Skip CRD installation if they already exist in the cluster
-# Set to true to skip if CRDs are already present (uses Helm lookup)
-skipIfExists: false
-
-# -- Retain CRDs on helm uninstall (prevents data loss)
-# When true, adds "helm.sh/resource-policy: keep" annotation to CRDs
-keepOnUninstall: true
