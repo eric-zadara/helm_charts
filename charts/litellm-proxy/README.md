@@ -148,7 +148,7 @@ curl http://litellm-proxy.llm-platform.svc.cluster.local:4000/health
 |-----|------|---------|-------------|
 | autoscaling | object | `{"enabled":false,"maxReplicas":10,"minReplicas":2,"targetCPUUtilizationPercentage":80,"targetMemoryUtilizationPercentage":""}` | HPA configuration |
 | podDisruptionBudget | object | `{"enabled":false,"minAvailable":1}` | PodDisruptionBudget configuration |
-| resources | object | `{"limits":{"cpu":"2000m","memory":"2Gi"},"requests":{"cpu":"500m","memory":"512Mi"}}` | Resource requirements |
+| resources | object | `{"limits":{"cpu":"2000m","memory":"4Gi"},"requests":{"cpu":"500m","memory":"1Gi"}}` | Resource requirements |
 | terminationGracePeriodSeconds | int | `90` | Termination grace period (allows in-flight requests to complete) |
 
 ### Cache Configuration
@@ -184,7 +184,7 @@ curl http://litellm-proxy.llm-platform.svc.cluster.local:4000/health
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| healthCheck | object | `{"liveness":{"failureThreshold":3,"periodSeconds":15,"timeoutSeconds":5},"readiness":{"failureThreshold":3,"periodSeconds":10,"timeoutSeconds":5},"separateApp":true,"separatePort":8001,"startup":{"failureThreshold":30,"initialDelaySeconds":30,"periodSeconds":10,"timeoutSeconds":5}}` | Health check configuration |
+| healthCheck | object | `{"liveness":{"failureThreshold":3,"periodSeconds":15,"timeoutSeconds":5},"readiness":{"failureThreshold":3,"periodSeconds":10,"timeoutSeconds":5},"separateApp":false,"separatePort":8001,"startup":{"failureThreshold":30,"initialDelaySeconds":30,"periodSeconds":10,"timeoutSeconds":5}}` | Health check configuration |
 
 ### HTTPRoute Configuration
 
@@ -283,7 +283,7 @@ curl http://litellm-proxy.llm-platform.svc.cluster.local:4000/health
 | database.internal.storageSize | string | `"10Gi"` | Storage size for PostgreSQL data |
 | healthCheck.liveness | object | `{"failureThreshold":3,"periodSeconds":15,"timeoutSeconds":5}` | Liveness probe |
 | healthCheck.readiness | object | `{"failureThreshold":3,"periodSeconds":10,"timeoutSeconds":5}` | Readiness probe |
-| healthCheck.separateApp | bool | `true` | Use separate health check app/port (recommended for production). Prevents health check timeouts under heavy load. |
+| healthCheck.separateApp | bool | `false` | Use separate health check app/port (recommended for production). Prevents health check timeouts under heavy load. |
 | healthCheck.separatePort | int | `8001` | Separate health check port |
 | healthCheck.startup | object | `{"failureThreshold":30,"initialDelaySeconds":30,"periodSeconds":10,"timeoutSeconds":5}` | Startup probe (allows time for LiteLLM initialization) |
 | httpRoute.enabled | bool | `true` | Enable HTTPRoute creation |
