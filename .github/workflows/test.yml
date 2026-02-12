@@ -14,10 +14,8 @@ jobs:
   detect-changes:
     runs-on: ubuntu-latest
     outputs:
-      tier1_charts: ${{ steps.categorize.outputs.tier1 }}
-      tier2_charts: ${{ steps.categorize.outputs.tier2 }}
-      tier3_charts: ${{ steps.categorize.outputs.tier3 }}
-      has_changes: ${{ steps.categorize.outputs.has_changes }}
+      charts: ${{ steps.detect.outputs.charts }}
+      has_changes: ${{ steps.detect.outputs.has_changes }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,91 +28,36 @@ jobs:
       - name: Set up chart-testing
         uses: helm/chart-testing-action@v2.8.0
 
-      - name: Set up yq
-        uses: mikefarah/yq@v4.45.4
-
-      - name: Categorize changed charts into tiers
-        id: categorize
+      - name: Detect changed charts
+        id: detect
         run: |
-          # Get list of changed charts using ct
           changed=$(ct list-changed --config ct.yaml 2>/dev/null || echo "")
 
           if [[ -z "$changed" ]]; then
             echo "No chart changes detected"
-            echo "tier1=[]" >> "$GITHUB_OUTPUT"
-            echo "tier2=[]" >> "$GITHUB_OUTPUT"
-            echo "tier3=[]" >> "$GITHUB_OUTPUT"
+            echo "charts=[]" >> "$GITHUB_OUTPUT"
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          echo "Changed charts detected:"
+          echo "Changed charts:"
           echo "$changed"
 
-          # Initialize tier arrays
-          tier1=()
-          tier2=()
-          tier3=()
+          # Build flat JSON array of chart names
+          charts_json=$(echo "$changed" | while IFS= read -r chart_path; do
+            basename "$chart_path"
+          done | jq -R . | jq -s -c .)
 
-          # Categorize each changed chart by reading tier from Chart.yaml annotations
-          while IFS= read -r chart_path; do
-            chart=$(basename "$chart_path")
-            chart_yaml="$chart_path/Chart.yaml"
+          [[ -z "$charts_json" || "$charts_json" == '[""]' ]] && charts_json="[]"
 
-            if [[ ! -f "$chart_yaml" ]]; then
-              echo "Warning: $chart_yaml not found, skipping"
-              continue
-            fi
-
-            # Read tier from annotations (default: 0, treated as tier 1)
-            tier=$(yq -r '.annotations["testing/tier"] // "1"' "$chart_yaml")
-
-            case "$tier" in
-              1|"1")
-                tier1+=("$chart")
-                echo "  $chart -> tier 1 (CRDs)"
-                ;;
-              2|"2")
-                tier2+=("$chart")
-                echo "  $chart -> tier 2 (Components)"
-                ;;
-              3|"3")
-                tier3+=("$chart")
-                echo "  $chart -> tier 3 (Umbrellas)"
-                ;;
-              *)
-                # Unknown tier defaults to tier 1 (no prerequisites)
-                tier1+=("$chart")
-                echo "  $chart -> tier 1 (default, unknown tier: $tier)"
-                ;;
-            esac
-          done <<< "$changed"
-
-          # Convert arrays to JSON format for matrix
-          tier1_json=$(printf '%s\n' "${tier1[@]}" | jq -R . | jq -s -c .)
-          tier2_json=$(printf '%s\n' "${tier2[@]}" | jq -R . | jq -s -c .)
-          tier3_json=$(printf '%s\n' "${tier3[@]}" | jq -R . | jq -s -c .)
-
-          # Handle empty arrays
-          [[ -z "$tier1_json" || "$tier1_json" == '[""]' ]] && tier1_json="[]"
-          [[ -z "$tier2_json" || "$tier2_json" == '[""]' ]] && tier2_json="[]"
-          [[ -z "$tier3_json" || "$tier3_json" == '[""]' ]] && tier3_json="[]"
-
-          echo ""
-          echo "Summary:"
-          echo "  Tier 1 (CRDs): $tier1_json"
-          echo "  Tier 2 (Components): $tier2_json"
-          echo "  Tier 3 (Umbrellas): $tier3_json"
-
-          echo "tier1=$tier1_json" >> "$GITHUB_OUTPUT"
-          echo "tier2=$tier2_json" >> "$GITHUB_OUTPUT"
-          echo "tier3=$tier3_json" >> "$GITHUB_OUTPUT"
+          echo "Matrix: $charts_json"
+          echo "charts=$charts_json" >> "$GITHUB_OUTPUT"
           echo "has_changes=true" >> "$GITHUB_OUTPUT"
 
-  test-tier1:
-    name: Test Tier 1 - ${{ matrix.chart }} on K8s ${{ matrix.k8s-version }}
+  test:
+    name: ${{ matrix.chart }} / K8s ${{ matrix.k8s-version }}
     needs: detect-changes
-    if: needs.detect-changes.outputs.tier1_charts != '[]' && needs.detect-changes.outputs.tier1_charts != ''
+    if: needs.detect-changes.outputs.has_changes == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -123,7 +66,7 @@ jobs:
           - "1.35.0"
           - "1.34.3"
           - "1.33.7"
-        chart: ${{ fromJSON(needs.detect-changes.outputs.tier1_charts) }}
+        chart: ${{ fromJSON(needs.detect-changes.outputs.charts) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -141,13 +84,17 @@ jobs:
           helm repo add bitnami https://charts.bitnami.com/bitnami
           helm repo add cnpg https://cloudnative-pg.github.io/charts
           helm repo add eric-zadara https://eric-zadara.github.io/helm_charts/
+          helm repo add knative https://knative.github.io/operator
+          helm repo add nvidia https://helm.ngc.nvidia.com/nvidia
+          helm repo add onyx-dot-app https://onyx-dot-app.github.io/onyx/
+          helm repo add garage https://datahub-local.github.io/garage-helm
           helm repo update
 
       - name: Create kind cluster
         uses: helm/kind-action@v1.13.0
         with:
           node_image: ${{ matrix.k8s-version == '1.35.0' && 'kindest/node:v1.35.0@sha256:452d707d4862f52530247495d180205e029056831160e22870e37e3f6c1ac31f' || matrix.k8s-version == '1.34.3' && 'kindest/node:v1.34.3@sha256:08497ee19eace7b4b5348db5c6a1591d7752b164530a36f855cb0f2bdcbadd48' || 'kindest/node:v1.33.7@sha256:d26ef333bdb2cbe9862a0f7c3803ecc7b4303d8cea8e814b481b09949d353040' }}
-          cluster_name: tier1-${{ matrix.chart }}-${{ matrix.k8s-version }}
+          cluster_name: test-${{ matrix.chart }}-${{ matrix.k8s-version }}
           wait: 300s
 
       - name: Install prerequisites
@@ -162,7 +109,33 @@ jobs:
           echo "Installing prerequisites: $prereqs"
           IFS=',' read -ra prereq_list <<< "$prereqs"
 
-          # Helper: idempotent install of a local chart prerequisite
+          # Resolve local sibling chart dependencies (CI-only).
+          # When a chart references eric-zadara repo with a version matching
+          # a local sibling chart, temporarily rewrite to file:// so
+          # helm dependency build resolves from the checkout.
+          resolve_local_deps() {
+            local chart_dir=$1
+            local chart_yaml="$chart_dir/Chart.yaml"
+            [[ ! -f "$chart_yaml" ]] && return 0
+
+            local deps
+            deps=$(yq -r '.dependencies[]? | [.name, .version, .repository] | @tsv' "$chart_yaml" 2>/dev/null) || return 0
+
+            while IFS=$'\t' read -r name version repo; do
+              [[ -z "$name" ]] && continue
+              [[ "$repo" != *"eric-zadara"* ]] && continue
+              [[ ! -f "charts/$name/Chart.yaml" ]] && continue
+
+              local local_version
+              local_version=$(yq -r '.version' "charts/$name/Chart.yaml")
+              if [[ "$version" == "$local_version" ]]; then
+                echo "  Resolving $name@$version from local checkout"
+                yq -i "(.dependencies[] | select(.name == \"$name\")).repository = \"file://../$name\"" "$chart_yaml"
+              fi
+            done <<< "$deps"
+          }
+
+          # Idempotent install of a local chart prerequisite
           install_prereq() {
             local chart=$1 timeout=$2
             if helm status "$chart" -n default &>/dev/null; then
@@ -170,7 +143,9 @@ jobs:
               return 0
             fi
             echo "Installing $chart..."
+            resolve_local_deps "charts/$chart"
             helm dependency build "charts/$chart"
+            git checkout -- "charts/$chart/Chart.yaml" 2>/dev/null || true
             local values_args=""
             if [[ -f "charts/$chart/ci/default-values.yaml" ]]; then
               values_args="-f charts/$chart/ci/default-values.yaml"
@@ -183,18 +158,6 @@ jobs:
 
           for prereq in "${prereq_list[@]}"; do
             case "$prereq" in
-              tier1-crds)
-                echo "Installing tier1 CRD charts..."
-                for crd_chart in charts/*/Chart.yaml; do
-                  tier=$(yq -r '.annotations["testing/tier"] // "0"' "$crd_chart")
-                  if [[ "$tier" == "1" ]]; then
-                    chart_name=$(dirname "$crd_chart" | xargs basename)
-                    echo "  Installing $chart_name..."
-                    helm dependency build "charts/$chart_name" 2>/dev/null || true
-                    helm install "$chart_name" "charts/$chart_name" --namespace default --wait --timeout 5m
-                  fi
-                done
-                ;;
               cert-manager)
                 echo "Installing cert-manager..."
                 helm repo add jetstack https://charts.jetstack.io
@@ -229,18 +192,36 @@ jobs:
           done
 
       - name: Build chart dependencies
-        run: helm dependency build charts/${{ matrix.chart }}
+        run: |
+          # Resolve local sibling chart dependencies (CI-only)
+          chart_yaml="charts/${{ matrix.chart }}/Chart.yaml"
+          deps=$(yq -r '.dependencies[]? | [.name, .version, .repository] | @tsv' "$chart_yaml" 2>/dev/null) || true
+
+          while IFS=$'\t' read -r name version repo; do
+            [[ -z "$name" ]] && continue
+            [[ "$repo" != *"eric-zadara"* ]] && continue
+            [[ ! -f "charts/$name/Chart.yaml" ]] && continue
+
+            local_version=$(yq -r '.version' "charts/$name/Chart.yaml")
+            if [[ "$version" == "$local_version" ]]; then
+              echo "Resolving $name@$version from local checkout"
+              yq -i "(.dependencies[] | select(.name == \"$name\")).repository = \"file://../$name\"" "$chart_yaml"
+            fi
+          done <<< "$deps"
+
+          helm dependency build "charts/${{ matrix.chart }}"
+
+          # Restore Chart.yaml after local resolution
+          git checkout -- "$chart_yaml" 2>/dev/null || true
 
       - name: Install chart
         run: |
-          # Use CI values file if it exists
           VALUES_ARGS=""
           if [[ -f "charts/${{ matrix.chart }}/ci/default-values.yaml" ]]; then
             VALUES_ARGS="-f charts/${{ matrix.chart }}/ci/default-values.yaml"
-            echo "Using CI values file: charts/${{ matrix.chart }}/ci/default-values.yaml"
+            echo "Using CI values: charts/${{ matrix.chart }}/ci/default-values.yaml"
           fi
 
-          # Per-chart timeout from annotation, default 600s
           TIMEOUT=$(yq -r '.annotations["testing/timeout"] // "600s"' "charts/${{ matrix.chart }}/Chart.yaml")
           echo "Install timeout: $TIMEOUT"
 
@@ -251,310 +232,34 @@ jobs:
             --timeout "$TIMEOUT"
 
       - name: Verify installation
+        if: always()
         run: |
-          echo "Verifying ${{ matrix.chart }} installation..."
-          kubectl get crd 2>/dev/null | head -20 || true
+          echo "=== Pods ==="
+          kubectl get pods -A
+          echo ""
+          echo "=== Resources in default namespace ==="
           kubectl get all -n default
-          echo "Verification complete"
+          echo ""
+          echo "=== CRDs ==="
+          kubectl get crd 2>/dev/null | head -30 || true
 
       - name: Run helm test
         run: |
           helm test ${{ matrix.chart }} --namespace default --timeout 300s
 
-  test-tier2:
-    name: Test Tier 2 - ${{ matrix.chart }} on K8s ${{ matrix.k8s-version }}
-    needs: [detect-changes, test-tier1]
-    if: always() && needs.detect-changes.outputs.tier2_charts != '[]' && needs.detect-changes.outputs.tier2_charts != ''
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        k8s-version:
-          - "1.35.0"
-          - "1.34.3"
-          - "1.33.7"
-        chart: ${{ fromJSON(needs.detect-changes.outputs.tier2_charts) }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set up Helm
-        uses: azure/setup-helm@v4.3.1
-
-      - name: Set up yq
-        uses: mikefarah/yq@v4.45.4
-
-      - name: Add Helm repositories
+      - name: Debug on failure
+        if: failure()
         run: |
-          helm repo add bitnami https://charts.bitnami.com/bitnami
-          helm repo add cnpg https://cloudnative-pg.github.io/charts
-          helm repo add eric-zadara https://eric-zadara.github.io/helm_charts/
-          helm repo update
-
-      - name: Create kind cluster
-        uses: helm/kind-action@v1.13.0
-        with:
-          node_image: ${{ matrix.k8s-version == '1.35.0' && 'kindest/node:v1.35.0@sha256:452d707d4862f52530247495d180205e029056831160e22870e37e3f6c1ac31f' || matrix.k8s-version == '1.34.3' && 'kindest/node:v1.34.3@sha256:08497ee19eace7b4b5348db5c6a1591d7752b164530a36f855cb0f2bdcbadd48' || 'kindest/node:v1.33.7@sha256:d26ef333bdb2cbe9862a0f7c3803ecc7b4303d8cea8e814b481b09949d353040' }}
-          cluster_name: tier2-${{ matrix.chart }}-${{ matrix.k8s-version }}
-          wait: 300s
-
-      - name: Install prerequisites
-        run: |
-          prereqs=$(yq -r '.annotations["testing/prerequisites"] // ""' "charts/${{ matrix.chart }}/Chart.yaml")
-
-          if [[ -z "$prereqs" ]]; then
-            echo "No prerequisites for ${{ matrix.chart }}"
-            exit 0
-          fi
-
-          echo "Installing prerequisites: $prereqs"
-          IFS=',' read -ra prereq_list <<< "$prereqs"
-
-          # Helper: idempotent install of a local chart prerequisite
-          install_prereq() {
-            local chart=$1 timeout=$2
-            if helm status "$chart" -n default &>/dev/null; then
-              echo "$chart already installed, skipping"
-              return 0
-            fi
-            echo "Installing $chart..."
-            helm dependency build "charts/$chart"
-            local values_args=""
-            if [[ -f "charts/$chart/ci/default-values.yaml" ]]; then
-              values_args="-f charts/$chart/ci/default-values.yaml"
-            fi
-            helm install "$chart" "charts/$chart" \
-              $values_args \
-              --namespace default \
-              --wait --timeout "$timeout"
-          }
-
-          for prereq in "${prereq_list[@]}"; do
-            case "$prereq" in
-              tier1-crds)
-                echo "Installing tier1 CRD charts..."
-                for crd_chart in charts/*/Chart.yaml; do
-                  tier=$(yq -r '.annotations["testing/tier"] // "0"' "$crd_chart")
-                  if [[ "$tier" == "1" ]]; then
-                    chart_name=$(dirname "$crd_chart" | xargs basename)
-                    echo "  Installing $chart_name..."
-                    helm dependency build "charts/$chart_name" 2>/dev/null || true
-                    helm install "$chart_name" "charts/$chart_name" --namespace default --wait --timeout 5m
-                  fi
-                done
-                ;;
-              cert-manager)
-                echo "Installing cert-manager..."
-                helm repo add jetstack https://charts.jetstack.io
-                helm repo update
-                helm install cert-manager jetstack/cert-manager \
-                  --namespace cert-manager --create-namespace \
-                  --set crds.enabled=true \
-                  --wait --timeout 5m
-                ;;
-              cnpg-operator)
-                echo "Installing CNPG operator..."
-                helm install cnpg cnpg/cloudnative-pg \
-                  --namespace cnpg-system --create-namespace \
-                  --wait --timeout 5m
-                ;;
-              inference-crds)
-                install_prereq inference-crds 5m
-                ;;
-              inference-operators)
-                install_prereq inference-crds 5m
-                install_prereq inference-operators 15m
-                ;;
-              inference-infrastructure)
-                install_prereq inference-crds 5m
-                install_prereq inference-operators 15m
-                install_prereq inference-infrastructure 15m
-                ;;
-              *)
-                echo "Unknown prerequisite: $prereq"
-                ;;
-            esac
+          echo "=== Failed/Pending pods ==="
+          kubectl get pods -A | grep -v Running | grep -v Completed || true
+          echo ""
+          echo "=== Pod describe for non-running pods ==="
+          for pod in $(kubectl get pods -A -o jsonpath='{range .items[?(@.status.phase!="Running")]}{.metadata.namespace}/{.metadata.name}{"\n"}{end}' 2>/dev/null); do
+            ns="${pod%%/*}"
+            name="${pod##*/}"
+            echo "--- $ns/$name ---"
+            kubectl describe pod "$name" -n "$ns" 2>/dev/null | tail -30
+            echo ""
           done
-
-      - name: Build chart dependencies
-        run: helm dependency build charts/${{ matrix.chart }}
-
-      - name: Install chart
-        run: |
-          # Use CI values file if it exists
-          VALUES_ARGS=""
-          if [[ -f "charts/${{ matrix.chart }}/ci/default-values.yaml" ]]; then
-            VALUES_ARGS="-f charts/${{ matrix.chart }}/ci/default-values.yaml"
-            echo "Using CI values file: charts/${{ matrix.chart }}/ci/default-values.yaml"
-          fi
-
-          # Per-chart timeout from annotation, default 600s
-          TIMEOUT=$(yq -r '.annotations["testing/timeout"] // "600s"' "charts/${{ matrix.chart }}/Chart.yaml")
-          echo "Install timeout: $TIMEOUT"
-
-          helm install ${{ matrix.chart }} charts/${{ matrix.chart }} \
-            $VALUES_ARGS \
-            --namespace default \
-            --wait \
-            --timeout "$TIMEOUT"
-
-      - name: Verify installation
-        run: |
-          echo "Verifying ${{ matrix.chart }} installation..."
-          kubectl get all -n default
-          echo "Verification complete"
-
-      - name: Run helm test
-        run: |
-          helm test ${{ matrix.chart }} --namespace default --timeout 300s
-
-  test-tier3:
-    name: Test Tier 3 - ${{ matrix.chart }} on K8s ${{ matrix.k8s-version }}
-    needs: [detect-changes, test-tier2]
-    if: always() && needs.detect-changes.outputs.tier3_charts != '[]' && needs.detect-changes.outputs.tier3_charts != ''
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        k8s-version:
-          - "1.35.0"
-          - "1.34.3"
-          - "1.33.7"
-        chart: ${{ fromJSON(needs.detect-changes.outputs.tier3_charts) }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set up Helm
-        uses: azure/setup-helm@v4.3.1
-
-      - name: Set up yq
-        uses: mikefarah/yq@v4.45.4
-
-      - name: Add Helm repositories
-        run: |
-          helm repo add bitnami https://charts.bitnami.com/bitnami
-          helm repo add cnpg https://cloudnative-pg.github.io/charts
-          helm repo add eric-zadara https://eric-zadara.github.io/helm_charts/
-          helm repo update
-
-      - name: Create kind cluster
-        uses: helm/kind-action@v1.13.0
-        with:
-          node_image: ${{ matrix.k8s-version == '1.35.0' && 'kindest/node:v1.35.0@sha256:452d707d4862f52530247495d180205e029056831160e22870e37e3f6c1ac31f' || matrix.k8s-version == '1.34.3' && 'kindest/node:v1.34.3@sha256:08497ee19eace7b4b5348db5c6a1591d7752b164530a36f855cb0f2bdcbadd48' || 'kindest/node:v1.33.7@sha256:d26ef333bdb2cbe9862a0f7c3803ecc7b4303d8cea8e814b481b09949d353040' }}
-          cluster_name: tier3-${{ matrix.chart }}-${{ matrix.k8s-version }}
-          wait: 300s
-
-      - name: Install prerequisites
-        run: |
-          prereqs=$(yq -r '.annotations["testing/prerequisites"] // ""' "charts/${{ matrix.chart }}/Chart.yaml")
-
-          if [[ -z "$prereqs" ]]; then
-            echo "No prerequisites for ${{ matrix.chart }}"
-            exit 0
-          fi
-
-          echo "Installing prerequisites: $prereqs"
-          IFS=',' read -ra prereq_list <<< "$prereqs"
-
-          # Helper: idempotent install of a local chart prerequisite
-          install_prereq() {
-            local chart=$1 timeout=$2
-            if helm status "$chart" -n default &>/dev/null; then
-              echo "$chart already installed, skipping"
-              return 0
-            fi
-            echo "Installing $chart..."
-            helm dependency build "charts/$chart"
-            local values_args=""
-            if [[ -f "charts/$chart/ci/default-values.yaml" ]]; then
-              values_args="-f charts/$chart/ci/default-values.yaml"
-            fi
-            helm install "$chart" "charts/$chart" \
-              $values_args \
-              --namespace default \
-              --wait --timeout "$timeout"
-          }
-
-          for prereq in "${prereq_list[@]}"; do
-            case "$prereq" in
-              tier1-crds)
-                echo "Installing tier1 CRD charts..."
-                for crd_chart in charts/*/Chart.yaml; do
-                  tier=$(yq -r '.annotations["testing/tier"] // "0"' "$crd_chart")
-                  if [[ "$tier" == "1" ]]; then
-                    chart_name=$(dirname "$crd_chart" | xargs basename)
-                    echo "  Installing $chart_name..."
-                    helm dependency build "charts/$chart_name" 2>/dev/null || true
-                    helm install "$chart_name" "charts/$chart_name" --namespace default --wait --timeout 5m
-                  fi
-                done
-                ;;
-              cert-manager)
-                echo "Installing cert-manager..."
-                helm repo add jetstack https://charts.jetstack.io
-                helm repo update
-                helm install cert-manager jetstack/cert-manager \
-                  --namespace cert-manager --create-namespace \
-                  --set crds.enabled=true \
-                  --wait --timeout 5m
-                ;;
-              cnpg-operator)
-                echo "Installing CNPG operator..."
-                helm install cnpg cnpg/cloudnative-pg \
-                  --namespace cnpg-system --create-namespace \
-                  --wait --timeout 5m
-                ;;
-              inference-crds)
-                install_prereq inference-crds 5m
-                ;;
-              inference-operators)
-                install_prereq inference-crds 5m
-                install_prereq inference-operators 15m
-                ;;
-              inference-infrastructure)
-                install_prereq inference-crds 5m
-                install_prereq inference-operators 15m
-                install_prereq inference-infrastructure 15m
-                ;;
-              *)
-                echo "Unknown prerequisite: $prereq"
-                ;;
-            esac
-          done
-
-      - name: Build chart dependencies
-        run: helm dependency build charts/${{ matrix.chart }}
-
-      - name: Install chart
-        run: |
-          # Use CI values file if it exists
-          VALUES_ARGS=""
-          if [[ -f "charts/${{ matrix.chart }}/ci/default-values.yaml" ]]; then
-            VALUES_ARGS="-f charts/${{ matrix.chart }}/ci/default-values.yaml"
-            echo "Using CI values file: charts/${{ matrix.chart }}/ci/default-values.yaml"
-          fi
-
-          # Per-chart timeout from annotation, default 600s
-          TIMEOUT=$(yq -r '.annotations["testing/timeout"] // "600s"' "charts/${{ matrix.chart }}/Chart.yaml")
-          echo "Install timeout: $TIMEOUT"
-
-          helm install ${{ matrix.chart }} charts/${{ matrix.chart }} \
-            $VALUES_ARGS \
-            --namespace default \
-            --wait \
-            --timeout "$TIMEOUT"
-
-      - name: Verify installation
-        run: |
-          echo "Verifying ${{ matrix.chart }} installation..."
-          kubectl get all -n default
-          echo "Verification complete"
-
-      - name: Run helm test
-        run: |
-          helm test ${{ matrix.chart }} --namespace default --timeout 300s
+          echo "=== Recent events ==="
+          kubectl get events -A --sort-by='.lastTimestamp' 2>/dev/null | tail -40

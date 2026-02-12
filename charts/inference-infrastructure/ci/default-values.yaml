@@ -1,6 +1,12 @@
 # CI test values for inference-infrastructure
 # Tune litellm-proxy for single-node kind clusters.
 
+# Gateway: ClusterIP on Kind (no LoadBalancer provider)
+gateway:
+  service:
+    type: ClusterIP
+    annotations: {}
+
 litellm-proxy:
   replicaCount: 1
   database:

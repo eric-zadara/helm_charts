@@ -16,6 +16,10 @@ chart-repos:
   - bitnami=https://charts.bitnami.com/bitnami
   - cnpg=https://cloudnative-pg.github.io/charts
   - eric-zadara=https://eric-zadara.github.io/helm_charts/
+  - knative=https://knative.github.io/operator
+  - nvidia=https://helm.ngc.nvidia.com/nvidia
+  - onyx-dot-app=https://onyx-dot-app.github.io/onyx/
+  - garage=https://datahub-local.github.io/garage-helm
 
 # Helm arguments passed to helm install/upgrade
 helm-extra-args: --timeout 600s
