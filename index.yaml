@@ -594,6 +594,26 @@ entries:
       testing/timeout: 15m
     apiVersion: v2
     appVersion: 1.0.0
+    created: "2026-03-04T01:04:24.346756654Z"
+    dependencies:
+    - condition: litellm-proxy.enabled
+      name: litellm-proxy
+      repository: https://eric-zadara.github.io/helm_charts/
+      version: 0.2.5
+    description: Infrastructure layer for LLM inference platform - databases, networking,
+      and API proxy
+    digest: fe274be60c0c1b71e7815041b76194f66580966708cdc2a0578e028c4e6ddeb6
+    name: inference-infrastructure
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/inference-infrastructure-0.10.0/inference-infrastructure-0.10.0.tgz
+    version: 0.10.0
+  - annotations:
+      testing/prerequisites: inference-crds,inference-operators
+      testing/tier: "3"
+      testing/timeout: 15m
+    apiVersion: v2
+    appVersion: 1.0.0
     created: "2026-02-11T00:34:19.970485042Z"
     dependencies:
     - condition: litellm-proxy.enabled
@@ -757,6 +777,46 @@ entries:
     - https://github.com/eric-zadara/helm_charts/releases/download/inference-infrastructure-0.3.0/inference-infrastructure-0.3.0.tgz
     version: 0.3.0
   inference-operators:
+  - annotations:
+      testing/prerequisites: inference-crds
+      testing/tier: "3"
+      testing/timeout: 15m
+    apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-03-04T01:04:24.374911307Z"
+    dependencies:
+    - condition: cert-manager.enabled
+      name: cert-manager
+      repository: oci://quay.io/jetstack/charts
+      version: v1.19.3
+    - condition: cloudnative-pg.enabled
+      name: cloudnative-pg
+      repository: oci://ghcr.io/cloudnative-pg/charts
+      version: 0.27.1
+    - condition: kserve.enabled
+      name: kserve
+      repository: oci://ghcr.io/kserve/charts
+      version: v0.16.0
+    - condition: knative-operator.enabled
+      name: knative-operator
+      repository: https://knative.github.io/operator
+      version: v1.21.0
+    - alias: envoy-gateway
+      condition: envoy-gateway.enabled
+      name: gateway-helm
+      repository: oci://docker.io/envoyproxy
+      version: v1.7.0
+    - condition: gpu-operator.enabled
+      name: gpu-operator
+      repository: https://helm.ngc.nvidia.com/nvidia
+      version: v25.10.1
+    description: Operators for LLM inference platform (CNPG, KServe, Knative Serving)
+    digest: d15f5a8ad866c3a2381d31d7be4164b857c2e6f7e08eee7314e1a25e621fab96
+    name: inference-operators
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/inference-operators-0.6.0/inference-operators-0.6.0.tgz
+    version: 0.6.0
   - annotations:
       testing/prerequisites: inference-crds
       testing/tier: "3"
@@ -1635,4 +1695,4 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/zadara-aws-config-0.0.1/zadara-aws-config-0.0.1.tgz
     version: 0.0.1
-generated: "2026-02-11T22:51:38.287906063Z"
+generated: "2026-03-04T01:04:24.336632756Z"
