@@ -30,10 +30,29 @@ spec:
           # Pull and warm the model if OLLAMA_MODEL is set
           if [ -n "${OLLAMA_MODEL}" ]; then
             echo "Pulling model: ${OLLAMA_MODEL}"
-            ollama pull "${OLLAMA_MODEL}"
-            echo "Warming model: ${OLLAMA_MODEL}"
-            curl -sf http://localhost:8080/api/generate -d "{\"model\": \"${OLLAMA_MODEL}\", \"keep_alive\": -1}" > /dev/null 2>&1
-            echo "Model ready: ${OLLAMA_MODEL}"
+            MAX_RETRIES=5
+            RETRY_DELAY=10
+            PULL_SUCCESS=false
+            for i in $(seq 1 ${MAX_RETRIES}); do
+              if ollama pull "${OLLAMA_MODEL}"; then
+                PULL_SUCCESS=true
+                break
+              fi
+              if [ "${i}" -eq "${MAX_RETRIES}" ]; then
+                echo "ERROR: Failed to pull model ${OLLAMA_MODEL} after ${MAX_RETRIES} attempts"
+                break
+              fi
+              echo "WARNING: ollama pull failed (attempt ${i}/${MAX_RETRIES}), retrying in ${RETRY_DELAY}s..."
+              sleep ${RETRY_DELAY}
+              RETRY_DELAY=$((RETRY_DELAY * 2))
+            done
+            if [ "${PULL_SUCCESS}" = "true" ]; then
+              echo "Warming model: ${OLLAMA_MODEL}"
+              curl -sf http://localhost:8080/api/generate -d "{\"model\": \"${OLLAMA_MODEL}\", \"keep_alive\": -1}" > /dev/null 2>&1
+              echo "Model ready: ${OLLAMA_MODEL}"
+            else
+              echo "WARNING: Skipping model warm-up because pull failed. Pod remains running for manual intervention."
+            fi
           fi
           # Keep server running in foreground
           wait ${SERVER_PID}

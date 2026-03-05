@@ -18,10 +18,44 @@ spec:
   containers:
     - name: kserve-container
       image: {{ .Values.llamacppRuntime.image }}:{{ .Values.llamacppRuntime.tag }}
+      # Wrapper script resolves /mnt/models to a single .gguf file.
+      # When storageUri is hf://, KServe downloads the full repo as a directory
+      # containing multiple .gguf variants. llama.cpp expects a single file path.
+      command: ["/bin/sh", "-c"]
+      args:
+        - |
+          MODEL_PATH="/mnt/models"
+          if [ -d "$MODEL_PATH" ]; then
+            echo "model-resolver: /mnt/models is a directory, scanning for .gguf files..."
+            GGUF_FILES=$(find "$MODEL_PATH" -name '*.gguf' -type f)
+            GGUF_COUNT=$(echo "$GGUF_FILES" | grep -c '.')
+            if [ "$GGUF_COUNT" -eq 0 ]; then
+              echo "model-resolver: ERROR - no .gguf files found in $MODEL_PATH" >&2
+              ls -laR "$MODEL_PATH" >&2
+              exit 1
+            elif [ "$GGUF_COUNT" -eq 1 ]; then
+              MODEL_PATH="$GGUF_FILES"
+              echo "model-resolver: single .gguf found: $MODEL_PATH"
+            else
+              echo "model-resolver: found $GGUF_COUNT .gguf files, selecting best candidate..."
+              # Prefer Q4_K_M quantization (most common balanced default)
+              Q4KM=$(echo "$GGUF_FILES" | grep -i 'q4_k_m' | head -n 1)
+              if [ -n "$Q4KM" ]; then
+                MODEL_PATH="$Q4KM"
+                echo "model-resolver: selected Q4_K_M variant: $MODEL_PATH"
+              else
+                # Fall back to the largest .gguf file (highest quality quantization)
+                MODEL_PATH=$(echo "$GGUF_FILES" | xargs ls -S | head -n 1)
+                echo "model-resolver: no Q4_K_M found, selected largest file: $MODEL_PATH"
+              fi
+            fi
+          else
+            echo "model-resolver: /mnt/models is a file, using directly"
+          fi
+          export LLAMA_ARG_MODEL="$MODEL_PATH"
+          echo "model-resolver: starting llama-server with model=$LLAMA_ARG_MODEL"
+          exec llama-server
       env:
-        # Model location -- KServe StorageInitializer mounts here
-        - name: LLAMA_ARG_MODEL
-          value: "/mnt/models"
         # Bind to all interfaces for KServe networking
         - name: LLAMA_ARG_HOST
           value: "0.0.0.0"
