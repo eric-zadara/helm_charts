@@ -594,6 +594,26 @@ entries:
       testing/timeout: 15m
     apiVersion: v2
     appVersion: 1.0.0
+    created: "2026-03-05T21:21:31.073070799Z"
+    dependencies:
+    - condition: litellm-proxy.enabled
+      name: litellm-proxy
+      repository: https://eric-zadara.github.io/helm_charts/
+      version: 0.2.5
+    description: Infrastructure layer for LLM inference platform - databases, networking,
+      and API proxy
+    digest: 475c7419320a24736872a3c148650245ea80ae4e0f0b94bc9e4600cad7259a19
+    name: inference-infrastructure
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/inference-infrastructure-0.10.1/inference-infrastructure-0.10.1.tgz
+    version: 0.10.1
+  - annotations:
+      testing/prerequisites: inference-crds,inference-operators
+      testing/tier: "3"
+      testing/timeout: 15m
+    apiVersion: v2
+    appVersion: 1.0.0
     created: "2026-03-04T01:04:24.346756654Z"
     dependencies:
     - condition: litellm-proxy.enabled
@@ -1498,6 +1518,20 @@ entries:
       testing/tier: "2"
     apiVersion: v2
     appVersion: 0.16.0
+    created: "2026-03-05T21:21:31.075381297Z"
+    description: 'Multi-runtime model serving: vLLM (GPU), llama.cpp (CPU), and Ollama
+      (GPU/CPU) ServingRuntimes with InferenceService templates for LLM inference'
+    digest: 92c211ac9b93bcbe5752f3dc6e12b712d0541adc0009daeb88e7e32028299067
+    name: model-serving
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/model-serving-0.1.4/model-serving-0.1.4.tgz
+    version: 0.1.4
+  - annotations:
+      testing/prerequisites: tier1-crds
+      testing/tier: "2"
+    apiVersion: v2
+    appVersion: 0.16.0
     created: "2026-02-11T22:51:38.290220916Z"
     description: 'Multi-runtime model serving: vLLM (GPU), llama.cpp (CPU), and Ollama
       (GPU/CPU) ServingRuntimes with InferenceService templates for LLM inference'
@@ -1695,4 +1729,4 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/zadara-aws-config-0.0.1/zadara-aws-config-0.0.1.tgz
     version: 0.0.1
-generated: "2026-03-04T01:04:24.336632756Z"
+generated: "2026-03-05T21:21:31.057668438Z"
