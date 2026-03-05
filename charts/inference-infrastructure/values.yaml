@@ -39,6 +39,12 @@ knativeServing:
         kubernetes.podspec-nodeselector: "Enabled"
         # Allow affinity rules for advanced scheduling
         kubernetes.podspec-affinity: "Enabled"
+  # Post-install hook: restart KServe controller after KnativeServing is ready.
+  # KServe caches a terminal error if Knative isn't available at first reconciliation.
+  restartHook:
+    image: "bitnami/kubectl:1.31"
+    kserveNamespace: "inference-operators"
+    kserveDeployment: "kserve-controller-manager"
 
 #
 # CROSS-CHART DEPENDENCY: inference-stack
