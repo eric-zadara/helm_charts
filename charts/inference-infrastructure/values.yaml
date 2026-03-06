@@ -23,8 +23,9 @@ knativeServing:
       network:
         ingress-class: "kourier.ingress.networking.knative.dev"
       deployment:
-        # Extended progress deadline for GPU model loading (default 600s is too short)
-        progress-deadline: "1200s"
+        # Extended progress deadline to cover ASG node scaling + model download + loading
+        # (default 600s; 2400s covers ~5 min ASG + ~10 min large model download/load)
+        progress-deadline: "2400s"
       autoscaler:
         enable-scale-to-zero: "true"
         scale-to-zero-grace-period: "30s"
