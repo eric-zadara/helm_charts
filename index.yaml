@@ -594,6 +594,26 @@ entries:
       testing/timeout: 15m
     apiVersion: v2
     appVersion: 1.0.0
+    created: "2026-03-06T00:29:52.434864282Z"
+    dependencies:
+    - condition: litellm-proxy.enabled
+      name: litellm-proxy
+      repository: https://eric-zadara.github.io/helm_charts/
+      version: 0.2.5
+    description: Infrastructure layer for LLM inference platform - databases, networking,
+      and API proxy
+    digest: 745d77850f614da25253d46319d99555dc6cb6c90daecb972223b34576f00050
+    name: inference-infrastructure
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/inference-infrastructure-0.10.2/inference-infrastructure-0.10.2.tgz
+    version: 0.10.2
+  - annotations:
+      testing/prerequisites: inference-crds,inference-operators
+      testing/tier: "3"
+      testing/timeout: 15m
+    apiVersion: v2
+    appVersion: 1.0.0
     created: "2026-03-05T21:21:31.073070799Z"
     dependencies:
     - condition: litellm-proxy.enabled
@@ -1729,4 +1749,4 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/zadara-aws-config-0.0.1/zadara-aws-config-0.0.1.tgz
     version: 0.0.1
-generated: "2026-03-05T21:21:31.057668438Z"
+generated: "2026-03-06T00:29:52.424316339Z"
