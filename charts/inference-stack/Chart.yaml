@@ -2,7 +2,7 @@ apiVersion: v2
 name: inference-stack
 description: Model serving and routing layer for LLM inference platform
 type: application
-version: 0.2.0
+version: 0.2.1
 appVersion: "1.0.0"
 annotations:
   testing/tier: "3"
@@ -10,7 +10,7 @@ annotations:
 
 dependencies:
   - name: model-serving
-    version: "0.1.2"
+    version: "0.1.4"
     repository: "https://eric-zadara.github.io/helm_charts/"
     condition: model-serving.enabled
 
