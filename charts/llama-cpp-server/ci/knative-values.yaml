@@ -1,0 +1,17 @@
+# CI values: exercises Knative Service path (template rendering only, no Knative CRDs needed for lint)
+knative:
+  enabled: true
+  containerConcurrency: 4
+  timeoutSeconds: 300
+  idleTimeoutSeconds: 300
+replicaCount: 1
+persistentVolume:
+  enabled: false
+server:
+  warmup: false
+startupProbe:
+  enabled: false
+livenessProbe:
+  enabled: false
+readinessProbe:
+  enabled: false

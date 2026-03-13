@@ -1,0 +1,30 @@
+# CI values: exercises HPA and Ingress template rendering
+replicaCount: 1
+persistentVolume:
+  enabled: false
+server:
+  warmup: false
+  apiKey: "ci-test-key"
+startupProbe:
+  enabled: false
+livenessProbe:
+  enabled: false
+readinessProbe:
+  enabled: false
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: llama.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: llama-tls
+      hosts:
+        - llama.example.com

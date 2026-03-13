@@ -1,0 +1,13 @@
+# CI values — validates chart templates and lint
+# Server will not start without a model, so disable probes
+replicaCount: 1
+persistentVolume:
+  enabled: false
+server:
+  warmup: false
+startupProbe:
+  enabled: false
+livenessProbe:
+  enabled: false
+readinessProbe:
+  enabled: false

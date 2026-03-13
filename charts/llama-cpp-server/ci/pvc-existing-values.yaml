@@ -1,0 +1,13 @@
+# CI values: existing PVC claim (no PVC creation)
+replicaCount: 1
+persistentVolume:
+  enabled: true
+  existingClaim: "test-existing-pvc"
+server:
+  warmup: false
+startupProbe:
+  enabled: false
+livenessProbe:
+  enabled: false
+readinessProbe:
+  enabled: false

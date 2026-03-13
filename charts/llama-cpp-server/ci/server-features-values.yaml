@@ -1,0 +1,24 @@
+# CI values: exercises server feature flags (embedding, reranking, reasoning, chatTemplate)
+replicaCount: 1
+persistentVolume:
+  enabled: false
+server:
+  warmup: false
+  embedding: true
+  reranking: true
+  reasoning: "deepseek"
+  chatTemplate: "chatml"
+  parallel: "4"
+  batchSize: "512"
+  ubatchSize: "128"
+  httpThreads: "2"
+  threads: "4"
+  threadsBatch: "4"
+  mlock: true
+  offline: true
+startupProbe:
+  enabled: false
+livenessProbe:
+  enabled: false
+readinessProbe:
+  enabled: false

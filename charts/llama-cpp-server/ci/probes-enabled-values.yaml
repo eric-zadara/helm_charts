@@ -1,0 +1,12 @@
+# CI values: exercises probe template rendering (startup, liveness, readiness)
+replicaCount: 1
+persistentVolume:
+  enabled: false
+server:
+  warmup: false
+startupProbe:
+  enabled: true
+livenessProbe:
+  enabled: true
+readinessProbe:
+  enabled: true

@@ -1,0 +1,16 @@
+# CI values: exercises GPU resource injection, NVIDIA toleration, image tag auto-selection
+gpu:
+  enabled: true
+  type: nvidia
+  count: 1
+replicaCount: 1
+persistentVolume:
+  enabled: false
+server:
+  warmup: false
+startupProbe:
+  enabled: false
+livenessProbe:
+  enabled: false
+readinessProbe:
+  enabled: false

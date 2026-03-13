@@ -1,0 +1,16 @@
+# CI values: exercises PodDisruptionBudget with multi-replica deployment
+replicaCount: 2
+persistentVolume:
+  enabled: true
+  existingClaim: "ci-shared-models"
+server:
+  warmup: false
+startupProbe:
+  enabled: false
+livenessProbe:
+  enabled: false
+readinessProbe:
+  enabled: false
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1

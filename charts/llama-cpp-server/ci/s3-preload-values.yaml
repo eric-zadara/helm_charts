@@ -1,0 +1,19 @@
+# CI values: exercises S3 preload init container path
+replicaCount: 1
+persistentVolume:
+  enabled: false
+server:
+  warmup: false
+startupProbe:
+  enabled: false
+livenessProbe:
+  enabled: false
+readinessProbe:
+  enabled: false
+model:
+  source: s3
+  s3:
+    bucket: "test-bucket"
+    key: "models/test-model.gguf"
+    region: "us-east-1"
+  preload: true

@@ -1,0 +1,16 @@
+# CI values: exercises AMD GPU resource injection and ROCm image tag
+replicaCount: 1
+persistentVolume:
+  enabled: false
+server:
+  warmup: false
+startupProbe:
+  enabled: false
+livenessProbe:
+  enabled: false
+readinessProbe:
+  enabled: false
+gpu:
+  enabled: true
+  type: amd
+  count: 1

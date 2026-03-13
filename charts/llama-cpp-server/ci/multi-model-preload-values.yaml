@@ -1,0 +1,27 @@
+# CI values: multi-model with preload init containers
+replicaCount: 1
+persistentVolume:
+  enabled: false
+server:
+  warmup: false
+startupProbe:
+  enabled: false
+livenessProbe:
+  enabled: false
+readinessProbe:
+  enabled: false
+model:
+  source: hf
+  multi:
+    enabled: true
+    models:
+      - name: test-model-a
+        source: hf
+        hf:
+          repo: "test-org/test-model-gguf"
+          file: "test-model-q4.gguf"
+        preload: true
+      - name: test-model-b
+        source: url
+        url: "https://example.com/test-model-b.gguf"
+        preload: true

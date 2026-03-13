@@ -1,0 +1,39 @@
+# CI values: exercises ConfigMap generation, models-preset.ini, multi-model args
+replicaCount: 1
+persistentVolume:
+  enabled: false
+server:
+  warmup: false
+  flashAttention: "auto"
+startupProbe:
+  enabled: false
+livenessProbe:
+  enabled: false
+readinessProbe:
+  enabled: false
+model:
+  multi:
+    enabled: true
+    modelsMax: 2
+    models:
+      - name: test-embed
+        source: hf
+        hf:
+          repo: "test-org/test-embed-gguf"
+          file: "test-embed-q4.gguf"
+        preload: false
+        loadOnStartup: true
+        settings:
+          embedding: true
+          contextSize: 512
+          gpuLayers: 0
+      - name: test-chat
+        source: hf
+        hf:
+          repo: "test-org/test-chat-gguf"
+          file: "test-chat-q4.gguf"
+        preload: false
+        loadOnStartup: true
+        settings:
+          contextSize: 2048
+          gpuLayers: 0

@@ -1,0 +1,24 @@
+# CI values: exercises NetworkPolicy template rendering
+replicaCount: 1
+persistentVolume:
+  enabled: false
+server:
+  warmup: false
+startupProbe:
+  enabled: false
+livenessProbe:
+  enabled: false
+readinessProbe:
+  enabled: false
+networkPolicy:
+  enabled: true
+  ingress:
+    from:
+      - podSelector:
+          matchLabels:
+            app: test-client
+  egress:
+    extraRules:
+      - ports:
+          - protocol: TCP
+            port: 8443

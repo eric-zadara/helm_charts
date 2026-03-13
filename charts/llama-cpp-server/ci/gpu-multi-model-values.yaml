@@ -1,0 +1,30 @@
+# CI values: GPU with multi-model mode (tests ConfigMap GPU layer settings)
+replicaCount: 1
+persistentVolume:
+  enabled: false
+server:
+  warmup: false
+  gpuLayers: -1
+startupProbe:
+  enabled: false
+livenessProbe:
+  enabled: false
+readinessProbe:
+  enabled: false
+gpu:
+  enabled: true
+  type: nvidia
+  count: 1
+model:
+  source: hf
+  multi:
+    enabled: true
+    models:
+      - name: test-gpu-model
+        source: hf
+        hf:
+          repo: "test-org/test-model-gguf"
+          file: "test-model-q4.gguf"
+        settings:
+          gpuLayers: 35
+          contextSize: 4096

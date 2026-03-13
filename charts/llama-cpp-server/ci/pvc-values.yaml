@@ -1,0 +1,15 @@
+# CI values: exercises PVC template rendering
+replicaCount: 1
+persistentVolume:
+  enabled: true
+  size: 10Gi
+  accessModes:
+    - ReadWriteOnce
+server:
+  warmup: false
+startupProbe:
+  enabled: false
+livenessProbe:
+  enabled: false
+readinessProbe:
+  enabled: false

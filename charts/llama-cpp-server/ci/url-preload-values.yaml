@@ -1,0 +1,16 @@
+# CI values: exercises URL preload init container path
+replicaCount: 1
+persistentVolume:
+  enabled: false
+server:
+  warmup: false
+startupProbe:
+  enabled: false
+livenessProbe:
+  enabled: false
+readinessProbe:
+  enabled: false
+model:
+  source: url
+  url: "https://example.com/models/test-model.gguf"
+  preload: true

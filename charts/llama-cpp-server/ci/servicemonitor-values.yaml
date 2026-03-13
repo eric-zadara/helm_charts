@@ -1,0 +1,17 @@
+# CI values: exercises ServiceMonitor template rendering
+replicaCount: 1
+persistentVolume:
+  enabled: false
+server:
+  warmup: false
+startupProbe:
+  enabled: false
+livenessProbe:
+  enabled: false
+readinessProbe:
+  enabled: false
+serviceMonitor:
+  enabled: true
+  labels:
+    release: prometheus
+  interval: 30s
