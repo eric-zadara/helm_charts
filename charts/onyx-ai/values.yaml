@@ -409,7 +409,7 @@ ingress:
 onyx:
   # Global settings (upstream)
   global:
-    version: "latest"
+    version: "v3.0.1"
     pullPolicy: "IfNotPresent"
 
   # ---------------------------------------------------------------------------
@@ -621,13 +621,13 @@ onyx:
       secretKeys:
         REDIS_PASSWORD: valkey-password
 
-  # OpenSearch - optional alternative to Vespa, disabled by default upstream
+  # OpenSearch - enabled by default since upstream 0.4.35
   opensearch:
-    enabled: false
+    enabled: true
 
-  # Code Interpreter - beta feature, disabled by default
+  # Code Interpreter - enabled by default since upstream 0.4.35
   codeInterpreter:
-    enabled: false
+    enabled: true
 
   # Slackbot - not needed by default
   slackbot:

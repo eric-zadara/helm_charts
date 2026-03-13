@@ -125,6 +125,36 @@ onyx:
               storage: 2Gi
 
   # ---------------------------------------------------------------------------
+  # OpenSearch: reduced resources for CI (upstream default is 4Gi/8Gi)
+  # ---------------------------------------------------------------------------
+  opensearch:
+    enabled: true
+    replicas: 1
+    singleNode: true
+    resources:
+      requests:
+        cpu: 200m
+        memory: 1Gi
+      limits:
+        memory: 2Gi
+    persistence:
+      enabled: true
+      size: 2Gi
+
+  # ---------------------------------------------------------------------------
+  # Code Interpreter: minimal resources for CI
+  # ---------------------------------------------------------------------------
+  codeInterpreter:
+    enabled: true
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        memory: 512Mi
+
+  # ---------------------------------------------------------------------------
   # Model servers: 1 replica each with minimal resources
   # These download multi-GB ML models at startup, so they need extended timeout.
   # ---------------------------------------------------------------------------
