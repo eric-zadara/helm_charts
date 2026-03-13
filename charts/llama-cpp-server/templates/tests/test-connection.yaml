@@ -1,0 +1,36 @@
+{{- if and (not .Values.knative.enabled) (or .Values.startupProbe.enabled .Values.livenessProbe.enabled .Values.readinessProbe.enabled) }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "llama-cpp-server.fullname" . }}-test-connection"
+  labels:
+    {{- include "llama-cpp-server.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: wget
+      image: busybox:1.37
+      securityContext:
+        runAsGroup: 1000
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: ["ALL"]
+      resources:
+        requests:
+          cpu: 10m
+          memory: 16Mi
+        limits:
+          cpu: 10m
+          memory: 16Mi
+      command: ['wget']
+      args: ['--timeout=10', '{{ include "llama-cpp-server.fullname" . }}:{{ .Values.service.port }}/health']
+  restartPolicy: Never
+{{- end }}

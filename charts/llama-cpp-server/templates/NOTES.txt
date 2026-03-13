@@ -1,0 +1,36 @@
+llama-cpp-server has been deployed.
+
+{{- if not .Values.knative.enabled }}
+To access the server:
+  kubectl port-forward svc/{{ include "llama-cpp-server.fullname" . }} {{ .Values.service.port }}:{{ .Values.service.port }}
+
+Check health:
+  curl http://localhost:{{ .Values.service.port }}/health
+
+List models:
+  curl http://localhost:{{ .Values.service.port }}/v1/models
+{{- end }}
+
+{{- if .Values.knative.enabled }}
+The server is deployed as a Knative Service.
+Model loading may take several minutes. Check revision status:
+  kubectl get ksvc {{ include "llama-cpp-server.fullname" . }}
+{{- end }}
+
+{{- if and .Values.persistentVolume.enabled (not .Values.model.preload) (not .Values.model.multi.enabled) (eq .Values.model.source "") }}
+
+NOTE: No model source configured. Ensure a GGUF model exists at {{ .Values.model.path }}
+on the persistent volume before the server can serve requests.
+{{- end }}
+
+{{- if and (not .Values.server.apiKey) (not .Values.server.apiKeySecret) }}
+
+⚠ WARNING: No API key configured. The server is accessible without authentication.
+  Set server.apiKey or server.apiKeySecret for production use.
+{{- end }}
+
+{{- if and .Values.gpu.enabled (gt (int .Values.gpu.count) 1) (not .Values.server.splitMode) }}
+
+⚠ WARNING: gpu.count > 1 but server.splitMode is not set.
+  Consider setting server.splitMode to "layer" or "row" for multi-GPU.
+{{- end }}

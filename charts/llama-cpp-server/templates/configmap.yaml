@@ -1,0 +1,77 @@
+{{- if .Values.model.multi.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "llama-cpp-server.fullname" . }}-models-preset
+  labels:
+    {{- include "llama-cpp-server.labels" . | nindent 4 }}
+data:
+  models-preset.ini: |
+    {{- $server := .Values.server }}
+    {{- $gpu := .Values.gpu }}
+    {{- $hasGlobal := false }}
+    {{- $globalLines := list }}
+    {{- if and $gpu.enabled $server.gpuLayers }}
+    {{- $globalLines = append $globalLines (printf "n-gpu-layers = %v" $server.gpuLayers) }}
+    {{- end }}
+    {{- if gt (int (default 0 $server.contextSize)) 0 }}
+    {{- $globalLines = append $globalLines (printf "ctx-size = %v" (int $server.contextSize)) }}
+    {{- end }}
+    {{- if and $server.flashAttention (ne (toString $server.flashAttention) "") }}
+    {{- $globalLines = append $globalLines (printf "flash-attn = %s" (toString $server.flashAttention)) }}
+    {{- end }}
+    {{- if $server.embedding }}
+    {{- $globalLines = append $globalLines (printf "embedding = %v" $server.embedding) }}
+    {{- end }}
+    {{- if $globalLines }}
+    [*]
+    {{- range $globalLines }}
+    {{ . }}
+    {{- end }}
+    {{- end }}
+    {{- range .Values.model.multi.models }}
+    {{- $section := "" }}
+    {{- if and .hf .hf.repo }}
+    {{- $section = .hf.repo }}
+    {{- if .hf.file }}
+    {{- $section = printf "%s:%s" .hf.repo .hf.file }}
+    {{- end }}
+    {{- else }}
+    {{- $section = printf "%s/%s.gguf" $.Values.model.multi.modelsDir .name }}
+    {{- end }}
+
+    [{{ $section }}]
+    {{- if .settings }}
+    {{- if .settings.contextSize }}
+    ctx-size = {{ .settings.contextSize }}
+    {{- end }}
+    {{- if .settings.gpuLayers | toString | ne "" }}
+    {{- if kindIs "float64" .settings.gpuLayers }}
+    n-gpu-layers = {{ int .settings.gpuLayers }}
+    {{- else if kindIs "int64" .settings.gpuLayers }}
+    n-gpu-layers = {{ .settings.gpuLayers }}
+    {{- else if .settings.gpuLayers }}
+    n-gpu-layers = {{ .settings.gpuLayers }}
+    {{- end }}
+    {{- end }}
+    {{- if .settings.embedding }}
+    embedding = {{ .settings.embedding }}
+    {{- end }}
+    {{- if .settings.chatTemplate }}
+    chat-template = {{ .settings.chatTemplate }}
+    {{- end }}
+    {{- if .settings.reasoning }}
+    reasoning-format = {{ .settings.reasoning }}
+    {{- end }}
+    {{- if .settings.reranking }}
+    reranking = {{ .settings.reranking }}
+    {{- end }}
+    {{- if and (hasKey .settings "flashAttention") (ne (toString .settings.flashAttention) "") }}
+    flash-attn = {{ .settings.flashAttention }}
+    {{- end }}
+    {{- end }}
+    {{- if .loadOnStartup }}
+    load-on-startup = true
+    {{- end }}
+    {{- end }}
+{{- end }}

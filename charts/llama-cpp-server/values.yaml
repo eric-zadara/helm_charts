@@ -1,0 +1,385 @@
+# -- Number of replicas (ignored when autoscaling.enabled)
+replicaCount: 1
+
+# -- Deployment update strategy
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 0
+    maxSurge: 1
+
+# -- Override chart name
+nameOverride: ""
+# -- Override full release name
+fullnameOverride: ""
+
+# Image
+image:
+  # -- Container image repository
+  repository: ghcr.io/ggml-org/llama.cpp
+  # -- Tag is auto-computed from gpu.type if empty. CPU="server", NVIDIA="server-cuda", AMD="server-rocm", etc.
+  # When empty, the chart's appVersion (Chart.yaml) is appended for version pinning (e.g. "server-cuda-b4738").
+  tag: ""
+  # -- Image pull policy
+  pullPolicy: IfNotPresent
+# -- Image pull secrets
+imagePullSecrets: []
+
+# Init container
+# -- Init container used for model preloading
+initContainer:
+  image:
+    # -- Init container image repository
+    repository: alpine
+    # -- Init container image tag
+    tag: "3.20"
+  # -- Init container resource requests and limits (must be set in namespaces with ResourceQuota)
+  resources: {}
+
+# GPU
+gpu:
+  # -- Enable GPU support
+  enabled: false
+  # -- GPU type: nvidia | amd | intel | vulkan
+  type: "nvidia"
+  # -- Number of GPUs to request
+  count: 1         # number of GPUs to request. For count > 1, set server.splitMode (layer or row)
+  # -- NVIDIA resource key (for MIG, custom device plugins, etc.)
+  nvidiaResource: "nvidia.com/gpu"
+  # -- AMD resource key
+  amdResource: "amd.com/gpu"
+  # -- Intel resource key
+  intelResource: "gpu.intel.com/i915"
+  # -- Vulkan resource key — no standard key exists; set manually if your device plugin exposes one
+  vulkanResource: ""
+
+# Model
+model:
+  # -- Path to GGUF model file on the persistent volume (used when source is empty)
+  path: /models/model.gguf
+  # -- Model alias shown in /v1/models endpoint
+  alias: ""
+
+  # -- Model source: hf | url | s3 | "" (use existing file on PVC)
+  source: ""
+  # -- Direct URL to .gguf file (when source: url)
+  url: ""
+  hf:
+    # -- HuggingFace repo (e.g. "ggml-org/Qwen2.5-3B-Instruct-GGUF")
+    repo: ""
+    # -- Specific file within repo (required for preload, e.g. "qwen2.5-3b-instruct-q4_k_m.gguf")
+    file: ""
+  s3:
+    # -- S3 bucket name
+    bucket: ""
+    # -- S3 object key
+    key: ""
+    # -- S3 region
+    region: ""
+    # -- S3-compatible endpoint (e.g. MinIO)
+    endpoint: ""
+
+  # -- Enable init container to download model before server starts
+  preload: false
+
+  # Multi-model router mode
+  multi:
+    # -- Enable multi-model router mode (all models share same hardware)
+    enabled: false
+    # -- Directory containing GGUF files
+    modelsDir: /models
+    # -- Maximum number of models loaded simultaneously
+    modelsMax: 4       # max simultaneously loaded models (matches llama-server default)
+    # -- Model definitions
+    models: []
+    # - name: bge-embed
+    #   source: hf
+    #   hf:
+    #     repo: "CompendiumLabs/bge-large-en-v1.5-gguf"
+    #     file: ""
+    #   url: ""
+    #   s3:
+    #     bucket: ""
+    #     key: ""
+    #     region: ""
+    #     endpoint: ""
+    #   preload: true
+    #   loadOnStartup: true
+    #   settings:
+    #     embedding: true
+    #     reranking: false
+    #     contextSize: 512
+    #     gpuLayers: 0
+    #     chatTemplate: ""
+    #     reasoning: ""
+
+  # Credentials
+  credentials:
+    # -- Name of existing secret containing credentials for model downloads
+    existingSecret: ""
+    # -- Mapping of env var names to secret keys
+    secretKeys: {}
+    # Example:
+    # secretKeys:
+    #   HF_TOKEN: "token"
+    #   AWS_ACCESS_KEY_ID: "access-key"
+    #   AWS_SECRET_ACCESS_KEY: "secret-key"
+
+# Persistent volume
+persistentVolume:
+  # -- Create a PVC for model storage
+  enabled: true
+  # -- PVC size
+  size: 30Gi
+  # -- PVC access modes
+  accessModes:
+    - ReadWriteOnce
+  # -- Storage class (empty = cluster default)
+  storageClass: ""
+  # -- Use an existing PVC instead of creating one
+  existingClaim: ""
+  # -- Mount path in container
+  mountPath: /models
+
+# Server
+server:
+  # -- Context window size (0 = use model default)
+  contextSize: 0
+  # -- Number of concurrent request slots (empty = auto)
+  parallel: ""
+  # -- Prompt batch size
+  batchSize: ""
+  # -- Micro-batch size
+  ubatchSize: ""
+  # -- HTTP worker threads
+  httpThreads: ""
+
+  # -- GPU layers to offload (-1 = all). Ignored when gpu.enabled=false
+  gpuLayers: -1
+  # -- Multi-GPU split mode: none | layer | row
+  splitMode: ""
+  # -- Per-GPU VRAM distribution (e.g. "0.5,0.5")
+  tensorSplit: ""
+  # -- Primary GPU index (only used when splitMode is set)
+  mainGpu: 0
+  # -- Flash Attention: "" (omit flag entirely — server decides based on model), "on", "off", or "auto"
+  flashAttention: ""
+
+  # -- CPU generation threads (empty = auto)
+  threads: ""
+  # -- CPU batch processing threads (empty = auto)
+  threadsBatch: ""
+  # -- Lock model in RAM (prevent swapping)
+  mlock: false
+
+  # -- Enable Prometheus /metrics endpoint
+  metrics: true
+  # -- Embedding-only mode
+  embedding: false
+  # -- Reranking mode
+  reranking: false
+  # -- Reasoning format: "" | none | deepseek | deepseek-legacy | auto
+  reasoning: ""
+  # -- Override chat template
+  chatTemplate: ""
+  # -- API key for authentication (plain text; prefer apiKeySecret for production)
+  apiKey: ""
+  # -- Existing secret containing API key (key name: "api-key"). Recommended over apiKey.
+  apiKeySecret: ""
+
+  # -- Warm up model on startup
+  warmup: true
+  # -- Prevent all network access
+  offline: false
+
+# Probes
+startupProbe:
+  # -- Enable startup probe
+  enabled: true
+  # -- Startup probe path
+  path: /health
+  # -- Initial delay before first probe
+  initialDelaySeconds: 10
+  # -- Check interval
+  periodSeconds: 10
+  # -- Timeout per check
+  timeoutSeconds: 5
+  failureThreshold: 120   # 120 * 10s = 1200s (20 min) — increase for 70B+ models or slow storage
+
+livenessProbe:
+  # -- Enable liveness probe
+  enabled: true
+  # -- Liveness probe path
+  path: /health
+  # -- Check interval
+  periodSeconds: 10
+  # -- Timeout per check
+  timeoutSeconds: 5
+  # -- Failures before restart
+  failureThreshold: 3
+
+readinessProbe:
+  # -- Enable readiness probe
+  enabled: true
+  # -- Returns 503 when no inference slots available, removing pod from Service
+  path: /health?fail_on_no_slot=1
+  # -- Check interval
+  periodSeconds: 5
+  # -- Timeout per check
+  timeoutSeconds: 3
+  # -- Failures before unready
+  failureThreshold: 3
+
+# Autoscaling
+autoscaling:
+  # -- Enable HPA
+  enabled: false
+  # -- Minimum replicas
+  minReplicas: 1
+  # -- Maximum replicas
+  maxReplicas: 5
+  # -- Target CPU utilization percentage
+  targetCPUUtilizationPercentage: 80
+  # -- Target memory utilization percentage
+  targetMemoryUtilizationPercentage: ""
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  # -- Enable PodDisruptionBudget (recommended for multi-replica production deployments)
+  enabled: false
+  # -- Minimum available pods during disruption
+  minAvailable: 1
+  # -- Maximum unavailable pods during disruption (mutually exclusive with minAvailable)
+  maxUnavailable: ""
+
+# Knative
+knative:
+  # -- Enable Knative Serving (replaces Deployment)
+  enabled: false
+  # NOTE: Knative Serving requires these feature flags for full compatibility:
+  # - kubernetes.podspec-persistent-volume-claim (for PVC model storage)
+  # - kubernetes.podspec-init-containers (for model preloading)
+  # See: https://knative.dev/docs/serving/configuration/feature-flags/
+  # -- Max concurrent requests per container (0 = unlimited)
+  containerConcurrency: 0
+  # -- Request timeout
+  timeoutSeconds: 600
+  # -- Idle timeout before scale-to-zero
+  idleTimeoutSeconds: 600
+  # -- Progress deadline for model loading (ASG cold starts can take 20-40 min)
+  progressDeadline: "2400s"
+  # -- Autoscaling target (default: containerConcurrency). Set lower than containerConcurrency for headroom
+  autoscalingTarget: ""
+
+# Service
+service:
+  # -- Kubernetes Service type
+  type: ClusterIP
+  # -- Service port
+  port: 8080
+  # -- Service annotations
+  annotations: {}
+
+# Ingress
+ingress:
+  # -- Enable Ingress
+  enabled: false
+  # -- Ingress class name
+  className: ""
+  # -- Ingress annotations
+  annotations: {}
+  # -- Ingress host rules
+  hosts:
+    - host: llama.local
+      paths:
+        - path: /
+          pathType: Prefix
+  # -- TLS configuration
+  tls: []
+
+# Network Policy
+networkPolicy:
+  # -- Enable NetworkPolicy
+  enabled: false
+  ingress:
+    # -- Allowed ingress sources (empty = same namespace)
+    from: []
+  egress:
+    # -- Additional egress rules beyond DNS and HTTPS
+    extraRules: []
+
+# Monitoring
+serviceMonitor:
+  # -- Create Prometheus ServiceMonitor
+  enabled: false
+  # -- Scrape interval
+  interval: 30s
+  # -- Scrape timeout
+  scrapeTimeout: 10s
+  # -- Labels to match Prometheus operator serviceMonitorSelector
+  labels: {}
+
+# Service account
+serviceAccount:
+  # -- Create a ServiceAccount
+  create: true
+  # -- ServiceAccount name (auto-generated if empty)
+  name: ""
+  # -- ServiceAccount annotations
+  annotations: {}
+
+# -- CPU/memory resource requests and limits
+resources: {}
+  # requests:
+  #   cpu: "4"
+  #   memory: "8Gi"
+  # limits:
+  #   cpu: "8"
+  #   memory: "16Gi"
+
+# -- Additional pod annotations (e.g., Prometheus scrape, Istio sidecar)
+podAnnotations: {}
+
+# -- Additional pod labels
+podLabels: {}
+
+# -- Runtime class name (e.g., "nvidia" for GPU runtime)
+runtimeClassName: ""
+
+# -- Termination grace period in seconds (increase for long-running inference)
+terminationGracePeriodSeconds: 90  # allow in-flight inference requests to complete
+
+# -- Pod-level security context
+# GPU workloads may need runAsUser adjusted depending on the device plugin.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+# -- Container-level security context
+# readOnlyRootFilesystem is intentionally not set — llama-server needs writable temp/cache dirs.
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: ["ALL"]
+
+# -- Node selector labels
+nodeSelector: {}
+# -- Pod tolerations
+tolerations: []
+# -- Pod affinity rules
+affinity: {}
+
+# -- Additional environment variables
+extraEnv: []
+# -- Additional environment variable sources (ConfigMaps, Secrets)
+extraEnvFrom: []
+# -- Additional volumes
+extraVolumes: []
+# -- Additional volume mounts
+extraVolumeMounts: []
+# -- Additional CLI arguments (appended to server command)
+extraArgs: []

@@ -1,0 +1,33 @@
+{{- if .Values.knative.enabled }}
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: {{ include "llama-cpp-server.fullname" . }}
+  labels:
+    {{- include "llama-cpp-server.labels" . | nindent 4 }}
+  annotations:
+    serving.knative.dev/progress-deadline: {{ .Values.knative.progressDeadline }}
+spec:
+  template:
+    metadata:
+      annotations:
+        {{- if or .Values.knative.autoscalingTarget (gt (int .Values.knative.containerConcurrency) 0) }}
+        autoscaling.knative.dev/target: "{{ .Values.knative.autoscalingTarget | default .Values.knative.containerConcurrency }}"
+        {{- end }}
+        {{- if .Values.model.multi.enabled }}
+        checksum/models-preset: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- end }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "llama-cpp-server.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      containerConcurrency: {{ .Values.knative.containerConcurrency }}
+      timeoutSeconds: {{ .Values.knative.timeoutSeconds }}
+      idleTimeoutSeconds: {{ .Values.knative.idleTimeoutSeconds }}
+      {{- include "llama-cpp-server.podSpec" . | nindent 6 }}
+{{- end }}

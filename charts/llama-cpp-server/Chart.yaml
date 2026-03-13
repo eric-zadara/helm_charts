@@ -1,0 +1,23 @@
+apiVersion: v2
+name: llama-cpp-server
+description: "Helm chart for llama.cpp server — deploy GGUF models with GPU/CPU support, multi-model routing, and OpenAI-compatible API"
+type: application
+version: 0.1.0
+# appVersion tracks upstream llama.cpp — pin to a specific build tag for production
+appVersion: "b4738"
+kubeVersion: ">=1.26.0-0"
+home: https://github.com/eric-zadara/helm_charts
+sources:
+  - https://github.com/eric-zadara/helm_charts
+  - https://github.com/ggml-org/llama.cpp
+maintainers:
+  - name: eric-zadara
+    url: https://github.com/eric-zadara
+keywords:
+  - llama.cpp
+  - llm
+  - gguf
+  - inference
+  - ai
+annotations:
+  testing/tier: "0"

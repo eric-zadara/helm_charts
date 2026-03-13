@@ -1,0 +1,17 @@
+{{- if and .Values.persistentVolume.enabled (not .Values.persistentVolume.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "llama-cpp-server.fullname" . }}
+  labels:
+    {{- include "llama-cpp-server.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    {{- toYaml .Values.persistentVolume.accessModes | nindent 4 }}
+  {{- if .Values.persistentVolume.storageClass }}
+  storageClassName: {{ .Values.persistentVolume.storageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistentVolume.size }}
+{{- end }}

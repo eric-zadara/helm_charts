@@ -1,0 +1,35 @@
+{{- if not .Values.knative.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "llama-cpp-server.fullname" . }}
+  labels:
+    {{- include "llama-cpp-server.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  {{- with .Values.updateStrategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "llama-cpp-server.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "llama-cpp-server.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        {{- if .Values.model.multi.enabled }}
+        checksum/models-preset: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- end }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- include "llama-cpp-server.podSpec" . | nindent 6 }}
+{{- end }}
