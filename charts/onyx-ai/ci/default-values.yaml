@@ -14,10 +14,10 @@
 #   - Vespa: 1 replica with reduced resources for CI
 #   - Celery workers: 1 replica each with minimal resources
 #
-# Components omitted from CI (upstream templates guard with replicaCount > 0):
-#   - Model servers: download multi-GB ML models at startup, cannot complete
-#     within CI timeout. Upstream templates use {{- if gt (int .Values.*.replicaCount) 0 }}
-#     so setting replicaCount: 0 omits the Deployment entirely (no empty deployments).
+# Model servers included with minimal resources (replicaCount: 1):
+#   - inferenceCapability and indexCapability are deployed but will not finish
+#     downloading multi-GB ML models within CI timeout. They are included for
+#     template rendering coverage; CI tests should not depend on them becoming Ready.
 
 # ------------------------------------------------------------------------------
 # CNPG PostgreSQL - single instance for CI
@@ -131,6 +131,7 @@ onyx:
     enabled: true
     replicas: 1
     singleNode: true
+    opensearchJavaOpts: "-Xmx1g -Xms1g"
     resources:
       requests:
         cpu: 200m

@@ -1,0 +1,76 @@
+# CI test values for onyx-ai chart — external PostgreSQL mode
+#
+# Tests the deployment path where PostgreSQL is provided externally
+# (no CNPG operator required). Also uses external Redis and S3.
+# All heavy components use replicaCount: 1 (minimum) for CI rendering.
+
+cnpg:
+  enabled: false
+postgresql-cluster:
+  cluster:
+    instances: 1
+externalPostgresql:
+  host: "postgres.example.com"
+  port: 5432
+  database: "onyx"
+  existingSecret: "my-pg-secret"
+onyx:
+  opensearch:
+    enabled: false
+  codeInterpreter:
+    enabled: false
+  vespa:
+    enabled: false
+  api:
+    replicaCount: 1
+  webserver:
+    replicaCount: 1
+  inferenceCapability:
+    replicaCount: 1
+  indexCapability:
+    replicaCount: 1
+  celery_beat:
+    replicaCount: 1
+  celery_worker_primary:
+    replicaCount: 1
+  celery_worker_light:
+    replicaCount: 1
+  celery_worker_heavy:
+    replicaCount: 1
+  celery_worker_monitoring:
+    replicaCount: 1
+  celery_worker_docprocessing:
+    replicaCount: 1
+  celery_worker_docfetching:
+    replicaCount: 1
+  celery_worker_user_file_processing:
+    replicaCount: 1
+  auth:
+    postgresql:
+      existingSecret: "my-pg-secret"
+      secretKeys:
+        POSTGRES_USER: username
+        POSTGRES_PASSWORD: password
+    objectstorage:
+      existingSecret: "my-s3-secret"
+    redis:
+      existingSecret: "my-redis-secret"
+      secretKeys:
+        REDIS_PASSWORD: redis_password
+  configMap:
+    HOSTNAME: "0.0.0.0"
+    POSTGRES_HOST: "postgres.example.com"
+    REDIS_HOST: "redis.example.com"
+    S3_ENDPOINT_URL: "https://s3.example.com"
+    S3_FILE_STORE_BUCKET_NAME: "my-bucket"
+redis:
+  enabled: false
+garage:
+  enabled: false
+objectStorage:
+  endpoint: "https://s3.example.com"
+  bucket: "my-bucket"
+  existingSecret: "my-s3-secret"
+externalRedis:
+  host: "redis.example.com"
+  existingSecret: "my-redis-secret"

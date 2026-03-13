@@ -1,4 +1,4 @@
-{{- if .Values.ingress.enabled }}
+{{- if and .Values.ingress.enabled (or (eq .Values.ingress.type "ingressroute") (eq .Values.ingress.className "traefik")) }}
 {{/*
 Strip API Prefix Middleware
 Removes /api prefix before forwarding to API server.

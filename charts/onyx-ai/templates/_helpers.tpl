@@ -51,17 +51,6 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
-Create the name of the service account to use
-*/}}
-{{- define "onyx-ai.serviceAccountName" -}}
-{{- if .Values.serviceAccount.create }}
-{{- default (include "onyx-ai.fullname" .) .Values.serviceAccount.name }}
-{{- else }}
-{{- default "default" .Values.serviceAccount.name }}
-{{- end }}
-{{- end }}
-
-{{/*
 Validate the global variant setting.
 Fails with clear error message if invalid.
 Usage: {{ include "onyx-ai.validateVariant" . }}
@@ -561,7 +550,7 @@ Usage: {{ include "onyx-ai.postgresql.validateCredentials" . }}
 */}}
 {{- define "onyx-ai.postgresql.validateCredentials" -}}
 {{- if .Values.cnpg.enabled -}}
-  {{- $expectedSecret := printf "%s-postgresql-cluster-app" .Release.Name -}}
+  {{- $expectedSecret := printf "%s-postgresql-cluster-superuser" .Release.Name -}}
   {{- $configuredSecret := .Values.onyx.auth.postgresql.existingSecret | default "" -}}
   {{- if eq $configuredSecret "" -}}
     {{- fail (printf "onyx.auth.postgresql.existingSecret is required when cnpg.enabled is true. Set to: %s" $expectedSecret) -}}
@@ -616,6 +605,28 @@ Usage: {{ include "onyx-ai.garage.validateCredentials" . }}
   {{- $configuredSecret := .Values.onyx.auth.objectstorage.existingSecret | default "" -}}
   {{- if eq $configuredSecret "" -}}
     {{- fail (printf "onyx.auth.objectstorage.existingSecret is required when garage.enabled is true. Set to: %s" $expectedSecret) -}}
+  {{- end -}}
+{{- end -}}
+{{- /* Validate stale garage-credentials reference when switching to external S3 */ -}}
+{{- if and (not .Values.garage.enabled) .Values.onyx.auth.objectstorage.existingSecret -}}
+  {{- if contains "garage-credentials" .Values.onyx.auth.objectstorage.existingSecret -}}
+    {{- fail "onyx.auth.objectstorage.existingSecret still references garage-credentials but garage.enabled is false. Update it to match your external S3 secret name." -}}
+  {{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Validate GarageFS replication factor vs replica count.
+Fails if replicationFactor exceeds deployment.replicaCount.
+
+Usage: {{ include "onyx-ai.garage.validateReplication" . }}
+*/}}
+{{- define "onyx-ai.garage.validateReplication" -}}
+{{- if .Values.garage.enabled -}}
+  {{- $rf := .Values.garage.replicationFactor | default 1 -}}
+  {{- $replicas := .Values.garage.deployment.replicaCount | default 1 -}}
+  {{- if gt (int $rf) (int $replicas) -}}
+    {{- fail (printf "garage.replicationFactor (%d) cannot exceed garage.deployment.replicaCount (%d). Increase replicaCount or decrease replicationFactor." (int $rf) (int $replicas)) -}}
   {{- end -}}
 {{- end -}}
 {{- end -}}

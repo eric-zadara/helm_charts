@@ -5,6 +5,7 @@
 {{- include "onyx-ai.postgresql.validateCredentials" . -}}
 {{- include "onyx-ai.redis.validateCredentials" . -}}
 {{- include "onyx-ai.garage.validateCredentials" . -}}
+{{- include "onyx-ai.garage.validateReplication" . -}}
 
 ╔═══════════════════════════════════════════════════════════════════╗
 ║                    Onyx has been deployed!                        ║
@@ -14,8 +15,8 @@ Release: {{ .Release.Name }}
 Namespace: {{ .Release.Namespace }}
 Chart Version: {{ .Chart.Version }}
 App Version: {{ .Chart.AppVersion }}
-Variant: {{ .Values.variant | default "onyx" }}
-{{- if not (contains "onyx-ai" .Release.Name) }}
+Variant: {{ .Values.global.variant | default "onyx" }}
+{{- if ne .Release.Name "onyx-ai" }}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -35,9 +36,9 @@ You MUST override the following values for correct wiring:
     --set onyx.configMap.S3_FILE_STORE_BUCKET_NAME={{ .Release.Name }}-files \
     --set onyx.auth.postgresql.existingSecret={{ .Release.Name }}-postgresql-cluster-superuser \
     --set onyx.auth.redis.existingSecret={{ .Release.Name }}-valkey \
-    --set onyx.auth.objectstorage.existingSecret={{ .Release.Name }}-garage-credentials \
+    --set onyx.auth.objectstorage.existingSecret={{ include "onyx-ai.fullname" . }}-garage-credentials \
     --set garage.clusterConfig.buckets[0].name={{ .Release.Name }}-files \
-    --set garage.clusterConfig.keys.onyx.secretName={{ .Release.Name }}-garage-credentials \
+    --set garage.clusterConfig.keys.onyx.secretName={{ include "onyx-ai.fullname" . }}-garage-credentials \
     --set garage.clusterConfig.keys.onyx.buckets[0]={{ .Release.Name }}-files
 {{- end }}
 
@@ -59,34 +60,24 @@ To watch pods come up:
 ACCESSING ONYX
 ==============
 
-{{- if .Values.onyx.nginx.enabled }}
-
-Onyx is accessible via the nginx LoadBalancer service:
-
-  kubectl get svc -n {{ .Release.Namespace }} {{ .Release.Name }}-nginx-controller
-
-{{- else }}
-
-NOTE: The upstream nginx ingress is disabled.
-
-{{- if .Values.onyx.ingress.enabled }}
+{{- if .Values.ingress.enabled }}
 
 Onyx is accessible via the configured ingress at:
-  {{ .Values.onyx.ingress.api.host | default "onyx.local" }}
+  https://{{ .Values.ingress.host }}
+  Type: {{ .Values.ingress.type }}
 
 {{- else }}
 
 To access Onyx, configure an ingress controller or use port-forwarding:
 
   # Port-forward the API server
-  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ .Release.Name }}-onyx-api-service 8080:8080
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ .Release.Name }}-api-service 8080:8080
 
   # Port-forward the web server
-  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ .Release.Name }}-onyx-webserver 3000:3000
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ .Release.Name }}-webserver 3000:3000
 
 Then access the web UI at: http://localhost:3000
 
-{{- end }}
 {{- end }}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

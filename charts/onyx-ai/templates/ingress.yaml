@@ -40,7 +40,7 @@ spec:
       {{- end }}
   {{- end }}
   rules:
-    - host: {{ .Values.ingress.host | quote }}
+    - host: {{ required "ingress.host is required when ingress is enabled" .Values.ingress.host | quote }}
       http:
         paths:
           - path: /api
@@ -82,7 +82,7 @@ spec:
       {{- end }}
   {{- end }}
   rules:
-    - host: {{ .Values.ingress.host | quote }}
+    - host: {{ required "ingress.host is required when ingress is enabled" .Values.ingress.host | quote }}
       http:
         paths:
           - path: /

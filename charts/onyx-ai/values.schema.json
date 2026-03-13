@@ -81,7 +81,7 @@
           "properties": {
             "enabled": {
               "type": "boolean",
-              "default": true,
+              "default": false,
               "description": "Enable PgBouncer connection pooler"
             },
             "instances": {
@@ -296,7 +296,7 @@
     "objectStorage": {
       "type": "object",
       "description": "External S3-compatible storage configuration",
-      "additionalProperties": false,
+      "additionalProperties": true,
       "properties": {
         "endpoint": {
           "type": "string",
@@ -357,8 +357,8 @@
       "properties": {
         "enabled": {
           "type": "boolean",
-          "description": "Enable built-in GarageFS object storage (disabled by default)",
-          "default": false
+          "description": "Enable built-in GarageFS object storage (enabled by default)",
+          "default": true
         },
         "bucket": {
           "type": "string",
@@ -379,11 +379,17 @@
           "maximum": 3,
           "default": 1
         },
-        "replicaCount": {
-          "type": "integer",
-          "description": "Number of GarageFS nodes",
-          "minimum": 1,
-          "default": 1
+        "deployment": {
+          "type": "object",
+          "description": "GarageFS deployment configuration",
+          "properties": {
+            "replicaCount": {
+              "type": "integer",
+              "description": "Number of GarageFS nodes",
+              "minimum": 1,
+              "default": 1
+            }
+          }
         },
         "resources": {
           "type": "object",
@@ -531,6 +537,11 @@
     "onyx": {
       "type": "object",
       "description": "Upstream Onyx chart configuration (passthrough). See https://github.com/onyx-dot-app/onyx for options.",
+      "additionalProperties": true
+    },
+    "valkey": {
+      "type": "object",
+      "description": "Bitnami Valkey subchart values (active when redis.enabled: true). See: https://github.com/bitnami/charts/tree/main/bitnami/valkey",
       "additionalProperties": true
     },
     "postgresql-cluster": {

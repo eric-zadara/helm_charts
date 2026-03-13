@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "onyx-ai.fullname" . }}-test-connection"
+  labels:
+    {{- include "onyx-ai.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  restartPolicy: Never
+  containers:
+    - name: test-postgresql
+      image: alpine:3.19
+      command: ['sh', '-c']
+      args:
+        - |
+          apk add --no-cache postgresql-client curl redis &&
+          echo "=== Testing PostgreSQL ===" &&
+          PGPASSWORD=$(cat /secrets/pg/password) pg_isready -h {{ .Values.onyx.configMap.POSTGRES_HOST }} -p {{ .Values.onyx.configMap.POSTGRES_PORT | default "5432" }} -U $(cat /secrets/pg/username) &&
+          echo "PostgreSQL: OK" &&
+          echo "=== Testing Redis ===" &&
+          redis-cli -h {{ .Values.onyx.configMap.REDIS_HOST }} -a $(cat /secrets/redis/{{ .Values.onyx.auth.redis.secretKeys.REDIS_PASSWORD }}) ping &&
+          echo "Redis: OK" &&
+          echo "=== Testing API Server ===" &&
+          curl -sf http://{{ .Release.Name }}-api-service:8080/health &&
+          echo "API Server: OK"
+      volumeMounts:
+        - name: pg-secret
+          mountPath: /secrets/pg
+          readOnly: true
+        - name: redis-secret
+          mountPath: /secrets/redis
+          readOnly: true
+  volumes:
+    - name: pg-secret
+      secret:
+        secretName: {{ .Values.onyx.auth.postgresql.existingSecret }}
+    - name: redis-secret
+      secret:
+        secretName: {{ .Values.onyx.auth.redis.existingSecret }}
