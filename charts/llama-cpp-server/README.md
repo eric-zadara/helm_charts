@@ -233,11 +233,93 @@ Per-model settings available under `settings`:
 
 ## Example Deployments
 
-The recommended approach for production is to deploy separate Helm releases targeting different hardware profiles.
+### CPU-Only Chat Server
 
-### embeddings.yaml -- CPU Embedding Server
+A lightweight CPU deployment for small models or environments without GPU access:
 
 ```yaml
+# cpu-chat.yaml
+gpu:
+  enabled: false
+model:
+  source: hf
+  hf:
+    repo: "bartowski/Phi-3.5-mini-instruct-GGUF"
+    file: "Phi-3.5-mini-instruct-Q4_K_M.gguf"
+  preload: true
+server:
+  contextSize: 4096
+  parallel: "2"
+  threads: "8"
+  threadsBatch: "8"
+  mlock: true
+resources:
+  requests: { cpu: "8", memory: "4Gi" }
+  limits: { cpu: "8", memory: "8Gi" }
+persistentVolume:
+  size: 10Gi
+```
+
+### NVIDIA GPU -- 16 GB (T4 / A10G / RTX 4090)
+
+Deploys a 14B-parameter model fully offloaded to a single 16 GB NVIDIA GPU. The chart auto-selects the `server-cuda` image and adds the `nvidia.com/gpu` toleration:
+
+```yaml
+# nvidia-gpu.yaml
+gpu:
+  enabled: true
+  type: nvidia
+  count: 1
+model:
+  source: hf
+  hf:
+    repo: "bartowski/Qwen2.5-14B-Instruct-GGUF"
+    file: "Qwen2.5-14B-Instruct-Q4_K_M.gguf"
+  preload: true
+server:
+  contextSize: 8192
+  gpuLayers: -1
+  flashAttention: "on"
+resources:
+  requests: { cpu: "4", memory: "8Gi" }
+  limits: { cpu: "8", memory: "24Gi" }
+persistentVolume:
+  size: 20Gi
+```
+
+### Intel GPU -- Arc A770 (16 GB)
+
+Same pattern as NVIDIA but with `gpu.type: intel`. The chart auto-selects the `server-intel` image and requests `gpu.intel.com/i915`:
+
+```yaml
+# intel-gpu.yaml
+gpu:
+  enabled: true
+  type: intel
+  count: 1
+model:
+  source: hf
+  hf:
+    repo: "bartowski/Qwen2.5-14B-Instruct-GGUF"
+    file: "Qwen2.5-14B-Instruct-Q4_K_M.gguf"
+  preload: true
+server:
+  contextSize: 8192
+  gpuLayers: -1
+  flashAttention: "on"
+resources:
+  requests: { cpu: "4", memory: "8Gi" }
+  limits: { cpu: "8", memory: "24Gi" }
+persistentVolume:
+  size: 20Gi
+```
+
+### Embedding Server (CPU)
+
+A dedicated embedding endpoint using BGE-large. Embedding models are small enough to run efficiently on CPU:
+
+```yaml
+# embeddings.yaml
 gpu:
   enabled: false
 model:
@@ -249,17 +331,23 @@ model:
 server:
   embedding: true
   contextSize: 512
-  threads: 8
-  threadsBatch: 8
+  parallel: "8"
+  threads: "4"
+  threadsBatch: "4"
   mlock: true
 resources:
-  requests: { cpu: "8", memory: "4Gi" }
-  limits: { cpu: "8", memory: "8Gi" }
+  requests: { cpu: "4", memory: "2Gi" }
+  limits: { cpu: "4", memory: "4Gi" }
+persistentVolume:
+  size: 5Gi
 ```
 
-### small-gpu.yaml -- 1x T4/A10
+### Single Model -- Llama 3.1 8B on 16 GB NVIDIA GPU
+
+A production-ready deployment of Meta's Llama 3.1 8B with authentication and monitoring:
 
 ```yaml
+# llama-8b.yaml
 gpu:
   enabled: true
   type: nvidia
@@ -267,53 +355,141 @@ gpu:
 model:
   source: hf
   hf:
-    repo: "ggml-org/Qwen2.5-3B-Instruct-GGUF"
-    file: "qwen2.5-3b-instruct-q4_k_m.gguf"
+    repo: "bartowski/Meta-Llama-3.1-8B-Instruct-GGUF"
+    file: "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf"
   preload: true
 server:
   contextSize: 8192
   gpuLayers: -1
+  flashAttention: "on"
+  apiKeySecret: llama-api-key    # kubectl create secret generic llama-api-key --from-literal=api-key=<your-key>
+serviceMonitor:
+  enabled: true
+  labels:
+    release: prometheus
 resources:
   requests: { cpu: "4", memory: "8Gi" }
-  limits: { cpu: "4", memory: "16Gi" }
-tolerations:
-  - key: "nvidia.com/gpu"
-    operator: "Exists"
-    effect: "NoSchedule"
+  limits: { cpu: "8", memory: "20Gi" }
+persistentVolume:
+  size: 15Gi
 ```
 
-### large-gpu.yaml -- 1x A100/H100
+### Multi-Model -- 3 Models from Different Labs on 16 GB NVIDIA GPU
+
+Serves models from Meta, Alibaba, and Mistral AI through a single deployment using the built-in router. Models are loaded and unloaded on demand (`modelsMax: 2` means at most 2 are in memory simultaneously). All three are Q4_K_M quantized to fit within the 16 GB VRAM budget:
 
 ```yaml
+# multi-lab.yaml
 gpu:
   enabled: true
   type: nvidia
   count: 1
 model:
-  source: hf
-  hf:
-    repo: "ggml-org/Qwen2.5-72B-Instruct-GGUF"
-    file: "qwen2.5-72b-instruct-q4_k_m.gguf"
-  preload: true
+  multi:
+    enabled: true
+    modelsMax: 2      # load at most 2 of the 3 models at once (16 GB VRAM budget)
+    models:
+      # Meta — Llama 3.1 8B Instruct (~4.9 GB Q4_K_M)
+      - name: llama-3.1-8b
+        source: hf
+        hf:
+          repo: "bartowski/Meta-Llama-3.1-8B-Instruct-GGUF"
+          file: "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf"
+        preload: true
+        loadOnStartup: true
+        settings:
+          contextSize: 8192
+          gpuLayers: 999
+
+      # Alibaba — Qwen 2.5 7B Instruct (~4.7 GB Q4_K_M)
+      - name: qwen-2.5-7b
+        source: hf
+        hf:
+          repo: "Qwen/Qwen2.5-7B-Instruct-GGUF"
+          file: "qwen2.5-7b-instruct-q4_k_m.gguf"
+        preload: true
+        loadOnStartup: true
+        settings:
+          contextSize: 8192
+          gpuLayers: 999
+
+      # Mistral AI — Mistral 7B Instruct v0.3 (~4.4 GB Q4_K_M)
+      - name: mistral-7b
+        source: hf
+        hf:
+          repo: "bartowski/Mistral-7B-Instruct-v0.3-GGUF"
+          file: "Mistral-7B-Instruct-v0.3-Q4_K_M.gguf"
+        preload: true
+        settings:
+          contextSize: 8192
+          gpuLayers: 999
 server:
-  contextSize: 32768
-  gpuLayers: -1
   flashAttention: "on"
 resources:
-  requests: { cpu: "8", memory: "32Gi" }
-  limits: { cpu: "16", memory: "96Gi" }
-tolerations:
-  - key: "nvidia.com/gpu"
-    operator: "Exists"
-    effect: "NoSchedule"
+  requests: { cpu: "4", memory: "8Gi" }
+  limits: { cpu: "8", memory: "24Gi" }
+persistentVolume:
+  size: 30Gi
 ```
 
-### Deploy All Three
+After deploying, list available models and target a specific one:
 
 ```bash
-helm install embeddings ./charts/llama-cpp-server -f embeddings.yaml
-helm install small-gpu  ./charts/llama-cpp-server -f small-gpu.yaml
-helm install large-gpu  ./charts/llama-cpp-server -f large-gpu.yaml
+# List loaded models
+curl http://localhost:8080/v1/models
+
+# Chat with a specific model
+curl http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model": "llama-3.1-8b", "messages": [{"role": "user", "content": "Hello!"}]}'
+```
+
+### Extremely Large Model -- Llama 3.1 405B on CPU (400 GiB RAM)
+
+For running frontier-class models without a GPU. This deploys Meta's Llama 3.1 405B (Q4_K_M, ~230 GB) on a high-memory VM. CPU inference at this scale is slow but functional for batch workloads:
+
+```yaml
+# llama-405b-cpu.yaml
+gpu:
+  enabled: false
+model:
+  source: hf
+  hf:
+    repo: "bartowski/Meta-Llama-3.1-405B-Instruct-GGUF"
+    file: "Meta-Llama-3.1-405B-Instruct-Q4_K_M.gguf"
+  preload: true
+server:
+  contextSize: 4096         # keep small — each token costs ~0.8 GB at 405B
+  parallel: "1"             # single slot to avoid memory pressure
+  threads: "48"             # match available vCPUs
+  threadsBatch: "48"
+  mlock: true               # prevent swapping the 230 GB model to disk
+resources:
+  requests: { cpu: "48", memory: "300Gi" }
+  limits: { cpu: "96", memory: "380Gi" }
+persistentVolume:
+  size: 300Gi               # ~230 GB model + download headroom
+terminationGracePeriodSeconds: 600   # 405B inference requests can take minutes
+startupProbe:
+  failureThreshold: 360     # 360 x 10s = 60 min — loading 230 GB from disk takes time
+nodeSelector:
+  node.kubernetes.io/instance-type: "m7i.48xlarge"   # or equivalent high-memory instance
+```
+
+**Performance note**: Expect ~1-3 tokens/second on a 96-vCPU instance. This is suitable for offline/batch inference, evaluation pipelines, or low-throughput internal tools — not interactive chat at scale.
+
+### Deploy Examples
+
+```bash
+# Single deployments
+helm install embeddings  ./charts/llama-cpp-server -f embeddings.yaml
+helm install llama-8b    ./charts/llama-cpp-server -f llama-8b.yaml
+helm install multi-lab   ./charts/llama-cpp-server -f multi-lab.yaml
+helm install llama-405b  ./charts/llama-cpp-server -f llama-405b-cpu.yaml
+
+# Or mix and match — each release is independent
+helm install chat-nvidia ./charts/llama-cpp-server -f nvidia-gpu.yaml
+helm install chat-intel  ./charts/llama-cpp-server -f intel-gpu.yaml
 ```
 
 ## Validation
