@@ -1,0 +1,44 @@
+suite: PersistentVolumeClaim template
+templates:
+  - pvc.yaml
+tests:
+  - it: should create a PVC by default
+    asserts:
+      - isKind:
+          of: PersistentVolumeClaim
+      - equal:
+          path: spec.resources.requests.storage
+          value: 30Gi
+      - contains:
+          path: spec.accessModes
+          content: ReadWriteOnce
+
+  - it: should respect custom size
+    set:
+      persistentVolume.size: 100Gi
+    asserts:
+      - equal:
+          path: spec.resources.requests.storage
+          value: 100Gi
+
+  - it: should set storage class
+    set:
+      persistentVolume.storageClass: gp3
+    asserts:
+      - equal:
+          path: spec.storageClassName
+          value: gp3
+
+  - it: should not render when disabled
+    set:
+      persistentVolume.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should not render when existingClaim is set
+    set:
+      persistentVolume.existingClaim: my-pvc
+    asserts:
+      - hasDocuments:
+          count: 0

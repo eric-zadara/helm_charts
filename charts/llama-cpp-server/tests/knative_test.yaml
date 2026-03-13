@@ -1,0 +1,56 @@
+suite: Knative Service template
+templates:
+  - knative/service.yaml
+tests:
+  - it: should not render by default
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should render when Knative enabled
+    set:
+      knative.enabled: true
+      persistentVolume.enabled: false
+    asserts:
+      - isKind:
+          of: Service
+      - equal:
+          path: apiVersion
+          value: serving.knative.dev/v1
+
+  - it: should set container concurrency
+    set:
+      knative.enabled: true
+      knative.containerConcurrency: 8
+      persistentVolume.enabled: false
+    asserts:
+      - equal:
+          path: spec.template.spec.containerConcurrency
+          value: 8
+
+  - it: should set progress deadline on metadata annotation
+    set:
+      knative.enabled: true
+      persistentVolume.enabled: false
+    asserts:
+      - equal:
+          path: metadata.annotations["serving.knative.dev/progress-deadline"]
+          value: "2400s"
+
+  - it: should set timeout on spec
+    set:
+      knative.enabled: true
+      persistentVolume.enabled: false
+    asserts:
+      - equal:
+          path: spec.template.spec.timeoutSeconds
+          value: 600
+
+  - it: should set idle timeout on spec
+    set:
+      knative.enabled: true
+      persistentVolume.enabled: false
+    asserts:
+      - equal:
+          path: spec.template.spec.idleTimeoutSeconds
+          value: 600

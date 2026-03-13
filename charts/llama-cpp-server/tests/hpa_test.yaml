@@ -1,0 +1,43 @@
+suite: HorizontalPodAutoscaler template
+templates:
+  - hpa.yaml
+tests:
+  - it: should not render by default
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should render when autoscaling enabled
+    set:
+      autoscaling.enabled: true
+      persistentVolume.enabled: false
+    asserts:
+      - isKind:
+          of: HorizontalPodAutoscaler
+      - equal:
+          path: spec.minReplicas
+          value: 1
+      - equal:
+          path: spec.maxReplicas
+          value: 5
+
+  - it: should include CPU metric
+    set:
+      autoscaling.enabled: true
+      persistentVolume.enabled: false
+    asserts:
+      - equal:
+          path: spec.metrics[0].resource.name
+          value: cpu
+      - equal:
+          path: spec.metrics[0].resource.target.averageUtilization
+          value: 80
+
+  - it: should not render when Knative is enabled
+    set:
+      autoscaling.enabled: true
+      knative.enabled: true
+      persistentVolume.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

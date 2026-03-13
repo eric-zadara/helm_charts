@@ -1,0 +1,58 @@
+suite: Ingress template
+templates:
+  - ingress.yaml
+tests:
+  - it: should not render by default
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should render when enabled with auth
+    set:
+      ingress.enabled: true
+      ingress.className: nginx
+      server.apiKey: test-key
+      ingress.hosts:
+        - host: llama.example.com
+          paths:
+            - path: /
+              pathType: Prefix
+    asserts:
+      - isKind:
+          of: Ingress
+      - equal:
+          path: spec.ingressClassName
+          value: nginx
+
+  - it: should include TLS config
+    set:
+      ingress.enabled: true
+      server.apiKey: test-key
+      ingress.hosts:
+        - host: llama.example.com
+          paths:
+            - path: /
+              pathType: Prefix
+      ingress.tls:
+        - secretName: llama-tls
+          hosts:
+            - llama.example.com
+    asserts:
+      - equal:
+          path: spec.tls[0].secretName
+          value: llama-tls
+
+  - it: should not render when Knative is enabled
+    set:
+      ingress.enabled: true
+      server.apiKey: test-key
+      knative.enabled: true
+      persistentVolume.enabled: false
+      ingress.hosts:
+        - host: llama.example.com
+          paths:
+            - path: /
+              pathType: Prefix
+    asserts:
+      - hasDocuments:
+          count: 0

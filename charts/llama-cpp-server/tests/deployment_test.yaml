@@ -1,0 +1,53 @@
+suite: Deployment template
+templates:
+  - deployment.yaml
+tests:
+  - it: should render a Deployment by default
+    asserts:
+      - isKind:
+          of: Deployment
+      - equal:
+          path: spec.replicas
+          value: 1
+
+  - it: should respect replicaCount
+    set:
+      replicaCount: 3
+      persistentVolume.enabled: false
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 3
+
+  - it: should use RollingUpdate strategy
+    asserts:
+      - equal:
+          path: spec.strategy.type
+          value: RollingUpdate
+      - equal:
+          path: spec.strategy.rollingUpdate.maxUnavailable
+          value: 0
+      - equal:
+          path: spec.strategy.rollingUpdate.maxSurge
+          value: 1
+
+  - it: should not render when Knative is enabled
+    set:
+      knative.enabled: true
+      persistentVolume.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should not include configmap checksum in single-model mode
+    set:
+      persistentVolume.enabled: false
+    asserts:
+      - notExists:
+          path: spec.template.metadata.annotations["checksum/models-preset"]
+
+  - it: should set terminationGracePeriodSeconds
+    asserts:
+      - equal:
+          path: spec.template.spec.terminationGracePeriodSeconds
+          value: 90

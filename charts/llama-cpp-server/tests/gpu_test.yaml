@@ -1,0 +1,69 @@
+suite: GPU resource injection
+templates:
+  - deployment.yaml
+tests:
+  - it: should inject NVIDIA GPU resources
+    set:
+      gpu.enabled: true
+      gpu.type: nvidia
+      gpu.count: 2
+      persistentVolume.enabled: false
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].resources.limits["nvidia.com/gpu"]
+          value: "2"
+
+  - it: should inject AMD GPU resources
+    set:
+      gpu.enabled: true
+      gpu.type: amd
+      gpu.count: 1
+      persistentVolume.enabled: false
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].resources.limits["amd.com/gpu"]
+          value: "1"
+
+  - it: should inject Intel GPU resources
+    set:
+      gpu.enabled: true
+      gpu.type: intel
+      gpu.count: 1
+      persistentVolume.enabled: false
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].resources.limits["gpu.intel.com/i915"]
+          value: "1"
+
+  - it: should use custom NVIDIA resource key
+    set:
+      gpu.enabled: true
+      gpu.type: nvidia
+      gpu.nvidiaResource: "nvidia.com/mig-1g.5gb"
+      gpu.count: 1
+      persistentVolume.enabled: false
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].resources.limits["nvidia.com/mig-1g.5gb"]
+          value: "1"
+
+  - it: should not inject GPU resources when disabled
+    set:
+      gpu.enabled: false
+      persistentVolume.enabled: false
+    asserts:
+      - notExists:
+          path: spec.template.spec.containers[0].resources.limits
+
+  - it: should auto-append NVIDIA toleration
+    set:
+      gpu.enabled: true
+      gpu.type: nvidia
+      persistentVolume.enabled: false
+    asserts:
+      - contains:
+          path: spec.template.spec.tolerations
+          content:
+            key: nvidia.com/gpu
+            operator: Exists
+            effect: NoSchedule

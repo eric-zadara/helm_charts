@@ -1,0 +1,37 @@
+suite: PodDisruptionBudget template
+templates:
+  - poddisruptionbudget.yaml
+tests:
+  - it: should not render by default
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should render when enabled
+    set:
+      podDisruptionBudget.enabled: true
+    asserts:
+      - isKind:
+          of: PodDisruptionBudget
+      - equal:
+          path: spec.minAvailable
+          value: 1
+
+  - it: should use maxUnavailable when set
+    set:
+      podDisruptionBudget.enabled: true
+      podDisruptionBudget.minAvailable: ""
+      podDisruptionBudget.maxUnavailable: 1
+    asserts:
+      - equal:
+          path: spec.maxUnavailable
+          value: 1
+
+  - it: should not render when Knative is enabled
+    set:
+      podDisruptionBudget.enabled: true
+      knative.enabled: true
+      persistentVolume.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

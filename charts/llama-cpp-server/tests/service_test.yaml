@@ -1,0 +1,42 @@
+suite: Service template
+templates:
+  - service.yaml
+tests:
+  - it: should create a ClusterIP service by default
+    asserts:
+      - isKind:
+          of: Service
+      - equal:
+          path: spec.type
+          value: ClusterIP
+      - equal:
+          path: spec.ports[0].port
+          value: 8080
+      - equal:
+          path: spec.ports[0].targetPort
+          value: http
+
+  - it: should respect custom service type
+    set:
+      service.type: LoadBalancer
+    asserts:
+      - equal:
+          path: spec.type
+          value: LoadBalancer
+
+  - it: should include service annotations
+    set:
+      service.annotations:
+        test-annotation: test-value
+    asserts:
+      - equal:
+          path: metadata.annotations.test-annotation
+          value: test-value
+
+  - it: should not render when Knative is enabled
+    set:
+      knative.enabled: true
+      persistentVolume.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
