@@ -4,6 +4,12 @@ description: CRDs for LLM inference platform (cert-manager, Gateway API, KServe,
 type: application
 version: 0.2.0
 appVersion: "1.0.0"
+home: https://github.com/eric-zadara/helm_charts
+sources:
+  - https://github.com/eric-zadara/helm_charts
+maintainers:
+  - name: eric-zadara
+    url: https://github.com/eric-zadara
 annotations:
   testing/tier: "3"
   testing/prerequisites: ""

@@ -1,5 +1,8 @@
 # Inference stack umbrella chart
 #
+# Infrastructure release name (used by _helpers.tpl for service discovery)
+infrastructureReleaseName: "inference-infrastructure"
+#
 # CROSS-CHART DEPENDENCY: inference-infrastructure
 # This chart references the Gateway created by inference-infrastructure.
 # The Gateway name follows the convention: <release-name>-gateway
@@ -50,7 +53,7 @@ model-serving:
   #   storageUri: "hf://Qwen/Qwen2.5-1.5B-Instruct"
   #   gpu: 1
   #   tensorParallelSize: 1
-  #   minReplicas: 0
+  #   minReplicas: 1
   #   maxReplicas: 3
   #
   # # llama.cpp CPU model (Qwen2.5-7B GGUF via S3)
@@ -59,7 +62,7 @@ model-serving:
   #   name: "qwen25-7b-gguf"
   #   storageUri: "s3://models/qwen2.5-7b-instruct-q4_k_m.gguf"
   #   serviceAccountName: "s3-model-sa"
-  #   minReplicas: 0
+  #   minReplicas: 1
   #   maxReplicas: 3
   #
   # # Ollama CPU/GPU model (Qwen3-4B, pulled at runtime)
@@ -68,7 +71,7 @@ model-serving:
   #   name: "qwen3-4b-ollama"
   #   modelTag: "qwen3:4b"
   #   gpu: 0
-  #   minReplicas: 0
+  #   minReplicas: 1
   #   maxReplicas: 3
 
   # Enable InferencePool when deploying with inference-gateway EPP routing.

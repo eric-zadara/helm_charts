@@ -2,13 +2,19 @@ apiVersion: v2
 name: model-serving
 description: "Multi-runtime model serving: vLLM (GPU), llama.cpp (CPU), and Ollama (GPU/CPU) ServingRuntimes with InferenceService templates for LLM inference"
 type: application
-version: 0.1.4
+version: 0.2.0
 appVersion: "0.16.0"
+home: https://github.com/eric-zadara/helm_charts
+sources:
+  - https://github.com/eric-zadara/helm_charts
+maintainers:
+  - name: eric-zadara
+    url: https://github.com/eric-zadara
 annotations:
   testing/tier: "2"
   testing/prerequisites: "tier1-crds"
 
 # Dependencies (must be installed before this chart):
-# - KServe CRDs (Phase 1) - InferenceService, ServingRuntime, ClusterServingRuntime
-# - Storage classes (Phase 2) - local-nvme for model caching
-# - Networking layer (Phase 4) - Envoy Gateway and Kourier
+# - KServe CRDs - InferenceService, ServingRuntime, ClusterServingRuntime
+# - KServe controller (Standard or Knative mode) - reconciles InferenceService resources
+# - Networking layer - Envoy Gateway for external traffic

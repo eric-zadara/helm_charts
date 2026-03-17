@@ -1,13 +1,15 @@
 # Inference Infrastructure
 
-Umbrella chart that deploys LiteLLM API proxy and an Envoy Gateway for LLM inference traffic.
+Umbrella chart that deploys the KServe controller (Standard mode by default), LiteLLM API proxy, and an Envoy Gateway for LLM inference traffic. Knative-based scale-to-zero is available as an opt-in mode.
 
 ## What's Included
 
 | Component | Type | Description | Default |
 |-----------|------|-------------|---------|
+| KServe controller | Subchart dependency | Reconciles InferenceService and ClusterServingRuntime CRs. Runs in Standard mode (plain Deployments + HPA) by default. | Enabled |
 | LiteLLM Proxy | Subchart dependency | Multi-tenant OpenAI-compatible API proxy (bundles its own PostgreSQL via CNPG and Valkey as sub-dependencies) | Enabled |
 | Gateway API resources | Direct templates | EnvoyProxy config, GatewayClass, and Gateway for Envoy Gateway | Enabled |
+| KnativeServing CR | Direct template | Creates KnativeServing namespace and CR for scale-to-zero mode. Requires knative-operator in inference-operators. | Disabled |
 
 > **Note:** PostgreSQL (CNPG) and Valkey are **not** direct dependencies of this chart. They are bundled inside the `litellm-proxy` subchart and deployed automatically when `litellm-proxy.database.internal.enabled` and `litellm-proxy.cache.internal.enabled` are true (the defaults).
 
@@ -41,32 +43,103 @@ Umbrella chart that deploys LiteLLM API proxy and an Envoy Gateway for LLM infer
     [  bundled via litellm-proxy  ]
 ```
 
+> In **Standard mode** (default), KServe creates plain Deployments, Services, and HPAs for each InferenceService. In **Knative mode**, KServe creates Knative Services managed by the KPA autoscaler, enabling scale-to-zero.
+
+## Deployment Modes
+
+KServe supports two deployment modes, controlled by `kserve.kserve.controller.deploymentMode`:
+
+### Standard Mode (default)
+
+- KServe creates plain Kubernetes **Deployments + Services + HPA** for each InferenceService.
+- No Knative dependency. Simpler install with fewer moving parts.
+- Recommended for GPU/GenAI workloads -- better streaming support and lower operational overhead.
+- Install order is flexible: `inference-crds` must be first, but `inference-operators` and `inference-infrastructure` can be installed in any order.
+
+No extra values needed -- this is the default:
+
+```yaml
+kserve:
+  enabled: true
+  kserve:
+    controller:
+      deploymentMode: "Standard"
+```
+
+### Knative Mode (opt-in)
+
+- KServe creates **Knative Services** with the KPA (Knative Pod Autoscaler).
+- Enables **scale-to-zero** -- idle models release GPU/CPU resources entirely.
+- Requires `knative-operator` to be running (enabled in `inference-operators`) and `knativeServing.enabled=true` in this chart.
+- **Install order matters.** Due to a controller-runtime CRD caching limitation, KServe caches a terminal error if Knative Serving CRDs are not registered before the KServe controller starts. You must install `inference-operators` (with knative-operator) before `inference-infrastructure` in Knative mode.
+
+Values overrides for Knative mode:
+
+```yaml
+kserve:
+  kserve:
+    controller:
+      deploymentMode: "Knative"
+
+knativeServing:
+  enabled: true
+```
+
 ## Prerequisites
 
-This chart requires the following sibling charts to be installed first:
+### Standard Mode (default)
 
-1. **inference-crds** -- Custom Resource Definitions for CNPG, Envoy Gateway, and Gateway API
-2. **inference-operators** -- Operators that reconcile those CRDs (CNPG operator, Envoy Gateway controller)
+This chart requires:
 
-The chart's CI annotation `testing/prerequisites: "inference-crds,inference-operators"` documents this ordering.
+1. **inference-crds** -- Custom Resource Definitions for CNPG, Envoy Gateway, Gateway API, and KServe
+
+The chart's CI annotation `testing/prerequisites: "inference-crds"` documents this ordering.
+
+`inference-operators` (CNPG operator, Envoy Gateway controller) should also be installed but can be installed in any order relative to this chart.
+
+### Knative Mode
+
+When using Knative mode, `inference-operators` must be installed first with `knative-operator.enabled=true`. The full prerequisite chain is:
+
+1. **inference-crds** -- CRDs
+2. **inference-operators** -- Operators including knative-operator (must be running before infrastructure)
 
 ## Quick Start
+
+### Standard Mode (default)
 
 ```bash
 # 1. Install CRDs
 helm install crds ./charts/inference-crds
 
-# 2. Install operators
+# 2. Install operators and infrastructure (any order)
 helm install operators ./charts/inference-operators
-
-# 3. Install infrastructure (LiteLLM + Gateway)
 helm install infra ./charts/inference-infrastructure
+
+# 3. Install model serving stack
+helm install stack ./charts/inference-stack
+```
+
+### Knative Mode
+
+```bash
+# 1. Install CRDs
+helm install crds ./charts/inference-crds
+
+# 2. Install operators WITH knative-operator (must complete before step 3)
+helm install operators ./charts/inference-operators \
+  --set knative-operator.enabled=true
+
+# 3. Install infrastructure with Knative mode
+helm install infra ./charts/inference-infrastructure \
+  --set kserve.kserve.controller.deploymentMode=Knative \
+  --set knativeServing.enabled=true
 
 # 4. Install model serving stack
 helm install stack ./charts/inference-stack
 ```
 
-Verify the deployment:
+### Verify the deployment
 
 ```bash
 # Check all pods are running
@@ -77,6 +150,9 @@ kubectl logs -l app.kubernetes.io/name=litellm-proxy | head -20
 
 # Check Gateway is programmed
 kubectl get gateway
+
+# Check KServe controller is running
+kubectl get pods -l control-plane=kserve-controller-manager
 ```
 
 ## Service Naming Convention
@@ -94,6 +170,29 @@ When using release name `infra`, these services are created:
 LiteLLM is pre-configured to connect to these services automatically.
 
 ## Values
+
+### KServe
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `kserve.enabled` | bool | `true` | Deploy KServe controller |
+| `kserve.kserve.controller.deploymentMode` | string | `"Standard"` | KServe deployment mode (`"Standard"` or `"Knative"`) |
+| `kserve.kserve.controller.resources.limits.cpu` | string | `"100m"` | Controller CPU limit |
+| `kserve.kserve.controller.resources.limits.memory` | string | `"300Mi"` | Controller memory limit |
+
+### KnativeServing
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `knativeServing.enabled` | bool | `false` | Create KnativeServing CR (opt-in for Knative/scale-to-zero mode) |
+| `knativeServing.namespace` | string | `"knative-serving"` | Namespace for KnativeServing CR |
+| `knativeServing.spec.version` | string | `"1.21"` | Knative Serving version |
+| `knativeServing.spec.ingress.kourier.enabled` | bool | `true` | Enable Kourier ingress for Knative |
+| `knativeServing.spec.ingress.kourier.service-type` | string | `"ClusterIP"` | Kourier service type (ClusterIP since Envoy Gateway handles external traffic) |
+| `knativeServing.spec.config.deployment.progress-deadline` | string | `"2400s"` | Extended deadline for ASG cold starts + model download |
+| `knativeServing.spec.config.autoscaler.enable-scale-to-zero` | string | `"true"` | Enable scale-to-zero |
+| `knativeServing.spec.config.autoscaler.scale-to-zero-grace-period` | string | `"30s"` | Grace period before scaling to zero |
+| `knativeServing.spec.config.autoscaler.scale-down-delay` | string | `"300s"` | Delay before scaling down (avoids thrashing on bursty LLM traffic) |
 
 ### Gateway Configuration
 
@@ -238,6 +337,35 @@ gateway:
       # cloud.google.com/load-balancer-type: "External"
 ```
 
+## Migration from Knative-Default Versions
+
+Previous versions of this chart used Knative as the default deployment mode. If upgrading from a version where Knative was the default:
+
+**Option A -- Switch to Standard mode (recommended):**
+
+Standard mode is now the default. After upgrading the chart, existing InferenceServices that were created under Knative mode will need to be re-created so KServe provisions them as plain Deployments instead of Knative Services.
+
+```bash
+# Upgrade the chart (Standard mode is now the default)
+helm upgrade infra ./charts/inference-infrastructure
+
+# Re-create any existing InferenceServices
+kubectl delete inferenceservice <name>
+kubectl apply -f <inferenceservice-manifest>.yaml
+```
+
+**Option B -- Keep Knative mode:**
+
+To preserve the previous behavior, explicitly opt in to Knative mode during the upgrade:
+
+```bash
+helm upgrade infra ./charts/inference-infrastructure \
+  --set kserve.kserve.controller.deploymentMode=Knative \
+  --set knativeServing.enabled=true
+```
+
+Ensure that `inference-operators` was installed with `knative-operator.enabled=true`.
+
 ## Troubleshooting
 
 ### Gateway Not Programmed
@@ -257,6 +385,21 @@ kubectl logs -l app.kubernetes.io/name=envoy-gateway -n envoy-gateway-system
 Common issues:
 - **GatewayClass not accepted**: Envoy Gateway controller not running. Ensure `inference-operators` was installed first.
 - **No address assigned**: Check the Envoy proxy Service and cloud load balancer provisioning.
+
+### KServe Controller Not Starting
+
+```bash
+# Check KServe controller logs
+kubectl logs -l control-plane=kserve-controller-manager
+
+# Check controller deployment
+kubectl get deploy -l control-plane=kserve-controller-manager
+```
+
+Common issues:
+- **CRD not found errors**: KServe CRDs not installed. Ensure `inference-crds` was installed first.
+- **Knative CRD errors in Standard mode**: Should not occur. If seen, verify `deploymentMode` is set to `"Standard"`.
+- **Knative CRD errors in Knative mode**: The knative-operator was not running before KServe started. Delete the KServe controller pod to restart it, or reinstall with correct ordering.
 
 ### LiteLLM Not Starting
 
@@ -296,5 +439,5 @@ Verify services exist with expected names:
 
 ```bash
 # Check infrastructure services
-kubectl get svc | grep -E "(postgresql|valkey|gateway)"
+kubectl get svc | grep -E "(postgresql|valkey|gateway|kserve)"
 ```

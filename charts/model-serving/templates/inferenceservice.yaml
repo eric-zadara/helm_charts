@@ -6,7 +6,8 @@ metadata:
   labels:
     {{- include "model-serving.labels" . | nindent 4 }}
   annotations:
-    # Knative autoscaling annotations
+    # Knative autoscaling annotations (only effective in Knative deployment mode;
+    # silently ignored in Standard mode where KServe creates an HPA instead)
     autoscaling.knative.dev/scale-down-delay: {{ .Values.inferenceService.autoscaling.scaleDownDelay | quote }}
     autoscaling.knative.dev/scale-to-zero-pod-retention-period: {{ .Values.inferenceService.autoscaling.scaleToZeroPodRetention | quote }}
     autoscaling.knative.dev/window: {{ .Values.inferenceService.autoscaling.stableWindow | quote }}

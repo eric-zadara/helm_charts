@@ -57,8 +57,9 @@ inferenceService:
   tensorParallelSize: 1
   # -- Extra vLLM args (e.g., --quantization=awq, --speculative-model=xxx)
   extraArgs: []
-  # -- Minimum replicas (0 enables scale-to-zero)
-  minReplicas: 0
+  # -- Minimum replicas (0 enables scale-to-zero in Knative mode only;
+  # in Standard mode, KServe sets HPA minReplicas=1 when spec says 0)
+  minReplicas: 1
   # -- Maximum replicas
   maxReplicas: 3
   # -- Autoscaling metric (concurrency or rps)
@@ -86,18 +87,19 @@ inferenceService:
   affinity: {}
   # -- Pod annotations
   annotations: {}
-  # -- Autoscaling configuration (Knative KPA annotations)
+  # -- Autoscaling configuration (Knative KPA annotations).
+  # These settings only take effect in Knative deployment mode.
+  # In Standard mode, KServe creates an HPA v2 with CPU/memory metrics instead.
   autoscaling:
     # -- Delay before scaling down (prevents flapping for GPU workloads)
     scaleDownDelay: "5m"
-    # -- Minimum time last pod stays after scale-to-zero decision
+    # -- Minimum time last pod stays after scale-to-zero decision (Knative mode only)
     scaleToZeroPodRetention: "1m"
     # -- Stable window for averaging concurrency
     stableWindow: "60s"
     # -- Target utilization percentage before scaling
     targetUtilizationPercentage: "70"
   # -- Termination grace period in seconds (for long-running LLM requests)
-  # Requires config-features ConfigMap with terminationGracePeriodSeconds: Enabled
   terminationGracePeriodSeconds: 120
   # -- HuggingFace secret reference (for gated models)
   huggingfaceSecret: ""
@@ -235,8 +237,9 @@ llamacppInferenceService:
   storageUri: "s3://models/qwen2.5-7b-instruct-q4_k_m.gguf"
   # -- ServiceAccount for S3 credential access (empty = no S3 auth; set to s3-model-sa when using S3)
   serviceAccountName: ""
-  # -- Minimum replicas (0 enables scale-to-zero)
-  minReplicas: 0
+  # -- Minimum replicas (0 enables scale-to-zero in Knative mode only;
+  # in Standard mode, KServe sets HPA minReplicas=1 when spec says 0)
+  minReplicas: 1
   # -- Maximum replicas
   maxReplicas: 3
   # -- Autoscaling metric (concurrency or rps)
@@ -261,11 +264,13 @@ llamacppInferenceService:
   affinity: {}
   # -- Pod annotations
   annotations: {}
-  # -- Autoscaling configuration (Knative KPA annotations)
+  # -- Autoscaling configuration (Knative KPA annotations).
+  # These settings only take effect in Knative deployment mode.
+  # In Standard mode, KServe creates an HPA v2 with CPU/memory metrics instead.
   autoscaling:
     # -- Delay before scaling down (shorter than vLLM due to faster CPU cold starts)
     scaleDownDelay: "2m"
-    # -- Minimum time last pod stays after scale-to-zero decision
+    # -- Minimum time last pod stays after scale-to-zero decision (Knative mode only)
     scaleToZeroPodRetention: "30s"
     # -- Stable window for averaging concurrency
     stableWindow: "60s"
@@ -351,8 +356,9 @@ ollamaInferenceService:
   modelTag: "qwen3:4b"
   # -- Number of GPUs (0 for CPU-only, 1+ for GPU)
   gpu: 0
-  # -- Minimum replicas (0 enables scale-to-zero)
-  minReplicas: 0
+  # -- Minimum replicas (0 enables scale-to-zero in Knative mode only;
+  # in Standard mode, KServe sets HPA minReplicas=1 when spec says 0)
+  minReplicas: 1
   # -- Maximum replicas
   maxReplicas: 3
   # -- Autoscaling metric (concurrency or rps)
@@ -377,11 +383,13 @@ ollamaInferenceService:
   affinity: {}
   # -- Pod annotations
   annotations: {}
-  # -- Autoscaling configuration (Knative KPA annotations)
+  # -- Autoscaling configuration (Knative KPA annotations).
+  # These settings only take effect in Knative deployment mode.
+  # In Standard mode, KServe creates an HPA v2 with CPU/memory metrics instead.
   autoscaling:
     # -- Delay before scaling down
     scaleDownDelay: "3m"
-    # -- Minimum time last pod stays after scale-to-zero decision
+    # -- Minimum time last pod stays after scale-to-zero decision (Knative mode only)
     scaleToZeroPodRetention: "1m"
     # -- Stable window for averaging concurrency
     stableWindow: "60s"

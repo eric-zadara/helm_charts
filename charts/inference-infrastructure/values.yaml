@@ -5,12 +5,12 @@
 # =============================================================================
 
 # KnativeServing CR - reconciled by knative-operator (installed via inference-operators).
-# Lives here (not in inference-operators) because the KnativeServing CRD is registered
-# by the knative-operator subchart during install — Helm validates all manifests before
-# applying any, so the CR must be in a separate install that runs after the operator.
+# Only needed when KServe deployment mode is "Knative" (for scale-to-zero).
+# Requires knative-operator.enabled=true in inference-operators.
+# When using Standard mode (the default), this entire section is unused.
 knativeServing:
-  # -- Enable KnativeServing CR creation
-  enabled: true
+  # -- Enable KnativeServing CR creation (opt-in for Knative/scale-to-zero mode)
+  enabled: false
   namespace: "knative-serving"
   spec:
     version: "1.21"
@@ -46,17 +46,21 @@ knativeServing:
 # =============================================================================
 
 # KServe controller - reconciles InferenceService, ClusterServingRuntime resources.
-# Lives here (not in inference-operators) because KServe in Knative mode caches a
-# terminal error if Knative Serving isn't available at first reconciliation. By
-# installing KServe alongside the KnativeServing CR, Knative Serving is ready
-# before any InferenceServices are created in inference-stack (step 4).
+# Works in both Standard and Knative deployment modes.
 kserve:
   # -- Enable KServe controller deployment
   enabled: true
   kserve:
     controller:
-      # Use Knative deployment mode (v0.16.0 renamed "Serverless" to "Knative")
-      deploymentMode: "Knative"
+      # -- KServe deployment mode (v0.16.0 options: "Standard" or "Knative").
+      # "Standard" (default): Creates plain Deployments + HPA. No Knative dependency.
+      #   Recommended for GPU/GenAI workloads. Better streaming, simpler install.
+      # "Knative": Creates Knative Services with KPA. Enables scale-to-zero.
+      #   Requires knative-operator + knativeServing.enabled=true.
+      #   WARNING: Knative mode has a known controller-runtime limitation — KServe
+      #   caches a terminal error if Knative Serving CRDs aren't registered before
+      #   the KServe controller starts. Install order matters in Knative mode.
+      deploymentMode: "Standard"
       resources:
         limits:
           cpu: 100m

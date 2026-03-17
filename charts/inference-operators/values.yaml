@@ -15,8 +15,10 @@ cloudnative-pg:
 
 # Knative Operator - manages Knative Serving/Eventing via CRs
 knative-operator:
-  # -- Enable Knative Operator deployment
-  enabled: true
+  # -- Enable Knative Operator deployment.
+  # Only required when using Knative deployment mode in inference-infrastructure
+  # (for scale-to-zero). Standard mode (the default) does not need Knative.
+  enabled: false
 
 # Envoy Gateway - Gateway API controller
 envoy-gateway:

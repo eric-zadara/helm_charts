@@ -4,18 +4,17 @@ Umbrella chart that installs all operators required by the LLM inference platfor
 
 ## Overview
 
-This chart bundles six operator subchart dependencies:
+This chart bundles five operator subchart dependencies:
 
-| Component | Version | Type | Description |
-|-----------|---------|------|-------------|
-| cert-manager | v1.19.3 | Operator | TLS certificate management (issuers, certificates, ACME) |
-| cloudnative-pg | 0.27.1 | Operator | PostgreSQL cluster management via CNPG |
-| kserve | v0.16.0 | Operator | KServe controller for InferenceService/ClusterServingRuntime reconciliation |
-| knative-operator | v1.21.0 | Operator | Manages Knative Serving installation via KnativeServing CR |
-| envoy-gateway (gateway-helm) | v1.7.0 | Operator | Envoy-based Gateway API controller |
-| gpu-operator | v25.10.1 | Operator | NVIDIA GPU device plugin, runtime, and monitoring |
+| Component | Version | Type | Default | Description |
+|-----------|---------|------|---------|-------------|
+| cert-manager | v1.19.3 | Operator | Enabled | TLS certificate management (issuers, certificates, ACME) |
+| cloudnative-pg | 0.27.1 | Operator | Enabled | PostgreSQL cluster management via CNPG |
+| knative-operator | v1.21.0 | Operator | **Disabled** | Manages Knative Serving installation (only needed for Knative deployment mode) |
+| envoy-gateway (gateway-helm) | v1.7.0 | Operator | Enabled | Envoy-based Gateway API controller |
+| gpu-operator | v25.10.1 | Operator | Enabled | NVIDIA GPU device plugin, runtime, and monitoring |
 
-The chart also creates a **KnativeServing** custom resource in the `knative-serving` namespace, which the Knative Operator reconciles to deploy Knative Serving components (activator, autoscaler, controller, webhook).
+By default, this chart installs operators for **Standard mode** (no Knative). If you need Knative deployment mode (scale-to-zero), enable `knative-operator` -- see [Knative Operator](#knative-operator-optional--knative-mode) below.
 
 CRDs are **not** bundled in this chart. They are installed separately by the prerequisite chart `inference-crds`.
 
@@ -31,20 +30,29 @@ CRDs are **not** bundled in this chart. They are installed separately by the pre
 # 1. Install CRDs (prerequisite)
 helm install inference-crds ./charts/inference-crds
 
-# 2. Install operators
+# 2. Install operators (Standard mode -- Knative disabled by default)
 helm install operators ./charts/inference-operators
 
 # 3. Verify operators are running
 kubectl get pods -l app.kubernetes.io/name=cert-manager
 kubectl get pods -l app.kubernetes.io/name=cloudnative-pg
-kubectl get pods -l control-plane=kserve-controller-manager
-kubectl get pods -l app.kubernetes.io/name=knative-operator
 kubectl get pods -l app.kubernetes.io/name=envoy-gateway
 kubectl get pods -l app.kubernetes.io/name=gpu-operator
-
-# 4. Verify KnativeServing CR is created
-kubectl get knativeserving -n knative-serving
 ```
+
+### Optional: Enable Knative mode
+
+To use Knative deployment mode (scale-to-zero), enable the Knative Operator:
+
+```bash
+helm install operators ./charts/inference-operators \
+  --set knative-operator.enabled=true
+
+# Verify the Knative Operator is running
+kubectl get pods -l app.kubernetes.io/name=knative-operator
+```
+
+When Knative mode is enabled, the `inference-infrastructure` chart creates the KnativeServing CR that the Knative Operator reconciles to deploy Knative Serving components.
 
 ## cert-manager
 
@@ -78,34 +86,20 @@ cloudnative-pg:
   enabled: false
 ```
 
-## KServe Controller
+## Knative Operator (Optional -- Knative Mode)
 
-The KServe controller reconciles `InferenceService` and `ClusterServingRuntime` resources. Without it, these CRDs are accepted by the API server but never acted upon. It is required for the model-serving chart's serving runtimes and inference services to function.
+The Knative Operator is **disabled by default**. It is only required when using Knative deployment mode in `inference-infrastructure` for scale-to-zero capability.
 
-The operator installs:
-- KServe controller-manager deployment
-- KServe webhook for validation and defaulting
-- `inferenceservice-config` ConfigMap with deployment mode and runtime configuration
+In Standard mode (the default), inference services run as regular Kubernetes Deployments and do not need Knative. Enable the Knative Operator only if you want Knative-managed services with scale-to-zero.
 
-### Configuration
-
-The controller is configured with:
-- **Knative deployment mode** -- InferenceServices create Knative Services (requires Knative Serving)
-- **All built-in runtimes disabled** -- This project provides its own ClusterServingRuntimes via the model-serving chart (vLLM, llama.cpp, Ollama) rather than using KServe's built-in runtimes (TensorFlow, sklearn, etc.)
-- **Local model support disabled** -- Not needed for this project
-
-### Disable KServe Controller
-
-If KServe is already installed in your cluster:
+### Enable Knative Operator
 
 ```yaml
-kserve:
-  enabled: false
+knative-operator:
+  enabled: true
 ```
 
-## Knative Operator and KnativeServing CR
-
-The Knative Operator manages Knative Serving (and Eventing) installations declaratively via custom resources. This chart installs the operator and then creates a **KnativeServing** CR that the operator reconciles to deploy the full Knative Serving stack:
+When enabled, the operator watches for KnativeServing custom resources. The `inference-infrastructure` chart creates the KnativeServing CR that the operator reconciles to deploy the full Knative Serving stack:
 
 - **Activator** -- buffers requests during scale-from-zero
 - **Autoscaler** -- scales pods based on concurrency/RPS metrics
@@ -115,13 +109,9 @@ The Knative Operator manages Knative Serving (and Eventing) installations declar
 
 All Knative Serving components deploy to the `knative-serving` namespace.
 
-### Why the KnativeServing CR is co-located with the operator
-
-The KnativeServing CR is created in this chart (alongside the Knative Operator and KServe) rather than in a downstream chart because **KServe caches a terminal error if Knative Serving is not available at first reconciliation**. If KServe starts before Knative Serving is ready, it marks the failure as permanent and never retries. By co-locating the KnativeServing CR here, Knative Serving is deployed as part of the same release and is ready before any downstream chart creates InferenceServices.
-
 ### KnativeServing Configuration
 
-The KnativeServing CR includes tuned defaults for LLM inference workloads:
+The KnativeServing CR is created by `inference-infrastructure` (not this chart). When Knative mode is enabled, it includes tuned defaults for LLM inference workloads:
 
 | Setting | Value | Reason |
 |---------|-------|--------|
@@ -136,23 +126,9 @@ The KnativeServing CR includes tuned defaults for LLM inference workloads:
 | `podspec-nodeselector` | Enabled | Allows GPU type selection via nodeSelector |
 | `podspec-affinity` | Enabled | Allows advanced scheduling rules |
 
-### Disable Knative Operator / KnativeServing
-
-```yaml
-# Disable the operator entirely
-knative-operator:
-  enabled: false
-
-# Disable only the KnativeServing CR (keep the operator)
-knativeServing:
-  enabled: false
-```
-
 ## Envoy Gateway
 
 Envoy Gateway is a Gateway API implementation backed by Envoy Proxy. It watches `Gateway`, `HTTPRoute`, and related resources and provisions Envoy data-plane instances to handle traffic.
-
-In this platform, Envoy Gateway handles external traffic ingress while Kourier (deployed by KnativeServing) handles internal Knative Service routing.
 
 ### Disable Envoy Gateway
 
@@ -189,21 +165,14 @@ gpu-operator:
 | `cert-manager.enabled` | bool | `true` | Install cert-manager operator |
 | `cert-manager.crds.enabled` | bool | `false` | CRD installation (disabled; use inference-crds) |
 | `cloudnative-pg.enabled` | bool | `true` | Install CNPG operator |
-| `kserve.enabled` | bool | `true` | Install KServe controller and webhook |
-| `kserve.kserve.controller.deploymentMode` | string | `"Knative"` | KServe deployment mode (Knative or RawDeployment) |
-| `kserve.kserve.servingruntime.<name>.disabled` | bool | `true` | Disable individual built-in serving runtimes |
-| `kserve.kserve.localmodel.enabled` | bool | `false` | Enable KServe local model support |
-| `knative-operator.enabled` | bool | `true` | Install Knative Operator |
-| `knativeServing.enabled` | bool | `true` | Create KnativeServing CR |
-| `knativeServing.namespace` | string | `"knative-serving"` | Namespace for KnativeServing CR and components |
-| `knativeServing.spec` | object | see values.yaml | KnativeServing spec (version, ingress, config maps) |
+| `knative-operator.enabled` | bool | `false` | Install Knative Operator (only needed for Knative deployment mode) |
 | `envoy-gateway.enabled` | bool | `true` | Install Envoy Gateway controller |
 | `gpu-operator.enabled` | bool | `true` | Install NVIDIA GPU Operator |
 | `gpu-operator.driver.enabled` | bool | `false` | Install NVIDIA drivers (disabled for pre-installed drivers) |
 
 ## Selective Installation
 
-Disable specific components if they are already installed in your cluster:
+Disable or enable specific components based on your cluster:
 
 ```yaml
 # Skip cert-manager if already present
@@ -214,17 +183,9 @@ cert-manager:
 cloudnative-pg:
   enabled: false
 
-# Skip KServe if controller already deployed
-kserve:
-  enabled: false
-
-# Skip Knative Operator if already deployed
+# Enable Knative Operator for scale-to-zero (disabled by default)
 knative-operator:
-  enabled: false
-
-# Skip KnativeServing CR if Knative Serving is already running
-knativeServing:
-  enabled: false
+  enabled: true
 
 # Skip Envoy Gateway if a Gateway API controller is already deployed
 envoy-gateway:
@@ -241,7 +202,9 @@ helm install operators ./charts/inference-operators -f custom-values.yaml
 
 ## Upgrade Notes
 
-Upgrading this chart updates operators (cert-manager, CNPG, KServe, Knative Operator, Envoy Gateway, GPU Operator) and the KnativeServing CR without affecting running workloads. CRDs are managed separately by `inference-crds` and should be upgraded there.
+Upgrading this chart updates operators (cert-manager, CNPG, Envoy Gateway, GPU Operator, and optionally Knative Operator) without affecting running workloads. CRDs are managed separately by `inference-crds` and should be upgraded there.
+
+Knative Operator is disabled by default since v0.8.0. If you were previously relying on Knative mode, ensure `knative-operator.enabled: true` is set in your values.
 
 ```bash
 helm upgrade operators ./charts/inference-operators
@@ -281,26 +244,6 @@ kubectl get pods -l app.kubernetes.io/name=cloudnative-pg
 kubectl logs -l app.kubernetes.io/name=cloudnative-pg
 ```
 
-**KServe controller not starting:**
-
-```bash
-kubectl get pods -l control-plane=kserve-controller-manager
-kubectl logs -l control-plane=kserve-controller-manager
-```
-
-**KnativeServing not becoming ready:**
-
-```bash
-# Check the KnativeServing CR status
-kubectl get knativeserving -n knative-serving -o yaml
-
-# Check Knative Operator logs (it reconciles the CR)
-kubectl logs -l app.kubernetes.io/name=knative-operator
-
-# Check Knative Serving component pods
-kubectl get pods -n knative-serving
-```
-
 **Envoy Gateway not starting:**
 
 ```bash
@@ -323,4 +266,28 @@ kubectl get nodes -l nvidia.com/gpu.present=true
 ```bash
 helm dependency update ./charts/inference-operators
 helm dependency build ./charts/inference-operators
+```
+
+### Knative Mode Only
+
+**Knative Operator not starting:**
+
+```bash
+kubectl get pods -l app.kubernetes.io/name=knative-operator
+kubectl logs -l app.kubernetes.io/name=knative-operator
+```
+
+**KnativeServing not becoming ready:**
+
+The KnativeServing CR is created by `inference-infrastructure`, not this chart. Check there first:
+
+```bash
+# Check the KnativeServing CR status
+kubectl get knativeserving -n knative-serving -o yaml
+
+# Check Knative Operator logs (it reconciles the CR)
+kubectl logs -l app.kubernetes.io/name=knative-operator
+
+# Check Knative Serving component pods
+kubectl get pods -n knative-serving
 ```
