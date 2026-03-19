@@ -669,7 +669,7 @@ onyx:
   # The upstream subchart defaults to appVersion "latest"; pin to match Onyx release.
   code-interpreter:
     image:
-      tag: "v3.0.1"
+      tag: "0.1.0" # May need updating later
 
   # Slackbot - not needed by default
   slackbot:
