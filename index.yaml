@@ -589,6 +589,36 @@ entries:
     version: 0.1.0
   inference-infrastructure:
   - annotations:
+      testing/prerequisites: inference-crds
+      testing/tier: "3"
+      testing/timeout: 15m
+    apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-03-19T20:25:51.080965079Z"
+    dependencies:
+    - condition: kserve.enabled
+      name: kserve
+      repository: oci://ghcr.io/kserve/charts
+      version: v0.16.0
+    - condition: litellm-proxy.enabled
+      name: litellm-proxy
+      repository: https://eric-zadara.github.io/helm_charts/
+      version: 0.2.5
+    description: Infrastructure layer for LLM inference platform - KServe (Standard
+      mode), networking, and API proxy
+    digest: ad0a3a71648e1630b380f67c46ddb8b5264783569e6963874343850c0ce95ba0
+    home: https://github.com/eric-zadara/helm_charts
+    maintainers:
+    - name: eric-zadara
+      url: https://github.com/eric-zadara
+    name: inference-infrastructure
+    sources:
+    - https://github.com/eric-zadara/helm_charts
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/inference-infrastructure-0.12.0/inference-infrastructure-0.12.0.tgz
+    version: 0.12.0
+  - annotations:
       testing/prerequisites: inference-crds,inference-operators
       testing/tier: "3"
       testing/timeout: 15m
@@ -847,6 +877,49 @@ entries:
       testing/timeout: 15m
     apiVersion: v2
     appVersion: 1.0.0
+    created: "2026-03-19T20:25:51.10772416Z"
+    dependencies:
+    - condition: cert-manager.enabled
+      name: cert-manager
+      repository: oci://quay.io/jetstack/charts
+      version: v1.19.3
+    - condition: cloudnative-pg.enabled
+      name: cloudnative-pg
+      repository: oci://ghcr.io/cloudnative-pg/charts
+      version: 0.27.1
+    - condition: knative-operator.enabled
+      name: knative-operator
+      repository: https://knative.github.io/operator
+      version: v1.21.0
+    - alias: envoy-gateway
+      condition: envoy-gateway.enabled
+      name: gateway-helm
+      repository: oci://docker.io/envoyproxy
+      version: v1.7.0
+    - condition: gpu-operator.enabled
+      name: gpu-operator
+      repository: https://helm.ngc.nvidia.com/nvidia
+      version: v25.10.1
+    description: Operators for LLM inference platform (CNPG, Envoy Gateway, optional
+      Knative)
+    digest: 64495536ae46752cd5f61f2310c482b994e41fc197a0a201da446b7c228b3335
+    home: https://github.com/eric-zadara/helm_charts
+    maintainers:
+    - name: eric-zadara
+      url: https://github.com/eric-zadara
+    name: inference-operators
+    sources:
+    - https://github.com/eric-zadara/helm_charts
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/inference-operators-0.8.0/inference-operators-0.8.0.tgz
+    version: 0.8.0
+  - annotations:
+      testing/prerequisites: inference-crds
+      testing/tier: "3"
+      testing/timeout: 15m
+    apiVersion: v2
+    appVersion: 1.0.0
     created: "2026-03-07T00:45:35.525710598Z"
     dependencies:
     - condition: cert-manager.enabled
@@ -1061,6 +1134,34 @@ entries:
     - https://github.com/eric-zadara/helm_charts/releases/download/inference-operators-0.1.0/inference-operators-0.1.0.tgz
     version: 0.1.0
   inference-stack:
+  - annotations:
+      testing/prerequisites: inference-crds,inference-infrastructure
+      testing/tier: "3"
+    apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-03-19T20:25:51.109864546Z"
+    dependencies:
+    - condition: model-serving.enabled
+      name: model-serving
+      repository: https://eric-zadara.github.io/helm_charts/
+      version: 0.1.4
+    - condition: inference-gateway.enabled
+      name: inference-gateway
+      repository: https://eric-zadara.github.io/helm_charts/
+      version: 0.1.6
+    description: Model serving and routing layer for LLM inference platform
+    digest: 62df72383f54f0a9fa84e9cae75b0263168fd97bc7f3051c996be58f257606fa
+    home: https://github.com/eric-zadara/helm_charts
+    maintainers:
+    - name: eric-zadara
+      url: https://github.com/eric-zadara
+    name: inference-stack
+    sources:
+    - https://github.com/eric-zadara/helm_charts
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/inference-stack-0.3.0/inference-stack-0.3.0.tgz
+    version: 0.3.0
   - annotations:
       testing/prerequisites: inference-crds,inference-operators,inference-infrastructure
       testing/tier: "3"
@@ -1648,6 +1749,26 @@ entries:
       testing/tier: "2"
     apiVersion: v2
     appVersion: 0.16.0
+    created: "2026-03-19T20:25:51.111152125Z"
+    description: 'Multi-runtime model serving: vLLM (GPU), llama.cpp (CPU), and Ollama
+      (GPU/CPU) ServingRuntimes with InferenceService templates for LLM inference'
+    digest: ca29423fb94d6dc2d8e5f49ee47bc842be201485342ab18c970d388d3b9a3e8e
+    home: https://github.com/eric-zadara/helm_charts
+    maintainers:
+    - name: eric-zadara
+      url: https://github.com/eric-zadara
+    name: model-serving
+    sources:
+    - https://github.com/eric-zadara/helm_charts
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/model-serving-0.2.0/model-serving-0.2.0.tgz
+    version: 0.2.0
+  - annotations:
+      testing/prerequisites: tier1-crds
+      testing/tier: "2"
+    apiVersion: v2
+    appVersion: 0.16.0
     created: "2026-03-05T21:21:31.075381297Z"
     description: 'Multi-runtime model serving: vLLM (GPU), llama.cpp (CPU), and Ollama
       (GPU/CPU) ServingRuntimes with InferenceService templates for LLM inference'
@@ -1755,6 +1876,47 @@ entries:
     - https://github.com/eric-zadara/helm_charts/releases/download/networking-layer-0.1.1/networking-layer-0.1.1.tgz
     version: 0.1.1
   onyx-ai:
+  - annotations:
+      category: AI/RAG
+      licenses: MIT
+      testing/prerequisites: cnpg-operator
+      testing/tier: "2"
+      testing/timeout: 25m
+    apiVersion: v2
+    appVersion: v3.0.1
+    created: "2026-03-19T20:25:51.144656185Z"
+    dependencies:
+    - name: onyx
+      repository: https://onyx-dot-app.github.io/onyx/
+      version: 0.4.35
+    - alias: postgresql-cluster
+      condition: cnpg.enabled
+      name: cluster
+      repository: https://cloudnative-pg.github.io/charts
+      version: 0.5.0
+    - condition: garage.enabled
+      name: garage
+      repository: https://datahub-local.github.io/garage-helm
+      version: 0.2.1
+    - condition: redis.enabled
+      name: valkey
+      repository: https://charts.bitnami.com/bitnami
+      version: 5.1.7
+    description: Helm chart wrapping Onyx with HA defaults, CNPG PostgreSQL, and Traefik
+      ingress
+    digest: 15122bfd69876f13e5d0fbf4c9a72089a0a929cf09daf888f7587391b11e2386
+    home: https://github.com/zadarastorage/helm-charts
+    maintainers:
+    - name: Zadara Storage
+      url: https://github.com/zadarastorage
+    name: onyx-ai
+    sources:
+    - https://github.com/zadarastorage/helm-charts
+    - https://github.com/onyx-dot-app/onyx
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/onyx-ai-0.1.4/onyx-ai-0.1.4.tgz
+    version: 0.1.4
   - annotations:
       category: AI/RAG
       licenses: MIT
@@ -1941,4 +2103,4 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/zadara-aws-config-0.0.1/zadara-aws-config-0.0.1.tgz
     version: 0.0.1
-generated: "2026-03-14T00:05:20.980482654Z"
+generated: "2026-03-19T20:25:51.069354374Z"
