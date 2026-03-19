@@ -29,10 +29,10 @@ imagePullSecrets: []
 # -- Init container used for model preloading
 initContainer:
   image:
-    # -- Init container image repository
-    repository: alpine
+    # -- Init container image repository (must include curl; override for S3 sources with an image that also includes aws-cli)
+    repository: curlimages/curl
     # -- Init container image tag
-    tag: "3.20"
+    tag: "8.12.1"
   # -- Init container resource requests and limits (must be set in namespaces with ResourceQuota)
   resources: {}
 

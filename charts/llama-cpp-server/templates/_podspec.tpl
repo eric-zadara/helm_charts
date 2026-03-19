@@ -226,24 +226,10 @@ Shared init containers block for model preloading.
 {{- end }}
 {{- $needsInitMulti := get $needsInitMultiDict "val" }}
 {{- if or $needsInitSingle $needsInitMulti }}
-{{- /* I11 + M9: Detect if ANY model uses S3 to hoist apk add before the loop */}}
-{{- $needsAwsCliDict := dict "val" false }}
-{{- if $needsInitMulti }}
-{{- range .Values.model.multi.models }}
-{{- if and .preload (eq .source "s3") }}
-{{- $_ := set $needsAwsCliDict "val" true }}
-{{- end }}
-{{- end }}
-{{- else if and $needsInitSingle (eq .Values.model.source "s3") }}
-{{- $_ := set $needsAwsCliDict "val" true }}
-{{- end }}
-{{- $needsAwsCli := get $needsAwsCliDict "val" }}
 initContainers:
   - name: model-download
     image: "{{ .Values.initContainer.image.repository }}:{{ .Values.initContainer.image.tag }}"
-    {{- /* M5: Init container securityContext — runAsUser 0 needed for apk add */}}
     securityContext:
-      runAsUser: 0
       allowPrivilegeEscalation: false
       capabilities:
         drop: ["ALL"]
@@ -254,8 +240,6 @@ initContainers:
         set -e
         cleanup() { find "{{ .Values.persistentVolume.mountPath | default "/models" }}" -name '*.download.tmp' -delete 2>/dev/null || true; }
         trap cleanup EXIT
-        {{- /* I11 + M9: Install aws-cli once before download loop if any model uses S3 */}}
-        apk add --no-cache curl{{ if $needsAwsCli }} aws-cli{{ end }} || { echo "ERROR: Failed to install required tools. Check network connectivity and apk mirror availability." >&2; exit 1; }
         {{- /* I2: HF auth header setup — no eval, explicit if/else for safety */}}
         {{- if $needsInitMulti }}
         {{- range $idx, $m := .Values.model.multi.models }}
@@ -298,10 +282,11 @@ initContainers:
         else
           TMPFILE="${DEST}.download.tmp"
         {{- if $m.s3.endpoint }}
-          aws s3 cp "s3://$MODEL_S3_BUCKET_{{ $idx }}/$MODEL_S3_KEY_{{ $idx }}" "$TMPFILE" --endpoint-url "$MODEL_S3_ENDPOINT_{{ $idx }}"
+          S3_URL="${MODEL_S3_ENDPOINT_{{ $idx }}}/$MODEL_S3_BUCKET_{{ $idx }}/$MODEL_S3_KEY_{{ $idx }}"
         {{- else }}
-          aws s3 cp "s3://$MODEL_S3_BUCKET_{{ $idx }}/$MODEL_S3_KEY_{{ $idx }}" "$TMPFILE"
+          S3_URL="https://${MODEL_S3_BUCKET_{{ $idx }}}.s3.${MODEL_S3_REGION_{{ $idx }}:-us-east-1}.amazonaws.com/$MODEL_S3_KEY_{{ $idx }}"
         {{- end }}
+          curl -fSL --retry 3 --retry-delay 5 --aws-sigv4 "aws:amz:${MODEL_S3_REGION_{{ $idx }}:-us-east-1}:s3" --user "${AWS_ACCESS_KEY_ID}:${AWS_SECRET_ACCESS_KEY}" -o "$TMPFILE" "$S3_URL"
           mv "$TMPFILE" "$DEST"
         fi
         {{- end }}
@@ -337,10 +322,11 @@ initContainers:
         else
           TMPFILE="${MODEL_DEST}.download.tmp"
         {{- if .Values.model.s3.endpoint }}
-          aws s3 cp "s3://$MODEL_S3_BUCKET/$MODEL_S3_KEY" "$TMPFILE" --endpoint-url "$MODEL_S3_ENDPOINT"
+          S3_URL="${MODEL_S3_ENDPOINT}/$MODEL_S3_BUCKET/$MODEL_S3_KEY"
         {{- else }}
-          aws s3 cp "s3://$MODEL_S3_BUCKET/$MODEL_S3_KEY" "$TMPFILE"
+          S3_URL="https://${MODEL_S3_BUCKET}.s3.${AWS_DEFAULT_REGION:-us-east-1}.amazonaws.com/$MODEL_S3_KEY"
         {{- end }}
+          curl -fSL --retry 3 --retry-delay 5 --aws-sigv4 "aws:amz:${AWS_DEFAULT_REGION:-us-east-1}:s3" --user "${AWS_ACCESS_KEY_ID}:${AWS_SECRET_ACCESS_KEY}" -o "$TMPFILE" "$S3_URL"
           mv "$TMPFILE" "$MODEL_DEST"
         fi
         {{- end }}
@@ -370,27 +356,16 @@ initContainers:
         value: {{ $m.s3.bucket | quote }}
       - name: MODEL_S3_KEY_{{ $idx }}
         value: {{ $m.s3.key | quote }}
+      {{- if $m.s3.region }}
+      - name: MODEL_S3_REGION_{{ $idx }}
+        value: {{ $m.s3.region | quote }}
+      {{- end }}
       {{- if $m.s3.endpoint }}
       - name: MODEL_S3_ENDPOINT_{{ $idx }}
         value: {{ $m.s3.endpoint | quote }}
       {{- end }}
       {{- end }}
       {{- end }}
-      {{- end }}
-      {{- /* M3: Hoist AWS env vars outside multi-model loop — set once if any model uses S3 */}}
-      {{- if $needsAwsCli }}
-      {{- $firstS3RegionDict := dict "val" "" }}
-      {{- range .Values.model.multi.models }}
-      {{- if and .preload (eq .source "s3") .s3.region (eq (get $firstS3RegionDict "val") "") }}
-      {{- $_ := set $firstS3RegionDict "val" .s3.region }}
-      {{- end }}
-      {{- end }}
-      {{- if ne (get $firstS3RegionDict "val") "" }}
-      - name: AWS_DEFAULT_REGION
-        value: {{ get $firstS3RegionDict "val" | quote }}
-      {{- end }}
-      - name: AWS_MAX_ATTEMPTS
-        value: "3"
       {{- end }}
       {{- else }}
       - name: MODEL_DEST
@@ -412,8 +387,6 @@ initContainers:
       - name: AWS_DEFAULT_REGION
         value: {{ .Values.model.s3.region | quote }}
       {{- end }}
-      - name: AWS_MAX_ATTEMPTS
-        value: "3"
       {{- if .Values.model.s3.endpoint }}
       - name: MODEL_S3_ENDPOINT
         value: {{ .Values.model.s3.endpoint | quote }}
