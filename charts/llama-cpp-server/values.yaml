@@ -18,7 +18,7 @@ image:
   # -- Container image repository
   repository: ghcr.io/ggml-org/llama.cpp
   # -- Tag is auto-computed from gpu.type if empty. CPU="server", NVIDIA="server-cuda", AMD="server-rocm", etc.
-  # When empty, the chart's appVersion (Chart.yaml) is appended for version pinning (e.g. "server-cuda-b4738").
+  # When empty, the chart's appVersion (Chart.yaml) is appended for version pinning (e.g. "server-cuda-b8429").
   tag: ""
   # -- Image pull policy
   pullPolicy: IfNotPresent
