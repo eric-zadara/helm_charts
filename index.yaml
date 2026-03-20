@@ -1661,6 +1661,33 @@ entries:
       testing/tier: "0"
     apiVersion: v2
     appVersion: b8445
+    created: "2026-03-20T21:27:17.167399813Z"
+    description: Helm chart for llama.cpp server — deploy GGUF models with GPU/CPU
+      support, multi-model routing, and OpenAI-compatible API
+    digest: ea29c24388c9df5aa4cabb2044f693bef5291e82c042c3da28b627873700d4e1
+    home: https://github.com/eric-zadara/helm_charts
+    keywords:
+    - llama.cpp
+    - llm
+    - gguf
+    - inference
+    - ai
+    kubeVersion: '>=1.26.0-0'
+    maintainers:
+    - name: eric-zadara
+      url: https://github.com/eric-zadara
+    name: llama-cpp-server
+    sources:
+    - https://github.com/eric-zadara/helm_charts
+    - https://github.com/ggml-org/llama.cpp
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/llama-cpp-server-0.1.5/llama-cpp-server-0.1.5.tgz
+    version: 0.1.5
+  - annotations:
+      testing/tier: "0"
+    apiVersion: v2
+    appVersion: b8445
     created: "2026-03-20T20:03:31.646026008Z"
     description: Helm chart for llama.cpp server — deploy GGUF models with GPU/CPU
       support, multi-model routing, and OpenAI-compatible API
@@ -2211,4 +2238,4 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/zadara-aws-config-0.0.1/zadara-aws-config-0.0.1.tgz
     version: 0.0.1
-generated: "2026-03-20T20:03:31.644422877Z"
+generated: "2026-03-20T21:27:17.164496082Z"
