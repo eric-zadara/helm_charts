@@ -18,7 +18,7 @@ data:
     {{- $globalLines = append $globalLines (printf "ctx-size = %v" (int $server.contextSize)) }}
     {{- end }}
     {{- if $server.flashAttention }}
-    {{- $globalLines = append $globalLines "flash-attn" }}
+    {{- $globalLines = append $globalLines (printf "flash-attn = %s" (toString $server.flashAttention)) }}
     {{- end }}
     {{- if $server.embedding }}
     {{- $globalLines = append $globalLines (printf "embedding = %v" $server.embedding) }}
@@ -67,7 +67,7 @@ data:
     reranking = {{ .settings.reranking }}
     {{- end }}
     {{- if .settings.flashAttention }}
-    flash-attn
+    flash-attn = {{ .settings.flashAttention }}
     {{- end }}
     {{- end }}
     {{- if .loadOnStartup }}

@@ -162,8 +162,8 @@ server:
   tensorSplit: ""
   # -- Primary GPU index (only used when splitMode is set)
   mainGpu: 0
-  # -- Enable flash attention (boolean flag, no value — set to true to enable)
-  flashAttention: false
+  # -- Flash Attention mode: "" (omit — server default is auto), "on", "off", or "auto"
+  flashAttention: ""
 
   # -- CPU generation threads (empty = auto)
   threads: ""
