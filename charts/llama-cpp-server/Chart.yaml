@@ -2,7 +2,7 @@ apiVersion: v2
 name: llama-cpp-server
 description: "Helm chart for llama.cpp server — deploy GGUF models with GPU/CPU support, multi-model routing, and OpenAI-compatible API"
 type: application
-version: 0.1.1
+version: 0.1.2
 # appVersion tracks upstream llama.cpp — pin to a specific build tag for production
 appVersion: "b4738"
 kubeVersion: ">=1.26.0-0"

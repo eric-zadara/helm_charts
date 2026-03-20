@@ -76,10 +76,9 @@ Shared container spec for llama-server (image, args, env, ports, probes, resourc
     - "--tensor-split"
     - {{ .Values.server.tensorSplit | quote }}
     {{- end }}
-    {{- /* I4: flashAttention — emit value not bare flag */}}
-    {{- if and .Values.server.flashAttention (ne (toString .Values.server.flashAttention) "") }}
+    {{- /* I4: flashAttention — bare boolean flag, no value */}}
+    {{- if .Values.server.flashAttention }}
     - "--flash-attn"
-    - {{ .Values.server.flashAttention | quote }}
     {{- end }}
     {{- end }}
     {{- /* CPU args */}}
