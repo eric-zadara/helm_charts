@@ -635,3 +635,29 @@ Usage: {{ include "onyx-ai.garage.validateReplication" . }}
 {{- end -}}
 {{- end -}}
 
+{{/*
+================================================================================
+Render Mode Detection (template-only vs cluster-connected)
+================================================================================
+*/}}
+
+{{/*
+Heuristically detect whether the chart is being rendered without
+cluster state (e.g. `helm template`, `helm install --dry-run=client`,
+or ArgoCD's argocd-repo-server rendering). We use a lookup probe
+against the kube-system namespace: every real cluster has it, so a
+nil result almost certainly means "no cluster context at render time".
+
+Returns the string "true" when cluster state is NOT reachable, "false"
+otherwise. Consumers should string-compare the return value.
+
+Usage: {{ include "onyx-ai.isTemplateOnlyMode" . }}
+*/}}
+{{- define "onyx-ai.isTemplateOnlyMode" -}}
+{{- $kubeSystem := lookup "v1" "Namespace" "" "kube-system" -}}
+{{- if empty $kubeSystem -}}
+true
+{{- else -}}
+false
+{{- end -}}
+{{- end -}}

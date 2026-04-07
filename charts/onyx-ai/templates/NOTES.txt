@@ -6,6 +6,97 @@
 {{- include "onyx-ai.redis.validateCredentials" . -}}
 {{- include "onyx-ai.garage.validateCredentials" . -}}
 {{- include "onyx-ai.garage.validateReplication" . -}}
+{{- /*
+  ArgoCD / helm-template credential-churn warning.
+  Fires when:
+    - cluster state is NOT reachable at render time (heuristic probe), AND
+    - at least one wrapper-managed credential secret (garage-credentials
+      or redis-ha) would be created by this render, AND
+    - the operator has not opted into external-secrets mode
+      (forward-compatible escape hatch with parallel ESO work).
+*/ -}}
+{{- $templateOnly := eq (include "onyx-ai.isTemplateOnlyMode" .) "true" -}}
+{{- $hasLookupGarage := .Values.garage.enabled -}}
+{{- $hasLookupRedisHA := .Values.redis.ha.enabled -}}
+{{- $hasLookupSecrets := or $hasLookupGarage $hasLookupRedisHA -}}
+{{- $esoEnabled := false -}}
+{{- if hasKey .Values "externalSecrets" -}}
+  {{- if .Values.externalSecrets.enabled -}}
+    {{- $esoEnabled = true -}}
+  {{- end -}}
+{{- end -}}
+{{- if and $templateOnly $hasLookupSecrets (not $esoEnabled) }}
+
+╔═══════════════════════════════════════════════════════════════════╗
+║   WARNING: RENDERED WITHOUT CLUSTER ACCESS (argocd / template)    ║
+╚═══════════════════════════════════════════════════════════════════╝
+
+Cluster state was not reachable at render time. This is normal for:
+
+  - ArgoCD's `helm template` rendering (argocd-repo-server)
+  - `helm install --dry-run=client`
+  - `helm template` invoked outside a cluster context
+
+WHY THIS MATTERS
+================
+
+This chart uses Helm's `lookup` function to persist wrapper-managed
+credential secrets across upgrades:
+
+{{- if $hasLookupGarage }}
+  - {{ include "onyx-ai.fullname" . }}-garage-credentials (GarageFS S3 keys)
+{{- end }}
+{{- if $hasLookupRedisHA }}
+  - {{ include "onyx-ai.fullname" . }}-redis-ha (Redis HA password)
+{{- end }}
+
+Under `helm install`/`helm upgrade`, `lookup` reads the live Secret and
+reuses the stored credentials. Under `helm template` (no cluster access),
+`lookup` ALWAYS returns nil, so the rendered manifests contain a FRESH
+random credential every time you render.
+
+UNDER ARGOCD: YOU MUST CONFIGURE ignoreDifferences
+==================================================
+
+If you are deploying this chart via ArgoCD, every sync will regenerate
+these passwords and ArgoCD will "fix" them on the cluster, causing:
+
+  - credential churn on every sync
+  - garage / redis / onyx pods hitting auth failures
+  - CrashLoopBackOff on components that cached the old credentials
+
+The operator-side fix is to tell ArgoCD to ignore the credential fields
+on these specific Secret resources. Add this to your Application spec:
+
+  spec:
+    ignoreDifferences:
+{{- if $hasLookupGarage }}
+      - group: ""
+        kind: Secret
+        name: {{ include "onyx-ai.fullname" . }}-garage-credentials
+        jsonPointers:
+          - /data/s3_aws_access_key_id
+          - /data/s3_aws_secret_access_key
+          - /data/garage_access_key_id
+          - /data/garage_secret_access_key
+{{- end }}
+{{- if $hasLookupRedisHA }}
+      - group: ""
+        kind: Secret
+        name: {{ include "onyx-ai.fullname" . }}-redis-ha
+        jsonPointers:
+          - /data/redis_password
+{{- end }}
+
+For the full recipe (including `syncOptions: RespectIgnoreDifferences`
+and first-install bootstrapping), see `docs/argocd.md` in this chart.
+
+If you are running `helm template` for inspection only and plan to apply
+with `helm install` / `helm upgrade` instead, you can ignore this warning
+— `lookup` works correctly under those commands.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{{- end }}
 
 ╔═══════════════════════════════════════════════════════════════════╗
 ║                    Onyx has been deployed!                        ║

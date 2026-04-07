@@ -1,0 +1,106 @@
+suite: NOTES.txt ArgoCD credential-churn warning
+templates:
+  - NOTES.txt
+release:
+  name: onyx-ai
+  namespace: onyx-ai
+tests:
+  # helm-unittest's lookup function always returns nil (no cluster context),
+  # so isTemplateOnlyMode resolves to "true" in every test below. This means
+  # the warning's first gate is always tripped and we can focus on the
+  # secondary gates (which credential sources are enabled).
+  #
+  # NOTES.txt is rendered as a single raw string, so assertions use the
+  # `*Raw` family (matchRegexRaw / notMatchRegexRaw) rather than path-based
+  # matchers.
+
+  - it: fires under default CI values (garage enabled + valkey, no ESO)
+    values:
+      - ../ci/default-values.yaml
+    asserts:
+      - matchRegexRaw:
+          pattern: "WARNING: RENDERED WITHOUT CLUSTER ACCESS"
+      - matchRegexRaw:
+          pattern: "ignoreDifferences"
+      - matchRegexRaw:
+          pattern: "argocd"
+      - matchRegexRaw:
+          pattern: "onyx-ai-garage-credentials"
+
+  - it: fires and names the redis-ha secret when redis.ha.enabled
+    set:
+      garage.enabled: false
+      objectStorage.bucket: onyx-files
+      objectStorage.accessKey: AKIAEXAMPLE
+      objectStorage.secretKey: secretvalue
+      onyx.auth.objectstorage.existingSecret: onyx-ai-external-objectstorage
+      redis.enabled: false
+      redis.ha.enabled: true
+      redis.ha.sentinels: 3
+      onyx.auth.redis.existingSecret: onyx-ai-redis-ha
+      cnpg.enabled: true
+      onyx.auth.postgresql.existingSecret: onyx-ai-postgresql-cluster-superuser
+    asserts:
+      - matchRegexRaw:
+          pattern: "WARNING: RENDERED WITHOUT CLUSTER ACCESS"
+      - matchRegexRaw:
+          pattern: "onyx-ai-redis-ha"
+      - matchRegexRaw:
+          pattern: "/data/redis_password"
+
+  - it: does NOT fire when no lookup-based secrets are created
+    # All credential sources are external: external postgres, external redis,
+    # external S3 (no garage, no redis.ha). No wrapper-managed lookup secrets
+    # are rendered, so the warning should be suppressed.
+    set:
+      garage.enabled: false
+      objectStorage.bucket: onyx-files
+      objectStorage.existingSecret: my-external-s3
+      onyx.auth.objectstorage.existingSecret: my-external-s3
+      redis.enabled: false
+      redis.ha.enabled: false
+      externalRedis.host: redis.example.com
+      externalRedis.existingSecret: my-external-redis
+      onyx.auth.redis.existingSecret: my-external-redis
+      cnpg.enabled: false
+      externalPostgresql.host: pg.example.com
+      externalPostgresql.existingSecret: my-external-pg
+    asserts:
+      - notMatchRegexRaw:
+          pattern: "WARNING: RENDERED WITHOUT CLUSTER ACCESS"
+      - notMatchRegexRaw:
+          pattern: "ignoreDifferences"
+
+  - it: does NOT fire when garage-only and externalSecrets.enabled=true (ESO escape hatch)
+    # Forward-compatibility: if a future values.yaml adds `externalSecrets.enabled`,
+    # setting it to true suppresses the warning because the operator has opted
+    # into External Secrets Operator integration and is not using `lookup`-based
+    # credential generation. The condition uses `hasKey` so this is safe even
+    # on chart versions where `externalSecrets` is not declared in values.yaml.
+    values:
+      - ../ci/default-values.yaml
+    set:
+      externalSecrets.enabled: true
+    asserts:
+      - notMatchRegexRaw:
+          pattern: "WARNING: RENDERED WITHOUT CLUSTER ACCESS"
+
+  - it: banner still renders even when warning block is absent
+    # Sanity check: the "Onyx has been deployed!" banner is emitted regardless
+    # of render mode, confirming we didn't accidentally gate the whole file.
+    set:
+      garage.enabled: false
+      objectStorage.bucket: onyx-files
+      objectStorage.existingSecret: my-external-s3
+      onyx.auth.objectstorage.existingSecret: my-external-s3
+      redis.enabled: false
+      redis.ha.enabled: false
+      externalRedis.host: redis.example.com
+      externalRedis.existingSecret: my-external-redis
+      onyx.auth.redis.existingSecret: my-external-redis
+      cnpg.enabled: false
+      externalPostgresql.host: pg.example.com
+      externalPostgresql.existingSecret: my-external-pg
+    asserts:
+      - matchRegexRaw:
+          pattern: "Onyx has been deployed!"
