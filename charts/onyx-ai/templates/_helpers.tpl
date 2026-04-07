@@ -236,7 +236,8 @@ Priority: External > HA > Default Valkey
 For each mode:
 - External: Uses externalRedis.host directly
 - HA (Spotahome): Uses rfr-{release}-redis-ha (Redis pods, not Sentinel)
-- Default (Valkey): Uses {release}-valkey-primary (Bitnami Valkey service)
+- Default (Valkey): Uses {release}-valkey (valkey-io/valkey-helm primary
+  service — note: NO `-primary` suffix)
 
 Note: Onyx does NOT use Sentinel protocol natively - it uses direct redis:// URLs.
 For HA mode, we connect to the Sentinel-managed Redis service, not the Sentinel protocol.
@@ -253,8 +254,8 @@ Usage: {{ include "onyx-ai.redis.host" . }}
   {{- /* Onyx needs direct Redis connection, not Sentinel protocol */ -}}
   {{- printf "rfr-%s-redis-ha" .Release.Name -}}
 {{- else -}}
-  {{- /* Default Valkey (Bitnami): {release}-valkey-primary */ -}}
-  {{- printf "%s-valkey-primary" .Release.Name -}}
+  {{- /* Default Valkey (valkey-io/valkey-helm): {release}-valkey */ -}}
+  {{- printf "%s-valkey" .Release.Name -}}
 {{- end -}}
 {{- end -}}
 
@@ -277,7 +278,8 @@ Usage: {{ include "onyx-ai.redis.port" . }}
 Get Redis secret name based on configuration mode.
 - External: externalRedis.existingSecret or wrapper-generated secret
 - HA: Wrapper-generated secret ({fullname}-redis-ha)
-- Default (Valkey): {release}-valkey (Bitnami Valkey auto-generated secret)
+- Default (Valkey): {fullname}-valkey-credentials (wrapper-managed
+  secret, see templates/valkey-credentials-secret.yaml)
 
 Usage: {{ include "onyx-ai.redis.secretName" . }}
 */}}
@@ -292,15 +294,17 @@ Usage: {{ include "onyx-ai.redis.secretName" . }}
   {{- /* Spotahome HA mode - we create a secret for Redis password */ -}}
   {{- printf "%s-redis-ha" (include "onyx-ai.fullname" .) -}}
 {{- else -}}
-  {{- /* Valkey (Bitnami): {release}-valkey */ -}}
-  {{- printf "%s-valkey" .Release.Name -}}
+  {{- /* Default Valkey (valkey-io): wrapper-managed credentials secret */ -}}
+  {{- printf "%s-valkey-credentials" (include "onyx-ai.fullname" .) -}}
 {{- end -}}
 {{- end -}}
 
 {{/*
 Get Redis secret key name.
 The key name within the secret that contains the password.
-- Default (Valkey): valkey-password (Bitnami Valkey convention)
+- Default (Valkey): default-password (valkey-io ACL convention; the
+  upstream chart's init script reads /valkey-auth-secret/<username>-password
+  and the wrapper creates this key in {fullname}-valkey-credentials)
 - HA: redis_password (Spotahome convention)
 - External: redis_password (conventional)
 
@@ -310,7 +314,7 @@ Usage: {{ include "onyx-ai.redis.secretKey" . }}
 {{- if or .Values.externalRedis.host .Values.redis.ha.enabled -}}
   {{- "redis_password" -}}
 {{- else -}}
-  {{- "valkey-password" -}}
+  {{- "default-password" -}}
 {{- end -}}
 {{- end -}}
 
@@ -567,7 +571,7 @@ Usage: {{ include "onyx-ai.redis.validateCredentials" . }}
 {{- define "onyx-ai.redis.validateCredentials" -}}
 {{- if and .Values.redis.enabled (not .Values.redis.ha.enabled) (not .Values.externalRedis.host) -}}
   {{- /* Default Valkey mode - validate auth wiring */ -}}
-  {{- $expectedSecret := printf "%s-valkey" .Release.Name -}}
+  {{- $expectedSecret := printf "%s-valkey-credentials" (include "onyx-ai.fullname" .) -}}
   {{- $configuredSecret := .Values.onyx.auth.redis.existingSecret | default "" -}}
   {{- if eq $configuredSecret "" -}}
     {{- fail (printf "onyx.auth.redis.existingSecret is required when using Valkey (redis.enabled: true). Set to: %s" $expectedSecret) -}}

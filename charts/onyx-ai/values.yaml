@@ -120,14 +120,14 @@ externalPostgresql:
 # Redis Configuration (Phase 4 - Valkey)
 # ------------------------------------------------------------------------------
 # Redis-compatible store for Celery task queue. Three modes available:
-#   1. Default: Bitnami Valkey (standalone, Redis-compatible fork)
+#   1. Default: valkey-io/valkey-helm (official Valkey chart, Redis-compatible fork)
 #   2. HA: Spotahome Redis Operator (requires operator pre-installed)
 #   3. External: Connect to existing Redis/Valkey (AWS ElastiCache, Azure Cache, etc.)
 #
 # Priority: externalRedis.host > redis.ha.enabled > redis.enabled (default)
 
 redis:
-  # Enable Bitnami Valkey (Redis-compatible, no operator required)
+  # Enable Valkey via valkey-io/valkey-helm (Redis-compatible, no operator required)
   # IMPORTANT: You MUST set this to false when using HA mode or external Redis.
   # Helm values.yaml cannot contain template logic, so this is not auto-disabled.
   # The chart validates that only one Redis mode is active and will fail with a
@@ -503,9 +503,9 @@ onyx:
   # Phase 4: Redis subchart (DISABLED - using Valkey at wrapper level)
   # ---------------------------------------------------------------------------
   # The upstream OT Container Kit Redis subchart is disabled.
-  # Redis/Valkey is provided by the Bitnami Valkey dependency at the wrapper
-  # chart level (condition: redis.enabled). This eliminates the need for the
-  # OT Redis Operator, using a standard StatefulSet-based Valkey instead.
+  # Redis/Valkey is provided by the valkey-io/valkey-helm dependency at
+  # the wrapper chart level (condition: redis.enabled). This eliminates
+  # the need for the OT Redis Operator.
   #
   # REDIS_HOST must be set via onyx.configMap.REDIS_HOST since the upstream
   # auto-set only fires when onyx.redis.enabled: true.
@@ -521,7 +521,9 @@ onyx:
     HOSTNAME: "0.0.0.0"
     POSTGRES_HOST: "onyx-ai-postgresql-cluster-rw"
     POSTGRES_PORT: "5432"
-    REDIS_HOST: "onyx-ai-valkey-primary"
+    # valkey-io/valkey-helm primary service is "{release}-valkey"
+    # (no `-primary` suffix — this is the upstream chart's convention).
+    REDIS_HOST: "onyx-ai-valkey"
     S3_ENDPOINT_URL: "http://onyx-ai-garage:3900"
     S3_FILE_STORE_BUCKET_NAME: "onyx-ai-files"
     S3_FILE_STORE_PREFIX: "onyx-files"
@@ -646,15 +648,17 @@ onyx:
         POSTGRES_PASSWORD: password
 
     # ---------------------------------------------------------------------------
-    # Phase 8.2: Redis Credentials (auth.redis passthrough)
+    # Redis Credentials (auth.redis passthrough)
     # ---------------------------------------------------------------------------
     # The upstream Onyx chart injects Redis credentials via auth.redis.
     # Configuration depends on Redis mode:
     #
     # 1. Default Valkey (redis.enabled: true):
-    #    - Bitnami Valkey creates secret '{release}-valkey' with key 'valkey-password'
-    #    - You MUST set: onyx.auth.redis.existingSecret: "{release}-valkey"
-    #    - secretKeys.REDIS_PASSWORD must be: valkey-password
+    #    - Wrapper creates '{release}-valkey-credentials' via the
+    #      templates/valkey-credentials-secret.yaml lookup pattern.
+    #    - Key in secret: 'default-password' (matches valkey-io ACL convention).
+    #    - You MUST set: onyx.auth.redis.existingSecret: "{release}-valkey-credentials"
+    #    - secretKeys.REDIS_PASSWORD must be: default-password
     #
     # 2. HA Redis (redis.ha.enabled: true):
     #    - Wrapper creates '{fullname}-redis-ha' secret (fullname = release name
@@ -674,14 +678,14 @@ onyx:
     # Helm values.yaml cannot contain template expressions.
     redis:
       enabled: true
-      # Pre-wired for Valkey with release name "onyx-ai".
+      # Pre-wired for valkey-io with release name "onyx-ai".
       # Override for custom release name, HA mode, or external Redis.
-      existingSecret: "onyx-ai-valkey"
+      existingSecret: "onyx-ai-valkey-credentials"
       # Key mappings - MUST match the secret key for your Redis mode:
-      #   Valkey (default): valkey-password
+      #   Valkey (default, valkey-io): default-password
       #   HA / External: redis_password
       secretKeys:
-        REDIS_PASSWORD: valkey-password
+        REDIS_PASSWORD: default-password
 
     # User auth secret (for password reset tokens, OIDC state signing)
     # Required when using AUTH_TYPE "basic" with password reset or OIDC flows.
@@ -887,36 +891,71 @@ postgresql-cluster:
 # See: https://github.com/datahub-local/garage-helm for full options
 
 # ------------------------------------------------------------------------------
-# Valkey Chart Values (Bitnami)
+# Valkey Chart Values (valkey-io/valkey-helm — official upstream)
 # ------------------------------------------------------------------------------
-# Passthrough to bitnami/valkey subchart. Only active when redis.enabled: true.
-# Valkey is a Redis-compatible fork that needs no operator — just a StatefulSet.
+# Passthrough to valkey-io/valkey-helm subchart. Only active when
+# redis.enabled: true. Official upstream chart maintained by the Linux
+# Foundation Valkey project (BSD-3), tracks Valkey 9.x.
 #
 # Service naming:
-#   - Primary: {release}-valkey-primary (port 6379)
-#   - Secret: {release}-valkey (key: valkey-password, auto-generated)
+#   - Primary service: {release}-valkey            (NO `-primary` suffix)
+#   - Read service:    {release}-valkey-read       (only when replica.enabled)
+#   - Headless:        {release}-valkey-headless
+#   - Port:            6379 (TCP)
 #
-# The upstream Onyx chart does NOT deploy Redis when onyx.redis.enabled: false,
-# so REDIS_HOST must be set via onyx.configMap.REDIS_HOST passthrough.
+# Auth:
+#   The upstream chart is ACL-based and does NOT auto-generate a password.
+#   The wrapper provides one via templates/valkey-credentials-secret.yaml,
+#   which uses the Helm `lookup` pattern so the password persists across
+#   upgrades. We expose it to valkey via auth.usersExistingSecret and to
+#   onyx via onyx.auth.redis.existingSecret (both pointing at the SAME
+#   wrapper-created secret named "{release}-valkey-credentials").
 #
-# See: https://github.com/bitnami/charts/tree/main/bitnami/valkey
+# Onyx wiring:
+#   The upstream Onyx chart does NOT deploy its own Redis when
+#   onyx.redis.enabled: false, so REDIS_HOST is set explicitly via
+#   onyx.configMap.REDIS_HOST passthrough below (= "{release}-valkey").
+#
+# See: https://github.com/valkey-io/valkey-helm
 
 valkey:
-  # Architecture: standalone (single primary) or replication (primary + replicas)
-  # WARNING: Changing architecture after initial install requires deleting the
-  # StatefulSet manually — Kubernetes rejects immutable field changes on upgrade.
-  architecture: standalone
+  # ACL-based authentication.
+  # The upstream chart REQUIRES an explicit `default` user when
+  # auth.enabled is true. The wrapper provides the password via the
+  # `usersExistingSecret` below; the chart's init script reads
+  # /valkey-auth-secret/<username>-password from the mounted secret.
   auth:
     enabled: true
-  primary:
-    resources:
-      requests:
-        cpu: 100m
-        memory: 128Mi
-      limits:
-        cpu: 500m
-        memory: 512Mi
-    persistence:
-      enabled: true
-      size: 2Gi
-      storageClass: ""  # Empty = use cluster default
+    # Wrapper-created secret with key `default-password`. The name is
+    # hard-wired here for release name `onyx-ai`. If you use a different
+    # release name, override this to "{release}-valkey-credentials".
+    usersExistingSecret: onyx-ai-valkey-credentials
+    aclUsers:
+      default:
+        # Full access — Onyx uses Celery on this Valkey, no isolation needed.
+        permissions: "~* &* +@all"
+        # Tells the chart's init script which key in usersExistingSecret to
+        # read. Defaults to the username; we set it explicitly to be safe.
+        passwordKey: default-password
+
+  # Persistent storage for the standalone master.
+  # NOTE: upstream chart uses `dataStorage`, not `primary.persistence`.
+  dataStorage:
+    enabled: true
+    requestedSize: 2Gi
+    className: ""  # Empty = cluster default
+
+  # Resource requests/limits live at the top level (not under `primary:`).
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # Replication / HA — disabled by default. Set replica.enabled: true to
+  # spin up master + N replicas. We're not using this today; HA continues
+  # to be served by the redis.ha.enabled (Spotahome operator) path.
+  replica:
+    enabled: false

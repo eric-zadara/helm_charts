@@ -9,7 +9,7 @@ dependencies:
   repository: https://datahub-local.github.io/garage-helm
   version: 0.2.1
 - name: valkey
-  repository: https://charts.bitnami.com/bitnami
-  version: 5.1.7
+  repository: https://valkey.io/valkey-helm/
+  version: 0.9.3
 digest: sha256:073d05c3f0aca495fe3b0c52fa44af992a20e4ae7cd95b4180d80fe5bd65a206
 generated: "2026-02-11T22:37:02.586633966Z"

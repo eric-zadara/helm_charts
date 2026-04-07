@@ -35,6 +35,6 @@ dependencies:
     repository: "https://datahub-local.github.io/garage-helm"
     condition: garage.enabled
   - name: valkey
-    version: "5.1.7"
-    repository: "https://charts.bitnami.com/bitnami"
+    version: "0.9.3"
+    repository: "https://valkey.io/valkey-helm/"
     condition: redis.enabled

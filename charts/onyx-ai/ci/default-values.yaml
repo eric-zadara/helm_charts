@@ -62,22 +62,20 @@ postgresql-cluster:
     enabled: false
 
 # ------------------------------------------------------------------------------
-# Valkey subchart - minimal standalone for CI
+# Valkey subchart (valkey-io/valkey-helm) - minimal standalone for CI
 # ------------------------------------------------------------------------------
+# Note: ACL auth and usersExistingSecret defaults come from the chart's
+# top-level values.yaml — CI only overrides resources and storage size.
 valkey:
-  architecture: standalone
-  auth:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 256Mi
+  dataStorage:
     enabled: true
-  primary:
-    resources:
-      requests:
-        cpu: 50m
-        memory: 64Mi
-      limits:
-        memory: 256Mi
-    persistence:
-      enabled: true
-      size: 1Gi
+    requestedSize: 1Gi
 
 # ------------------------------------------------------------------------------
 # Onyx subchart overrides
