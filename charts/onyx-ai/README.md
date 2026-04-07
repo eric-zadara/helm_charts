@@ -6,10 +6,10 @@ Batteries-included Helm chart for [Onyx](https://github.com/onyx-dot-app/onyx), 
 
 | Component | Chart | Description |
 |-----------|-------|-------------|
-| Onyx | `onyx` (upstream) | API server, web server, background workers, Vespa search engine |
+| Onyx | `onyx` (upstream, `onyx-dot-app/onyx` 0.4.40) | API server, web server, background workers, Vespa search engine |
 | PostgreSQL | `cluster` (CNPG, aliased `postgresql-cluster`) | HA PostgreSQL via CloudNative-PG operator |
-| Object Storage | `garage` (GarageFS) | Lightweight S3-compatible storage for document files |
-| Redis/Cache | `valkey` (Bitnami) | Redis-compatible cache and Celery task queue backend |
+| Object Storage | `garage` (`datahub-local/garage-helm` 0.4.1) | Lightweight S3-compatible storage for document files (wrapper-managed bootstrap job handles bucket + key + ACL setup via the garage admin API v2) |
+| Redis/Cache | `valkey` (`valkey-io/valkey-helm` 0.9.3, official) | Redis-compatible cache and Celery task queue backend |
 | OpenSearch | `opensearch` (upstream) | Document search and analytics (enabled by default since upstream 0.4.35) |
 | Code Interpreter | `codeInterpreter` (upstream) | Python sandbox for code execution (enabled by default since upstream 0.4.35) |
 
@@ -87,16 +87,21 @@ For a custom release name (e.g., `my-onyx`):
 ```bash
 helm install my-onyx charts/onyx-ai \
   --set onyx.configMap.POSTGRES_HOST=my-onyx-postgresql-cluster-rw \
-  --set onyx.configMap.REDIS_HOST=my-onyx-valkey-primary \
+  --set onyx.configMap.REDIS_HOST=my-onyx-valkey \
   --set onyx.configMap.S3_ENDPOINT_URL=http://my-onyx-garage:3900 \
   --set onyx.configMap.S3_FILE_STORE_BUCKET_NAME=my-onyx-files \
   --set onyx.auth.postgresql.existingSecret=my-onyx-postgresql-cluster-superuser \
-  --set onyx.auth.redis.existingSecret=my-onyx-valkey \
-  --set onyx.auth.objectstorage.existingSecret=my-onyx-onyx-ai-garage-credentials \
-  --set garage.clusterConfig.buckets[0].name=my-onyx-files \
-  --set garage.clusterConfig.keys.onyx.secretName=my-onyx-onyx-ai-garage-credentials \
-  --set garage.clusterConfig.keys.onyx.buckets[0]=my-onyx-files
+  --set onyx.auth.redis.existingSecret=my-onyx-valkey-credentials \
+  --set onyx.auth.objectstorage.existingSecret=my-onyx-garage-credentials \
+  --set valkey.auth.usersExistingSecret=my-onyx-valkey-credentials
 ```
+
+The wrapper auto-generates the valkey credentials secret and the garage
+credentials secret with release-name prefixes (via Helm `lookup`), and
+the bootstrap job picks up bucket creation and key import automatically
+via the release-scoped bucket name `{release}-files`. No additional
+`garage.*` or `valkey.auth.aclUsers.*` overrides are needed for custom
+release names.
 
 ## Ingress Configuration
 
@@ -142,12 +147,12 @@ Both modes split traffic between the API server (`/api` -> port 8080) and web se
 | `garage.enabled` | bool | `true` | Deploy built-in GarageFS object storage |
 | `cnpg.enabled` | bool | `true` | Deploy CNPG-managed PostgreSQL cluster |
 | `cnpg.instances` | int | `3` | PostgreSQL instances (1 primary + N-1 replicas) |
-| `redis.enabled` | bool | `true` | Deploy Bitnami Valkey (Redis-compatible) |
+| `redis.enabled` | bool | `true` | Deploy Valkey via `valkey-io/valkey-helm` (Redis-compatible, no operator required) |
 | `onyx.configMap.POSTGRES_HOST` | string | `onyx-ai-postgresql-cluster-rw` | PostgreSQL hostname |
-| `onyx.configMap.REDIS_HOST` | string | `onyx-ai-valkey-primary` | Redis hostname |
+| `onyx.configMap.REDIS_HOST` | string | `onyx-ai-valkey` | Redis hostname (valkey-io/valkey-helm primary service; NO `-primary` suffix) |
 | `onyx.configMap.S3_ENDPOINT_URL` | string | `http://onyx-ai-garage:3900` | S3 endpoint |
 | `onyx.auth.postgresql.existingSecret` | string | `onyx-ai-postgresql-cluster-superuser` | PostgreSQL credentials secret |
-| `onyx.auth.redis.existingSecret` | string | `onyx-ai-valkey` | Redis credentials secret |
+| `onyx.auth.redis.existingSecret` | string | `onyx-ai-valkey-credentials` | Redis credentials secret (wrapper-managed, key `default-password`) |
 | `onyx.auth.objectstorage.existingSecret` | string | `onyx-ai-garage-credentials` | S3 credentials secret |
 
 See `values.yaml` for the full set of configuration options including CNPG pooler settings, resource limits, and subchart passthroughs.
@@ -242,7 +247,7 @@ onyx:
 The chart supports HA Redis via the Spotahome Redis Operator (RedisFailover CRD). This requires the operator to be pre-installed in the cluster.
 
 Three Redis modes are available:
-1. **Valkey standalone** (default) -- Bitnami Valkey, no operator required
+1. **Valkey standalone** (default) -- valkey-io/valkey-helm, no operator required
 2. **Spotahome HA** -- RedisFailover with Sentinels for automatic failover
 3. **External** -- connect to an existing Redis/Valkey instance
 
@@ -365,25 +370,68 @@ This configures both scheduled backups and enables on-demand `Backup` CRD usage 
 
 ## Secret Rotation
 
-Auto-generated secrets (GarageFS credentials, Redis HA password) can be rotated by deleting the Secret and running `helm upgrade`:
+Auto-generated secrets (GarageFS credentials, Valkey credentials, Redis HA password) use the Helm `lookup` pattern to persist across upgrades. To rotate any of them, delete the Secret and run `helm upgrade` — the chart will regenerate it with new random values:
 
 ```bash
+# Rotate the garage S3 credentials
 kubectl delete secret onyx-ai-garage-credentials
+# Rotate the valkey default-user password
+kubectl delete secret onyx-ai-valkey-credentials
+# Then re-render:
 helm upgrade onyx-ai charts/onyx-ai
 ```
 
-The chart will regenerate the secret with new random values. Pods referencing the secret will need to be restarted to pick up the new credentials.
+Pods referencing the rotated secret will need to be restarted to pick up the new credentials. For the valkey password, you'll also need to restart the valkey pod itself so its ACL reloads. Rotating the garage access key additionally requires the garage bootstrap job to re-run (it's a post-upgrade hook, so it runs automatically on `helm upgrade`).
 
 ## Troubleshooting
 
-### S3 bucket errors ("bucket not found")
+### S3 bucket errors ("Access Denied" or "bucket not found")
 
-GarageFS creates buckets via a post-install Job. If the Job has not completed, Onyx pods will fail to access the bucket. Check the Job status:
+When `garage.enabled: true` the chart runs a wrapper-managed post-install
+Helm hook Job (`{release}-garage-bootstrap`) that talks to garage's
+admin API v2 to stage + apply cluster layout, create the bucket, import
+the access key, and grant bucket-key permissions. The Job verifies the
+resulting ACL before exiting — if it can't grant permissions, the helm
+install fails loudly instead of leaving the chart in a broken state.
+
+Because the Job is a post-install hook with
+`hook-delete-policy: before-hook-creation,hook-succeeded`, it's
+**automatically deleted on success** — if you don't see the Job, that's
+normal, it completed. To inspect a failing install, check:
 
 ```bash
-kubectl get jobs -l app.kubernetes.io/instance=onyx-ai
-kubectl logs job/onyx-ai-garage-config
+# List hook jobs (may be empty if the Job already succeeded and was cleaned)
+kubectl -n {namespace} get jobs -l app.kubernetes.io/instance={release}
+
+# If a failing job exists:
+kubectl -n {namespace} logs job/{release}-garage-bootstrap
+
+# Or check the bootstrap script content directly:
+kubectl -n {namespace} get configmap {release}-garage-bootstrap \
+  -o jsonpath='{.data.bootstrap\.py}' | less
 ```
+
+The bootstrap Job runs `python:3.12-slim` with stdlib only (no pip
+install). Retry / timeout tunables live under `garage.bootstrap.*` in
+`values.yaml`:
+
+| Key | Default | Purpose |
+|---|---|---|
+| `garage.bootstrap.readyTimeoutSeconds` | `600` | Per-phase wait (admin API reachable, cluster healthy) |
+| `garage.bootstrap.stepRetries` | `30` | Per-step retry attempts |
+| `garage.bootstrap.stepBackoffSeconds` | `5` | Backoff between retry attempts |
+| `garage.bootstrap.capacityBytes` | `10737418240` | Per-node layout capacity in bytes (10 GiB default) |
+| `garage.bootstrap.zone` | `dc1` | Layout zone label |
+| `garage.bootstrap.backoffLimit` | `6` | Job-level pod restart budget |
+| `garage.bootstrap.ttlSecondsAfterFinished` | `3600` | TTL for the completed Job before GC |
+
+**Historical note:** Prior to 0.2.0 the chart relied on the upstream
+`garage.clusterConfig` Job shipped by `datahub-local/garage-helm`. That
+Job ran every CLI command with `|| true`, so silent failures in
+`bucket allow` would leave garage's authoritative state with no
+permissions on the bucket and onyx pods would crash-loop forever on
+AccessDenied. The wrapper now owns this step to guarantee permissions
+actually get applied, or the install fails loudly.
 
 ### Vespa deployment namespace
 
@@ -427,10 +475,70 @@ LLM providers (OpenAI, Anthropic, etc.) are configured through the Onyx admin we
 
 ## Upgrade Notes
 
+### 0.2.0 — garage bootstrap + valkey upstream swap + subchart bumps
+
+Three major changes land together in this release:
+
+**1. Garage bootstrap job replaces upstream `clusterConfig`.** The
+`datahub-local/garage-helm` chart's built-in post-install Job ran every
+garage CLI command with `|| true`, including `bucket allow`. If permission
+granting silently failed (layout convergence race on multi-node, etc.) the
+Job exited success but left the bucket ACL unset, and onyx pods
+crash-looped forever on AccessDenied with nothing to retry against.
+
+The wrapper now disables `garage.clusterConfig.enabled` by default and
+ships its own post-install Helm hook (`garage.bootstrap`) that talks to
+the garage admin API v2 directly — idempotent, no error masking,
+verifies the resulting bucket-key permissions before exiting. Tunables
+live under `garage.bootstrap.*` (image, retries, capacity, zone,
+timeouts). See `templates/garage-bootstrap-configmap.yaml` for the
+script and `templates/garage-bootstrap-job.yaml` for the Job spec.
+
+If you were overriding `garage.clusterConfig.*` for custom setup, move
+your bucket list into `garage.bootstrap` equivalents instead of
+re-enabling the upstream job — the two will fight over layout
+assignment if both run.
+
+**2. Valkey dependency changed from `bitnami/valkey` to
+`valkey-io/valkey-helm`.** Broadcom's Bitnami catalog went legacy in
+Aug/Sept 2025 — tagged images and charts at
+`charts.bitnami.com/bitnami` stopped receiving CVE fixes. The official
+upstream chart maintained by the Linux Foundation Valkey project is a
+drop-in replacement, BSD-3 licensed, tracks Valkey 9.x.
+
+Resulting resource shape (all automatic when you use the default
+release name `onyx-ai`):
+
+| | Value |
+|---|---|
+| Primary service | `{release}-valkey` |
+| Credentials secret | `{release}-valkey-credentials` (wrapper-managed, lookup-pattern) |
+| Password key | `default-password` |
+| Workload kind | Deployment |
+| Auth model | ACL with explicit `default` user |
+| Resources field | `valkey.resources` (top level) |
+| Persistence field | `valkey.dataStorage.*` |
+
+The wrapper owns the credentials secret (same Helm `lookup` pattern as
+`garage-credentials-secret.yaml`) so the password persists across
+upgrades — the upstream chart has no lookup logic. Both the valkey
+pod and onyx pods read `default-password` from the same
+`{release}-valkey-credentials` secret.
+
+**3. Subchart versions bumped:**
+- `onyx`: 0.4.35 → 0.4.40 (minor: adds `update-ca-certificates` startup flag)
+- `garage`: 0.2.1 → 0.4.1 (app version v2.1.0 → v2.2.0; configure script
+  is byte-identical across the bump, so the wrapper bootstrap is still
+  needed)
+- `onyx.global.version` pinned to `v3.1.1` (upstream defaults to
+  `latest`, which we refuse to ship against for reproducibility). Bump
+  in lockstep with the onyx subchart version when upgrading.
+
+### Earlier versions
+
 - **PgBouncer pooler disabled by default (0.1.3):** The CNPG pooler is now disabled by default since POSTGRES_HOST connects directly to the `-rw` service for Alembic DDL compatibility. Enable manually if needed for external consumers via `cnpg.pooler.enabled: true`.
 - **OpenSearch auth section added (0.1.3):** The wrapper now includes an explicit `onyx.auth.opensearch` section. Upstream default password `OnyxDev1!` is used unless overridden — set `onyx.auth.opensearch.values.opensearch_admin_password` for production.
 - **AUTH_TYPE default changed in 0.4.35:** Upstream changed `AUTH_TYPE` from `"disabled"` to `"basic"`. If you relied on the old default, explicitly set `onyx.configMap.AUTH_TYPE: "disabled"` to preserve the previous behavior.
-- **Valkey architecture switch requires delete+reinstall:** Changing Valkey from `standalone` to `replication` (or vice versa) requires deleting the Valkey StatefulSet and PVC before upgrading, because Bitnami charts do not support in-place architecture changes.
 - **PVC sizes can only increase:** Kubernetes PersistentVolumeClaims cannot be shrunk. If you need smaller volumes, delete the PVC and let it be recreated (data loss).
 - **Privileged containers:** Vespa, model servers, and the code-interpreter run as privileged or with elevated capabilities. Review your PodSecurityPolicy/PodSecurityStandards if running in a restricted cluster.
 
