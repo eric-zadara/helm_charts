@@ -58,7 +58,7 @@ tests:
       - notExists:
           path: metadata.annotations["helm.sh/hook-delete-policy"]
 
-  - it: Job is an ArgoCD Sync hook with BeforeHookCreation delete policy
+  - it: Job is an ArgoCD Sync hook with BeforeHookCreation delete policy and NO sync-wave
     template: garage-bootstrap-job.yaml
     asserts:
       - equal:
@@ -67,9 +67,15 @@ tests:
       - equal:
           path: metadata.annotations["argocd.argoproj.io/hook-delete-policy"]
           value: BeforeHookCreation
-      - equal:
+      # Regression guard: the Job MUST run at the default wave 0
+      # (concurrently with onyx Deployments and the garage StatefulSet).
+      # A non-zero sync-wave here creates a fatal deadlock under ArgoCD
+      # because onyx cannot become Healthy until bootstrap grants the
+      # bucket ACL, and ArgoCD will not advance to the next wave until
+      # the current wave is Healthy. See the template for the full
+      # explanation.
+      - notExists:
           path: metadata.annotations["argocd.argoproj.io/sync-wave"]
-          value: "1"
 
   - it: ConfigMap is not a Helm hook and has ArgoCD sync-wave -1
     template: garage-bootstrap-configmap.yaml

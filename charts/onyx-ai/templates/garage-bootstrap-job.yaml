@@ -74,18 +74,34 @@ metadata:
     app.kubernetes.io/component: garage-bootstrap
     onyx-ai/release-revision: {{ .Release.Revision | quote }}
   annotations:
-    # ArgoCD Sync hook: runs during the sync phase, after resources are
-    # applied but while pods are still coming up. Not tracked as
-    # persistent state, so argocd doesn't loop on TTL cleanup.
+    # ArgoCD Sync hook: runs during the sync phase alongside the regular
+    # wave-0 resources (garage StatefulSet, onyx Deployments). Not tracked
+    # as persistent application state, so argocd doesn't loop on TTL
+    # cleanup when the Job is GC'd.
     argocd.argoproj.io/hook: Sync
     # Delete any previous hook Job of this name before creating the new
     # one, so re-syncs are safe even if the old Job hasn't TTL'd yet.
     argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
-    # Run after sync-wave -1 (credentials secrets + bootstrap ConfigMap).
-    # Wave 1 means the Job is applied AFTER its dependencies exist but at
-    # roughly the same time as the main workloads (garage StatefulSet,
-    # onyx Deployments) which default to wave 0.
-    argocd.argoproj.io/sync-wave: "1"
+    # NOTE: intentionally NO argocd.argoproj.io/sync-wave annotation here.
+    # The Job MUST run at the default wave 0, concurrently with the onyx
+    # Deployments and the garage StatefulSet. Using sync-wave "1" (or any
+    # value > 0) creates a fatal deadlock:
+    #
+    #   wave 0 applied  ──▶ onyx api-server Deployment starts crashlooping
+    #                        on AccessDenied (no bucket ACL yet)
+    #   argocd waits for wave 0 to be Healthy ──▶ never happens
+    #   argocd never reaches wave 1 ──▶ bootstrap Job never created
+    #   api-server Deployment exceeds progressDeadlineSeconds ──▶ sync Failed
+    #
+    # At wave 0 the bootstrap Job is applied concurrently with garage and
+    # onyx. Garage comes up in ~30s, the Job polls its admin API, grants
+    # bucket-key permissions, exits success. Onyx pods crashloop briefly
+    # (they were already running against an unconfigured garage) and
+    # self-heal on their next restart. The wave converges cleanly.
+    #
+    # The argocd Sync-hook annotation above is still meaningful at wave 0:
+    # it makes the Job re-runnable via BeforeHookCreation and prevents TTL
+    # cleanup from being reported as drift.
 spec:
   backoffLimit: {{ .Values.garage.bootstrap.backoffLimit | default 6 }}
   ttlSecondsAfterFinished: {{ .Values.garage.bootstrap.ttlSecondsAfterFinished | default 3600 }}
