@@ -107,6 +107,9 @@ onyx:
   # ---------------------------------------------------------------------------
   # Vespa: reduced resources for CI (upstream default is 1000m/4Gi)
   # ---------------------------------------------------------------------------
+  # 3Gi limit (up from 2Gi): Onyx 0.4.40 ships Vespa 8.609.39 which OOMKills
+  # repeatedly at 2Gi during cold startup on kind. 3Gi leaves enough headroom
+  # for the JVM warm-up phase without blowing the CI node budget.
   vespa:
     enabled: true
     resources:
@@ -114,7 +117,7 @@ onyx:
         cpu: 200m
         memory: 2Gi
       limits:
-        memory: 2Gi
+        memory: 3Gi
     volumeClaimTemplates:
       - metadata:
           name: vespa-storage

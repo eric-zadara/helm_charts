@@ -62,6 +62,22 @@ kubectl port-forward svc/onyx-ai-webserver 3000:3000
 # Web UI at http://localhost:3000
 ```
 
+### Deploying with ArgoCD
+
+This chart works with ArgoCD but requires a few specific considerations
+because of how it uses Helm `lookup` for credential persistence and a
+post-apply Job for garage bootstrap. **Read [docs/argocd.md](docs/argocd.md)
+before deploying via ArgoCD** — it covers:
+
+- Required `ignoreDifferences` config for the wrapper-managed credentials
+  secrets (otherwise argocd regenerates passwords on every sync)
+- Cluster-scoped RBAC the garage subchart needs from
+  `argocd-application-controller`
+- Subchart dependency fetch requirements for `argocd-repo-server`
+- Sync-wave ordering and the bootstrap Job's argocd Sync hook semantics
+- A copy-pasteable sample `Application` manifest with all the right
+  options pre-configured
+
 ## Release Name Convention
 
 All default values are wired for the release name `onyx-ai`. If you use a different release name, you must override the internal wiring values. The chart NOTES.txt will warn you and print the exact overrides needed.

@@ -1,0 +1,247 @@
+suite: Garage bootstrap job + configmap
+release:
+  name: onyx-ai
+  namespace: onyx
+templates:
+  - garage-bootstrap-job.yaml
+  - garage-bootstrap-configmap.yaml
+tests:
+  - it: renders the Job by default when garage.enabled is true
+    template: garage-bootstrap-job.yaml
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: Job
+      - equal:
+          path: metadata.name
+          value: onyx-ai-garage-bootstrap-r0
+      - equal:
+          path: metadata.labels["onyx-ai/release-revision"]
+          value: "0"
+
+  - it: Job name changes with Release.Revision so upgrades create fresh Jobs
+    template: garage-bootstrap-job.yaml
+    release:
+      revision: 3
+    asserts:
+      - equal:
+          path: metadata.name
+          value: onyx-ai-garage-bootstrap-r3
+      - equal:
+          path: metadata.labels["onyx-ai/release-revision"]
+          value: "3"
+
+  - it: renders the ConfigMap by default when garage.enabled is true
+    template: garage-bootstrap-configmap.yaml
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: ConfigMap
+      - equal:
+          path: metadata.name
+          value: onyx-ai-garage-bootstrap
+
+  - it: does not render when garage.enabled is false
+    set:
+      garage.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: Job is not a Helm hook (helm.sh/hook annotations absent)
+    template: garage-bootstrap-job.yaml
+    asserts:
+      - notExists:
+          path: metadata.annotations["helm.sh/hook"]
+      - notExists:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+
+  - it: Job is an ArgoCD Sync hook with BeforeHookCreation delete policy
+    template: garage-bootstrap-job.yaml
+    asserts:
+      - equal:
+          path: metadata.annotations["argocd.argoproj.io/hook"]
+          value: Sync
+      - equal:
+          path: metadata.annotations["argocd.argoproj.io/hook-delete-policy"]
+          value: BeforeHookCreation
+      - equal:
+          path: metadata.annotations["argocd.argoproj.io/sync-wave"]
+          value: "1"
+
+  - it: ConfigMap is not a Helm hook and has ArgoCD sync-wave -1
+    template: garage-bootstrap-configmap.yaml
+    asserts:
+      - notExists:
+          path: metadata.annotations["helm.sh/hook"]
+      - notExists:
+          path: metadata.annotations["helm.sh/hook-weight"]
+      - equal:
+          path: metadata.annotations["argocd.argoproj.io/sync-wave"]
+          value: "-1"
+
+  - it: Job uses the configured python image and pull policy
+    template: garage-bootstrap-job.yaml
+    set:
+      garage.bootstrap.image.repository: my-registry.example.com/python
+      garage.bootstrap.image.tag: "3.11-slim"
+      garage.bootstrap.image.pullPolicy: Always
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: my-registry.example.com/python:3.11-slim
+      - equal:
+          path: spec.template.spec.containers[0].imagePullPolicy
+          value: Always
+
+  - it: Job runs as non-root with read-only root filesystem and dropped caps
+    template: garage-bootstrap-job.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext.runAsNonRoot
+          value: true
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
+          value: true
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.allowPrivilegeEscalation
+          value: false
+      - contains:
+          path: spec.template.spec.containers[0].securityContext.capabilities.drop
+          content: ALL
+
+  - it: Job env wires admin token from the garage secret created by upstream subchart
+    template: garage-bootstrap-job.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: GARAGE_ADMIN_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: onyx-ai-garage-secret
+                key: adminToken
+
+  - it: Job env wires access key + secret from wrapper credentials secret
+    template: garage-bootstrap-job.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                name: onyx-ai-garage-credentials
+                key: garage_access_key_id
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: onyx-ai-garage-credentials
+                key: garage_secret_access_key
+
+  - it: Job points BUCKET_NAME at the default release-scoped bucket
+    template: garage-bootstrap-job.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: BUCKET_NAME
+            value: onyx-ai-files
+
+  - it: Job honours custom bucket name
+    template: garage-bootstrap-job.yaml
+    set:
+      garage.bucket: my-custom-bucket
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: BUCKET_NAME
+            value: my-custom-bucket
+
+  - it: GARAGE_EXPECTED_NODES tracks garage replica count
+    template: garage-bootstrap-job.yaml
+    set:
+      garage.deployment.replicaCount: 5
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: GARAGE_EXPECTED_NODES
+            value: "5"
+
+  - it: bootstrap retry/backoff knobs are wired into env
+    template: garage-bootstrap-job.yaml
+    set:
+      garage.bootstrap.stepRetries: 99
+      garage.bootstrap.stepBackoffSeconds: 13
+      garage.bootstrap.readyTimeoutSeconds: 1234
+      garage.bootstrap.zone: zone-foo
+      garage.bootstrap.capacityBytes: 4294967296
+      garage.bootstrap.keyName: my-key
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: STEP_RETRIES
+            value: "99"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: STEP_BACKOFF_S
+            value: "13"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: READY_TIMEOUT_S
+            value: "1234"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: GARAGE_ZONE
+            value: zone-foo
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: GARAGE_CAPACITY_BYTES
+            value: "4294967296"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: KEY_NAME
+            value: my-key
+
+  - it: Job mounts the bootstrap configmap as the script source
+    template: garage-bootstrap-job.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: scripts
+            configMap:
+              name: onyx-ai-garage-bootstrap
+              defaultMode: 0555
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: scripts
+            mountPath: /scripts
+            readOnly: true
+
+  - it: ConfigMap embeds the python bootstrap script
+    template: garage-bootstrap-configmap.yaml
+    asserts:
+      - matchRegex:
+          path: data["bootstrap.py"]
+          pattern: 'def main'
+      - matchRegex:
+          path: data["bootstrap.py"]
+          pattern: '/v2/AllowBucketKey'
+      - matchRegex:
+          path: data["bootstrap.py"]
+          pattern: 'GetBucketInfo'

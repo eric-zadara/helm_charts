@@ -430,6 +430,88 @@
               }
             }
           }
+        },
+        "bootstrap": {
+          "type": "object",
+          "description": "Wrapper-managed garage bootstrap job (replaces upstream clusterConfig). Configures cluster layout, bucket, key, and bucket-key permissions via the garage admin API v2.",
+          "additionalProperties": true,
+          "properties": {
+            "image": {
+              "type": "object",
+              "description": "Image used to run the bootstrap python script (stdlib only, no pip).",
+              "properties": {
+                "repository": { "type": "string", "default": "python" },
+                "tag": { "type": "string", "default": "3.12-slim" },
+                "pullPolicy": { "type": "string", "enum": ["Always", "IfNotPresent", "Never"], "default": "IfNotPresent" }
+              }
+            },
+            "keyName": {
+              "type": "string",
+              "default": "onyx",
+              "description": "Friendly name for the imported access key (visible in `garage key list`)"
+            },
+            "zone": {
+              "type": "string",
+              "default": "dc1",
+              "description": "Layout zone label assigned to garage nodes"
+            },
+            "capacityBytes": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 10737418240,
+              "description": "Per-node capacity in bytes assigned to the cluster layout (default 10 GiB)"
+            },
+            "readyTimeoutSeconds": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 600,
+              "description": "Per-phase wait timeout (admin API reachable, cluster healthy, etc.)"
+            },
+            "stepRetries": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 30,
+              "description": "Per-step retry attempts for admin API calls"
+            },
+            "stepBackoffSeconds": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 5,
+              "description": "Backoff in seconds between retry attempts"
+            },
+            "backoffLimit": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 3,
+              "description": "Job-level backoffLimit (number of pod restarts before the Job fails)"
+            },
+            "ttlSecondsAfterFinished": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 600,
+              "description": "TTL for the completed Job (cleaned up automatically)"
+            },
+            "resources": {
+              "type": "object",
+              "description": "Resources for the bootstrap pod",
+              "properties": {
+                "requests": {
+                  "type": "object",
+                  "properties": {
+                    "cpu": { "type": "string" },
+                    "memory": { "type": "string" }
+                  }
+                },
+                "limits": {
+                  "type": "object",
+                  "properties": {
+                    "cpu": { "type": "string" },
+                    "memory": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     },

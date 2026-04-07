@@ -330,12 +330,23 @@ garage:
       admin: 3903
 
   # ---------------------------------------------------------------------------
-  # Cluster configuration (post-install job: creates bucket + imports API key)
+  # Cluster configuration (UPSTREAM job — DISABLED in favor of bootstrap below)
   # ---------------------------------------------------------------------------
-  # Pre-wired for release name "onyx-ai". Override bucket name, secret name,
-  # and bucket references if using a custom release name.
+  # The upstream datahub-local/garage-helm clusterConfig job uses shell with
+  # `|| true` on every command, including `bucket allow`. If permission
+  # granting silently fails (multi-node convergence races, etc.), garage's
+  # authoritative state ends up wrong, the configure job exits success
+  # anyway, and onyx pods crashloop forever on AccessDenied because nothing
+  # ever fixes the permissions.
+  #
+  # We replace it with our own `garage.bootstrap` job (see below) which uses
+  # the garage admin API v2 directly, no `|| true`, with proper retries and
+  # explicit verification of bucket-key permissions.
+  #
+  # Do NOT re-enable this without also disabling the wrapper bootstrap job;
+  # they will fight over layout assignment and key import.
   clusterConfig:
-    enabled: true
+    enabled: false
     buckets:
       - name: onyx-ai-files
     keys:
@@ -345,6 +356,49 @@ garage:
         secretKey: garage_secret_access_key
         buckets:
           - onyx-ai-files
+
+  # ---------------------------------------------------------------------------
+  # Wrapper-managed Garage Bootstrap Job
+  # ---------------------------------------------------------------------------
+  # Replaces upstream garage.clusterConfig (see note above). Runs as a Helm
+  # post-install,post-upgrade hook. Configures cluster layout, bucket, key,
+  # and bucket-key permissions via the garage admin API v2 (HTTP). Idempotent
+  # and verified — fails the helm install loudly if permissions can't be
+  # granted, instead of leaving onyx in a permanent CrashLoopBackOff.
+  #
+  # See templates/garage-bootstrap-configmap.yaml for the python script.
+  bootstrap:
+    image:
+      repository: python
+      tag: "3.12-slim"
+      pullPolicy: IfNotPresent
+    # Friendly name for the imported access key (visible in `garage key list`).
+    keyName: "onyx"
+    # Layout zone label assigned to garage nodes.
+    zone: "dc1"
+    # Per-node capacity in bytes assigned to the cluster layout. Default 10Gi.
+    # For multi-node clusters, every node gets the same capacity. Increase
+    # this if your garage data PVCs are larger than 10Gi and you want garage
+    # to use the full PVC.
+    capacityBytes: 10737418240  # 10 GiB
+    # Maximum time to wait for the garage admin API to respond, the cluster
+    # to become healthy, etc. (per phase, not total).
+    readyTimeoutSeconds: 600
+    # Per-step retry parameters. Each API call is retried with this many
+    # attempts and this many seconds of backoff between attempts.
+    stepRetries: 30
+    stepBackoffSeconds: 5
+    # Helm Job knobs.
+    backoffLimit: 6
+    ttlSecondsAfterFinished: 3600
+    # Resources for the bootstrap pod (small — it just makes HTTP calls).
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
 
 # ------------------------------------------------------------------------------
 # Ingress Configuration (Phase 7)

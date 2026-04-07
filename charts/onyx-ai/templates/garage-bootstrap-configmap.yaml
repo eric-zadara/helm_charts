@@ -1,0 +1,285 @@
+{{/*
+Garage Bootstrap ConfigMap
+==========================
+Holds the python script that the bootstrap Job runs to configure garage
+cluster layout, bucket, key, and bucket-key permissions via the admin API
+v2 (HTTP).
+
+Why this exists
+---------------
+The upstream datahub-local/garage-helm chart's `clusterConfig` job uses shell
+with `|| true` on every command, including `bucket allow`. If permission
+granting silently fails (timing, multi-node convergence races), garage's
+authoritative state is left wrong, the configure job exits success, and
+onyx pods crashloop forever on AccessDenied because nothing ever fixes the
+permissions.
+
+This job replaces that flow entirely. We disable garage.clusterConfig.enabled
+and own the setup ourselves: layout, bucket, key, allow, AND verify — with
+no error masking and proper retries.
+
+Why this is NOT a Helm hook
+---------------------------
+Originally this was a post-install,post-upgrade hook, but that deadlocks
+`helm install --wait`: helm waits for non-hook resources (onyx Deployments)
+to become Ready before running post-install hooks, and onyx pods can't
+become Ready until the bootstrap grants S3 permissions. With the bootstrap
+as a regular non-hook Job, helm applies everything in parallel — the Job
+retries internally until garage is reachable, grants permissions, and
+completes. Onyx pods crash-loop for a brief window and then self-heal
+on the next restart once garage's ACL is correct.
+
+Idempotent across re-runs and helm upgrades. Uses python stdlib only (no
+pip install) so the image is reproducible and the only dependency is the
+python:3-slim image itself.
+
+Created ONLY when garage.enabled: true. Mounted into the Job at /scripts.
+*/}}
+{{- if .Values.garage.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "onyx-ai.fullname" . }}-garage-bootstrap
+  labels:
+    {{- include "onyx-ai.labels" . | nindent 4 }}
+    app.kubernetes.io/component: garage-bootstrap
+  annotations:
+    # Apply this ConfigMap in the same early wave as credentials secrets so
+    # the bootstrap Job (sync-wave 1) always has a populated script mount.
+    argocd.argoproj.io/sync-wave: "-1"
+data:
+  bootstrap.py: |
+    #!/usr/bin/env python3
+    """
+    Garage bootstrap script — configures cluster layout, bucket, key, and
+    bucket-key permissions via the garage admin API v2.
+
+    All operations are idempotent. Fails loudly on any non-recoverable error.
+    """
+    import json
+    import os
+    import sys
+    import time
+    import urllib.error
+    import urllib.parse
+    import urllib.request
+
+    HOST = os.environ["GARAGE_ADMIN_HOST"]
+    PORT = int(os.environ.get("GARAGE_ADMIN_PORT", "3903"))
+    TOKEN = os.environ["GARAGE_ADMIN_TOKEN"]
+    ACCESS_KEY = os.environ["ACCESS_KEY_ID"]
+    SECRET_KEY = os.environ["SECRET_ACCESS_KEY"]
+    BUCKET = os.environ["BUCKET_NAME"]
+    KEY_NAME = os.environ.get("KEY_NAME", "onyx")
+    ZONE = os.environ.get("GARAGE_ZONE", "dc1")
+    CAPACITY = int(os.environ.get("GARAGE_CAPACITY_BYTES", "10737418240"))
+    EXPECTED_NODES = int(os.environ.get("GARAGE_EXPECTED_NODES", "1"))
+
+    BASE = f"http://{HOST}:{PORT}"
+    HEADERS = {
+        "Authorization": f"Bearer {TOKEN}",
+        "Content-Type": "application/json",
+    }
+
+    READY_TIMEOUT_S = int(os.environ.get("READY_TIMEOUT_S", "600"))
+    STEP_RETRIES = int(os.environ.get("STEP_RETRIES", "30"))
+    STEP_BACKOFF_S = int(os.environ.get("STEP_BACKOFF_S", "5"))
+
+
+    class HttpError(Exception):
+        def __init__(self, status, code, message, body):
+            self.status = status
+            self.code = code
+            self.message = message
+            self.body = body
+            super().__init__(f"HTTP {status} {code}: {message}")
+
+
+    def log(msg):
+        print(f"[bootstrap] {msg}", flush=True)
+
+
+    def request(method, path, body=None, query=None):
+        url = BASE + path
+        if query:
+            url += "?" + urllib.parse.urlencode(query)
+        data = None
+        if body is not None:
+            data = json.dumps(body).encode("utf-8")
+        req = urllib.request.Request(url, method=method, headers=HEADERS, data=data)
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                raw = resp.read().decode("utf-8")
+                return resp.status, (json.loads(raw) if raw else None)
+        except urllib.error.HTTPError as e:
+            raw = e.read().decode("utf-8") if e.fp else ""
+            try:
+                parsed = json.loads(raw) if raw else {}
+            except json.JSONDecodeError:
+                parsed = {}
+            raise HttpError(
+                status=e.code,
+                code=parsed.get("code", ""),
+                message=parsed.get("message", raw),
+                body=parsed,
+            )
+
+
+    def wait_for_admin_api():
+        """Wait until the admin API responds at all (any 2xx/4xx counts as up)."""
+        deadline = time.time() + READY_TIMEOUT_S
+        attempt = 0
+        while time.time() < deadline:
+            attempt += 1
+            try:
+                status, body = request("GET", "/v2/GetClusterStatus")
+                log(f"admin API reachable (layoutVersion={body.get('layoutVersion')}, "
+                    f"nodes={len(body.get('nodes', []))})")
+                return body
+            except (urllib.error.URLError, ConnectionError, HttpError) as e:
+                log(f"waiting for admin API (attempt {attempt}): {e}")
+                time.sleep(STEP_BACKOFF_S)
+        raise SystemExit(f"admin API never became reachable within {READY_TIMEOUT_S}s")
+
+
+    def wait_for_node_count(expected):
+        """Wait until at least `expected` nodes are connected and up."""
+        deadline = time.time() + READY_TIMEOUT_S
+        while time.time() < deadline:
+            _, status = request("GET", "/v2/GetClusterStatus")
+            up = [n for n in status.get("nodes", []) if n.get("isUp")]
+            if len(up) >= expected:
+                log(f"observed {len(up)} connected node(s) (expected >= {expected})")
+                return status
+            log(f"waiting for {expected} nodes, currently {len(up)} up")
+            time.sleep(STEP_BACKOFF_S)
+        raise SystemExit(
+            f"only {len(up)} of {expected} nodes connected within {READY_TIMEOUT_S}s"
+        )
+
+
+    def ensure_layout(status):
+        """Stage and apply a layout if the cluster doesn't already have one."""
+        if status.get("layoutVersion", 0) > 0:
+            log(f"layout already at version {status['layoutVersion']}; skipping assign")
+            return
+        nodes = [n for n in status.get("nodes", []) if n.get("isUp") and not n.get("draining")]
+        if not nodes:
+            raise SystemExit("no eligible nodes to assign layout to")
+        roles = [
+            {"id": n["id"], "zone": ZONE, "capacity": CAPACITY, "tags": []}
+            for n in nodes
+        ]
+        log(f"staging layout for {len(roles)} node(s) in zone={ZONE} capacity={CAPACITY}")
+        _, layout = request("POST", "/v2/UpdateClusterLayout", {"roles": roles})
+        next_version = (layout.get("version") or 0) + 1
+        log(f"applying layout version {next_version}")
+        request("POST", "/v2/ApplyClusterLayout", {"version": next_version})
+
+
+    def wait_for_healthy():
+        deadline = time.time() + READY_TIMEOUT_S
+        while time.time() < deadline:
+            _, h = request("GET", "/v2/GetClusterHealth")
+            if h.get("status") == "healthy":
+                log("cluster is healthy")
+                return
+            log(f"cluster status={h.get('status')} "
+                f"storage_up={h.get('storageNodesUp')}/{h.get('storageNodes')} "
+                f"partitions_quorum={h.get('partitionsQuorum')}/{h.get('partitions')}")
+            time.sleep(STEP_BACKOFF_S)
+        raise SystemExit(f"cluster did not become healthy within {READY_TIMEOUT_S}s")
+
+
+    def ensure_bucket():
+        try:
+            _, info = request("POST", "/v2/CreateBucket", {"globalAlias": BUCKET})
+            log(f"created bucket {BUCKET} (id={info['id']})")
+            return info["id"]
+        except HttpError as e:
+            if e.status == 409 and e.code == "BucketAlreadyExists":
+                log(f"bucket {BUCKET} already exists; fetching id")
+            else:
+                raise
+        _, info = request("GET", "/v2/GetBucketInfo", query={"globalAlias": BUCKET})
+        return info["id"]
+
+
+    def ensure_key():
+        body = {
+            "accessKeyId": ACCESS_KEY,
+            "secretAccessKey": SECRET_KEY,
+            "name": KEY_NAME,
+        }
+        try:
+            request("POST", "/v2/ImportKey", body)
+            log(f"imported key {ACCESS_KEY} (name={KEY_NAME})")
+        except HttpError as e:
+            if e.status == 409 and e.code == "KeyAlreadyExists":
+                log(f"key {ACCESS_KEY} already exists; reusing")
+            else:
+                raise
+
+
+    def ensure_allow(bucket_id):
+        body = {
+            "bucketId": bucket_id,
+            "accessKeyId": ACCESS_KEY,
+            "permissions": {"read": True, "write": True, "owner": False},
+        }
+        request("POST", "/v2/AllowBucketKey", body)
+        log(f"granted RW on bucket {BUCKET} to key {ACCESS_KEY}")
+
+
+    def verify():
+        _, info = request("GET", "/v2/GetBucketInfo", query={"globalAlias": BUCKET})
+        for k in info.get("keys", []):
+            if k.get("accessKeyId") == ACCESS_KEY:
+                p = k.get("permissions") or {}
+                if p.get("read") and p.get("write"):
+                    log(f"verified: key {ACCESS_KEY} has RW on {BUCKET}")
+                    return
+                raise SystemExit(
+                    f"verification failed: key {ACCESS_KEY} on {BUCKET} has "
+                    f"permissions={p}, expected read=true,write=true"
+                )
+        raise SystemExit(
+            f"verification failed: key {ACCESS_KEY} not found in bucket {BUCKET} keys list "
+            f"(got: {[k.get('accessKeyId') for k in info.get('keys', [])]})"
+        )
+
+
+    def with_retries(name, fn, *args, **kwargs):
+        last = None
+        for attempt in range(1, STEP_RETRIES + 1):
+            try:
+                return fn(*args, **kwargs)
+            except (HttpError, urllib.error.URLError, ConnectionError) as e:
+                last = e
+                log(f"{name} attempt {attempt}/{STEP_RETRIES} failed: {e}; retrying in {STEP_BACKOFF_S}s")
+                time.sleep(STEP_BACKOFF_S)
+        raise SystemExit(f"{name} failed after {STEP_RETRIES} attempts: {last}")
+
+
+    def main():
+        log(f"target: {BASE}, bucket={BUCKET}, key={ACCESS_KEY}, expected_nodes={EXPECTED_NODES}")
+        with_retries("admin-api-reachable", wait_for_admin_api)
+        status = with_retries("node-count", wait_for_node_count, EXPECTED_NODES)
+        with_retries("layout-assign-apply", ensure_layout, status)
+        with_retries("cluster-healthy", wait_for_healthy)
+        bucket_id = with_retries("ensure-bucket", ensure_bucket)
+        with_retries("ensure-key", ensure_key)
+        with_retries("ensure-allow", ensure_allow, bucket_id)
+        with_retries("verify", verify)
+        log("bootstrap complete")
+
+
+    if __name__ == "__main__":
+        try:
+            main()
+        except SystemExit:
+            raise
+        except Exception as e:
+            log(f"FATAL: {type(e).__name__}: {e}")
+            raise
+{{- end }}

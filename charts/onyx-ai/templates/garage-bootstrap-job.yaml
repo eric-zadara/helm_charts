@@ -1,0 +1,172 @@
+{{/*
+Garage Bootstrap Job
+====================
+Regular (non-hook) Kubernetes Job that configures garage's cluster layout,
+bucket, access key, and bucket-key permissions via the admin API v2.
+
+Replaces the upstream datahub-local/garage-helm chart's `clusterConfig` job
+(which silently swallows errors with `|| true` and can leave permissions
+unset). When this job is enabled the wrapper sets garage.clusterConfig.enabled
+to false in values.yaml so the two don't fight.
+
+Idempotent: safe to re-run on every helm upgrade. Uses python stdlib only
+(no pip install) for reproducibility.
+
+Why NOT a Helm hook
+-------------------
+An earlier draft used post-install,post-upgrade hook annotations. That
+deadlocks `helm install --wait`: helm waits for non-hook resources (the
+onyx Deployments) to become Ready before running post-install hooks, and
+onyx pods can't become Ready until the bootstrap grants S3 permissions.
+Classic chicken-and-egg.
+
+As a regular (non-hook) Job, this resource is applied at the same time as
+garage and onyx. The Job's python script polls garage's admin API until
+it's reachable, then grants permissions and exits. Onyx pods crash-loop
+briefly, then self-heal on the next restart once garage's ACL is correct.
+`helm install --wait` sees everything become Ready and returns success.
+
+Job names are suffixed with `.Release.Revision` so each helm install or
+upgrade creates a fresh Job rather than trying to mutate an immutable Job
+spec. The TTL on each Job is long enough to give you time to inspect logs
+after an install, short enough to garbage-collect automatically.
+
+Created ONLY when garage.enabled: true.
+
+Why python:3-slim and not curlimages/curl
+-----------------------------------------
+Earlier draft used curl + bash for HTTP. JSON parsing and HTTP error
+discrimination in shell are fragile (CreateBucket returns 409
+BucketAlreadyExists, ImportKey returns 409 KeyAlreadyExists, GetBucketInfo
+returns 404 NoSuchBucket — all need real status code + body inspection to
+handle idempotency cleanly). Python stdlib gives us proper urllib.error
+discrimination and json parsing without shell escaping landmines.
+*/}}
+{{- if .Values.garage.enabled }}
+{{- $fullname := include "onyx-ai.fullname" . -}}
+{{- $bucket := include "onyx-ai.objectStorage.bucket" . -}}
+{{- $secretName := include "onyx-ai.objectStorage.secretName" . -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  # Suffix with Release.Revision so each helm install/upgrade creates a
+  # fresh Job (Job.spec is immutable; re-applying the same name would
+  # fail on upgrade). Old Jobs are garbage-collected by ttlSecondsAfterFinished.
+  #
+  # Under ArgoCD (which uses `helm template` without maintaining a helm
+  # release), .Release.Revision always evaluates to 1, so the name is
+  # stable at `{fullname}-garage-bootstrap-r1`. The argocd.* annotations
+  # below turn this Job into an argocd Sync hook, which gives us two
+  # things argocd otherwise can't do cleanly with a regular tracked Job:
+  #   1. BeforeHookCreation deletes any existing Job with this name
+  #      before creating the new one, so the Job is re-runnable without
+  #      ever hitting Job-spec immutability on sync.
+  #   2. argocd treats Sync hooks as ephemeral — it does NOT flag the
+  #      Job as missing / drifted when ttlSecondsAfterFinished fires and
+  #      the Job gets GC'd, so there's no never-ending "out of sync"
+  #      reconciliation loop.
+  # These annotations are ignored by Helm, so `helm install`/`helm upgrade`
+  # still see a plain Job and use the Release.Revision suffix for fresh
+  # names per upgrade.
+  name: {{ printf "%s-garage-bootstrap-r%d" $fullname (int .Release.Revision) }}
+  labels:
+    {{- include "onyx-ai.labels" . | nindent 4 }}
+    app.kubernetes.io/component: garage-bootstrap
+    onyx-ai/release-revision: {{ .Release.Revision | quote }}
+  annotations:
+    # ArgoCD Sync hook: runs during the sync phase, after resources are
+    # applied but while pods are still coming up. Not tracked as
+    # persistent state, so argocd doesn't loop on TTL cleanup.
+    argocd.argoproj.io/hook: Sync
+    # Delete any previous hook Job of this name before creating the new
+    # one, so re-syncs are safe even if the old Job hasn't TTL'd yet.
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    # Run after sync-wave -1 (credentials secrets + bootstrap ConfigMap).
+    # Wave 1 means the Job is applied AFTER its dependencies exist but at
+    # roughly the same time as the main workloads (garage StatefulSet,
+    # onyx Deployments) which default to wave 0.
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  backoffLimit: {{ .Values.garage.bootstrap.backoffLimit | default 6 }}
+  ttlSecondsAfterFinished: {{ .Values.garage.bootstrap.ttlSecondsAfterFinished | default 3600 }}
+  template:
+    metadata:
+      labels:
+        {{- include "onyx-ai.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: garage-bootstrap
+    spec:
+      restartPolicy: OnFailure
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsUser: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: bootstrap
+          image: "{{ .Values.garage.bootstrap.image.repository }}:{{ .Values.garage.bootstrap.image.tag }}"
+          imagePullPolicy: {{ .Values.garage.bootstrap.image.pullPolicy | default "IfNotPresent" }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          command: ["python3", "/scripts/bootstrap.py"]
+          env:
+            - name: GARAGE_ADMIN_HOST
+              value: {{ printf "%s-garage" .Release.Name | quote }}
+            - name: GARAGE_ADMIN_PORT
+              value: {{ .Values.garage.service.ports.admin | default 3903 | quote }}
+            - name: GARAGE_ADMIN_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ printf "%s-garage-secret" .Release.Name }}
+                  key: adminToken
+            - name: ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secretName }}
+                  key: garage_access_key_id
+            - name: SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secretName }}
+                  key: garage_secret_access_key
+            - name: BUCKET_NAME
+              value: {{ $bucket | quote }}
+            - name: KEY_NAME
+              value: {{ .Values.garage.bootstrap.keyName | default "onyx" | quote }}
+            - name: GARAGE_ZONE
+              value: {{ .Values.garage.bootstrap.zone | default "dc1" | quote }}
+            - name: GARAGE_CAPACITY_BYTES
+              value: "{{ printf "%d" (int64 (.Values.garage.bootstrap.capacityBytes | default 10737418240)) }}"
+            - name: GARAGE_EXPECTED_NODES
+              value: {{ .Values.garage.deployment.replicaCount | default 1 | quote }}
+            - name: READY_TIMEOUT_S
+              value: {{ .Values.garage.bootstrap.readyTimeoutSeconds | default 600 | quote }}
+            - name: STEP_RETRIES
+              value: {{ .Values.garage.bootstrap.stepRetries | default 30 | quote }}
+            - name: STEP_BACKOFF_S
+              value: {{ .Values.garage.bootstrap.stepBackoffSeconds | default 5 | quote }}
+          resources:
+            {{- toYaml (.Values.garage.bootstrap.resources | default dict) | nindent 12 }}
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: scripts
+          configMap:
+            name: {{ $fullname }}-garage-bootstrap
+            defaultMode: 0555
+        - name: tmp
+          emptyDir: {}
+{{- end }}
