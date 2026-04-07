@@ -1,0 +1,18 @@
+dependencies:
+- name: cert-manager
+  repository: oci://quay.io/jetstack/charts
+  version: v1.19.3
+- name: cloudnative-pg
+  repository: oci://ghcr.io/cloudnative-pg/charts
+  version: 0.27.1
+- name: knative-operator
+  repository: https://knative.github.io/operator
+  version: v1.21.0
+- name: gateway-helm
+  repository: oci://docker.io/envoyproxy
+  version: v1.7.0
+- name: gpu-operator
+  repository: https://helm.ngc.nvidia.com/nvidia
+  version: v25.10.1
+digest: sha256:0d65cd4bcdc27cdaa27be677351bd2abacae48ce6b22d3142327ae7ba2785e02
+generated: "2026-03-06T20:17:36.948164912Z"

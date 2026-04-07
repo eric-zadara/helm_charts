@@ -1,0 +1,12 @@
+dependencies:
+- name: kserve-crd
+  repository: oci://ghcr.io/kserve/charts
+  version: v0.16.0
+- name: gateway-api
+  repository: https://eric-zadara.github.io/helm_charts/
+  version: 0.1.0
+- name: inference-extension-crds
+  repository: https://eric-zadara.github.io/helm_charts/
+  version: 0.1.0
+digest: sha256:6099d2f5b0973899a2cd170cb2d6a839ac04d45bd31e7a3de6a90e831611574d
+generated: "2026-02-09T21:22:26.98430223Z"

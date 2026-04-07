@@ -1,0 +1,9 @@
+dependencies:
+- name: model-serving
+  repository: file://../model-serving
+  version: 0.1.2
+- name: inference-gateway
+  repository: https://eric-zadara.github.io/helm_charts/
+  version: 0.1.6
+digest: sha256:decf054b64cefd00a1aae4410dbde8c0003652f2d2d43822bc54e7ceb10203e6
+generated: "2026-02-12T00:08:12.786145683Z"

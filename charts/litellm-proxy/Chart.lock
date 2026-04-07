@@ -1,0 +1,9 @@
+dependencies:
+- name: cluster
+  repository: https://cloudnative-pg.github.io/charts
+  version: 0.5.0
+- name: valkey
+  repository: https://charts.bitnami.com/bitnami
+  version: 5.1.4
+digest: sha256:4b925835efa848c4a6c4ea113f8c26bad968c2600818dec773b70db2da266a81
+generated: "2026-02-01T06:25:59.861944676Z"

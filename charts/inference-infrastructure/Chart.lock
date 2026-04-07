@@ -1,0 +1,9 @@
+dependencies:
+- name: kserve
+  repository: oci://ghcr.io/kserve/charts
+  version: v0.16.0
+- name: litellm-proxy
+  repository: https://eric-zadara.github.io/helm_charts/
+  version: 0.2.5
+digest: sha256:31deae3281f415a26093161cfe704f565359a892ad22fcb2ddf2f276114c38ca
+generated: "2026-03-06T20:17:54.727095349Z"
