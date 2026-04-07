@@ -458,6 +458,120 @@ ingress:
     middlewares: []
 
 # ------------------------------------------------------------------------------
+# External Secrets Operator (ESO) Integration
+# ------------------------------------------------------------------------------
+# Optional integration with external-secrets.io. When enabled, the wrapper
+# creates ExternalSecret CRs that tell ESO to populate the garage and valkey
+# credentials secrets from an upstream backend (Vault, AWS Secrets Manager,
+# GCP SM, etc.) instead of having the wrapper generate random values via
+# Helm lookup.
+#
+# Why: under ArgoCD (helm template mode) the lookup-based secrets regenerate
+# on every sync because Helm `lookup` returns nil outside of `helm install`.
+# ESO management is the production-grade fix — ESO owns the resulting Secret
+# and ArgoCD does not diff it, so the per-sync `ignoreDifferences` workaround
+# documented in docs/argocd.md becomes unnecessary for ESO-managed secrets.
+#
+# Requirements:
+#   - external-secrets-operator must be installed in the cluster
+#   - A SecretStore or ClusterSecretStore must exist and be accessible from
+#     the chart's namespace
+#   - The operator must have the secret paths populated with the expected
+#     keys (see the per-secret `remoteRefs` documentation below)
+#
+# Out of scope (TODO): Spotahome RedisFailover (redis.ha) ESO integration.
+# Today the redis-ha-secret.yaml lookup pattern is unchanged when ESO is
+# enabled — only garage and valkey are covered in this pass.
+
+externalSecrets:
+  # Master switch. When false, no ExternalSecret CRs are rendered and the
+  # wrapper falls back to its existing Helm-lookup credential generation.
+  enabled: false
+
+  # Which SecretStore kind to reference. Most common: ClusterSecretStore.
+  # Allowed: "SecretStore" or "ClusterSecretStore"
+  secretStoreRefKind: ClusterSecretStore
+
+  # Name of the (Cluster)SecretStore resource. Must already exist and be
+  # accessible from the chart's namespace.
+  secretStoreRefName: ""
+
+  # API version of the ExternalSecret CRD. Leave at default unless you're
+  # on a non-standard ESO install.
+  apiVersion: "external-secrets.io/v1beta1"
+
+  # How often ESO reconciles from the backend. 1h is a reasonable default.
+  refreshInterval: "1h"
+
+  # ----------------------------------------------------------------------------
+  # Per-secret configuration
+  # ----------------------------------------------------------------------------
+  # Each entry controls ONE ExternalSecret CR that maps remote backend values
+  # into the K8s Secret consumed by the wrapper templates.
+
+  garage:
+    # When true AND externalSecrets.enabled is true, the wrapper skips
+    # rendering garage-credentials-secret.yaml and instead renders an
+    # ExternalSecret that populates a Secret with the same name
+    # (`{fullname}-garage-credentials`).
+    enabled: true
+
+    # Map each target key (in the resulting K8s Secret) to a remote key in
+    # the upstream backend. For Vault KV the `key` is the path (e.g.
+    # "secret/data/onyx-ai/garage") and `property` is the field within
+    # the JSON object at that path (e.g. "accessKey").
+    #
+    # Typically operators point both s3_aws_access_key_id and
+    # garage_access_key_id at the same backend property (and likewise for
+    # the secret keys). The duplication here exists because the garage CLI
+    # and Onyx's S3 client spell the keys differently.
+    #
+    # All four keys below are required when externalSecrets.garage.enabled
+    # is true; the wrapper fails the render with a clear error if any
+    # `key` is empty.
+    remoteRefs:
+      s3_aws_access_key_id:
+        key: ""           # e.g. "secret/data/onyx-ai/garage"
+        property: ""      # e.g. "accessKey"
+      s3_aws_secret_access_key:
+        key: ""
+        property: ""      # e.g. "secretKey"
+      garage_access_key_id:
+        key: ""
+        property: ""      # e.g. "accessKey"
+      garage_secret_access_key:
+        key: ""
+        property: ""      # e.g. "secretKey"
+
+  valkey:
+    # When true AND externalSecrets.enabled is true, the wrapper renders
+    # an ExternalSecret that creates a `{fullname}-valkey-credentials`
+    # Secret with key `default-password`.
+    #
+    # NOTE: Unlike garage, the wrapper does NOT generate a Valkey
+    # credentials secret of its own — Bitnami's valkey subchart
+    # auto-generates `{release}-valkey`. To actually USE the ESO-managed
+    # secret, point the Bitnami subchart at it via:
+    #
+    #   valkey:
+    #     auth:
+    #       existingSecret: "{release}-valkey-credentials"
+    #       existingSecretPasswordKey: "default-password"
+    #
+    #   onyx:
+    #     auth:
+    #       redis:
+    #         existingSecret: "{release}-valkey-credentials"
+    #         secretKeys:
+    #           REDIS_PASSWORD: default-password
+    enabled: true
+
+    remoteRefs:
+      default-password:
+        key: ""           # e.g. "secret/data/onyx-ai/valkey"
+        property: ""      # e.g. "password"
+
+# ------------------------------------------------------------------------------
 # Onyx Subchart Values (passthrough to upstream)
 # ------------------------------------------------------------------------------
 # All values under `onyx:` are passed directly to the upstream Onyx chart.

@@ -620,6 +620,61 @@ Usage: {{ include "onyx-ai.garage.validateCredentials" . }}
 {{- end -}}
 
 {{/*
+================================================================================
+External Secrets Operator (ESO) Validation
+================================================================================
+*/}}
+
+{{/*
+Validate External Secrets Operator configuration.
+Fails if:
+- externalSecrets.enabled is true but secretStoreRefName is empty
+- externalSecrets.enabled is true, garage.enabled is true, but any of the
+  four garage.remoteRefs.*.key values is empty
+- externalSecrets.enabled is true, valkey.enabled is true, but the valkey
+  remoteRefs.default-password.key is empty
+- externalSecrets.secretStoreRefKind is not one of: SecretStore, ClusterSecretStore
+
+`property` is optional (some backends like AWS Secrets Manager plaintext
+secrets do not need it); only `key` is required.
+
+Usage: {{ include "onyx-ai.externalSecrets.validate" . }}
+*/}}
+{{- define "onyx-ai.externalSecrets.validate" -}}
+{{- $es := .Values.externalSecrets | default dict -}}
+{{- if $es.enabled -}}
+  {{- /* Validate store kind */ -}}
+  {{- $storeKind := $es.secretStoreRefKind | default "ClusterSecretStore" -}}
+  {{- $validKinds := list "SecretStore" "ClusterSecretStore" -}}
+  {{- if not (has $storeKind $validKinds) -}}
+    {{- fail (printf "externalSecrets.secretStoreRefKind must be one of: SecretStore, ClusterSecretStore (got %q)" $storeKind) -}}
+  {{- end -}}
+  {{- /* Validate store name */ -}}
+  {{- if not $es.secretStoreRefName -}}
+    {{- fail "externalSecrets.secretStoreRefName is required when externalSecrets.enabled is true" -}}
+  {{- end -}}
+  {{- /* Validate garage remoteRefs */ -}}
+  {{- if and .Values.garage.enabled (and $es.garage $es.garage.enabled) -}}
+    {{- $refs := $es.garage.remoteRefs | default dict -}}
+    {{- range $k := list "s3_aws_access_key_id" "s3_aws_secret_access_key" "garage_access_key_id" "garage_secret_access_key" -}}
+      {{- $r := index $refs $k -}}
+      {{- if or (not $r) (not $r.key) -}}
+        {{- fail (printf "externalSecrets.garage.remoteRefs.%s.key is required when externalSecrets.garage.enabled is true" $k) -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+  {{- /* Validate valkey remoteRefs */ -}}
+  {{- if and $es.valkey $es.valkey.enabled -}}
+    {{- $refs := $es.valkey.remoteRefs | default dict -}}
+    {{- $r := index $refs "default-password" -}}
+    {{- if or (not $r) (not $r.key) -}}
+      {{- fail "externalSecrets.valkey.remoteRefs.default-password.key is required when externalSecrets.valkey.enabled is true" -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
 Validate GarageFS replication factor vs replica count.
 Fails if replicationFactor exceeds deployment.replicaCount.
 

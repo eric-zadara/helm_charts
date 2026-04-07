@@ -383,6 +383,14 @@ helm upgrade onyx-ai charts/onyx-ai
 
 Pods referencing the rotated secret will need to be restarted to pick up the new credentials. For the valkey password, you'll also need to restart the valkey pod itself so its ACL reloads. Rotating the garage access key additionally requires the garage bootstrap job to re-run (it's a post-upgrade hook, so it runs automatically on `helm upgrade`).
 
+If you've enabled the optional [External Secrets Operator integration](docs/argocd.md#option-2-external-secrets-operator-integration-recommended-for-production)
+(`externalSecrets.enabled: true`), rotation is handled in your upstream
+backend (Vault, AWS Secrets Manager, etc.) rather than by the wrapper. ESO
+reconciles the new value into the K8s Secret on its next refresh interval
+(default 1h, configurable via `externalSecrets.refreshInterval`). You still
+need to restart pods that mount the secret as a file or environment
+variable to pick up the new value.
+
 ## Troubleshooting
 
 ### S3 bucket errors ("Access Denied" or "bucket not found")

@@ -6,6 +6,7 @@
 {{- include "onyx-ai.redis.validateCredentials" . -}}
 {{- include "onyx-ai.garage.validateCredentials" . -}}
 {{- include "onyx-ai.garage.validateReplication" . -}}
+{{- include "onyx-ai.externalSecrets.validate" . -}}
 {{- /*
   ArgoCD / helm-template credential-churn warning.
   Fires when:

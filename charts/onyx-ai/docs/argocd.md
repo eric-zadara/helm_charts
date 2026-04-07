@@ -74,24 +74,128 @@ After the first sync, argocd will apply each Secret once and then stop
 diffing them. The wrapper's `lookup`-based persistence still works for
 `helm upgrade` users; argocd users just opt out of the re-render behavior.
 
-### Alternative: external secrets operator / sealed-secrets
+### Recommended for production: External Secrets Operator integration
 
-For production, you may prefer managing these secrets outside of helm
-entirely, via [external-secrets-operator](https://external-secrets.io/)
-or [sealed-secrets](https://github.com/bitnami-labs/sealed-secrets). In
-that case:
+The chart ships an opt-in [external-secrets-operator](https://external-secrets.io/)
+integration. When enabled, the wrapper renders `ExternalSecret` CRs
+instead of the lookup-based `Secret` templates, and ESO populates the
+target Secret from your upstream backend (Vault, AWS Secrets Manager,
+GCP Secret Manager, 1Password Connect, etc.). ESO becomes the owner of
+the Secret, so **ArgoCD never sees a credential diff and the
+`ignoreDifferences` block above is no longer needed for the
+ESO-managed secrets.**
 
-1. Pre-create the three secrets with your chosen mechanism using the
-   expected names (`{release}-garage-credentials`,
-   `{release}-valkey-credentials`, optionally `{release}-redis-ha`) and
-   the expected keys (see `values.yaml` comments on
-   `onyx.auth.objectstorage.secretKeys` / `onyx.auth.redis.secretKeys`).
-2. The wrapper templates will see the existing secrets via `lookup` and
-   re-emit their values, which is fine as long as the pre-created values
-   don't change.
-3. You can also disable the wrapper templates by setting your own
-   `existingSecret` overrides at `onyx.auth.*` and pointing them at
-   secrets you manage yourself — this bypasses the wrapper entirely.
+#### Prerequisites
+
+1. external-secrets-operator installed in the cluster
+2. A `SecretStore` (namespaced) or `ClusterSecretStore` (cluster-scoped)
+   pointing at your backend, e.g. a Vault `ClusterSecretStore` named
+   `vault-backend`
+3. The backend populated with the values described in the
+   "Backend layout" subsection below
+
+#### Minimal values.yaml — Vault example
+
+Assume a `ClusterSecretStore` named `vault-backend` with a Vault KV v2
+mount at `secret/`, and the following pre-created secret paths:
+
+- `secret/onyx-ai/garage` containing fields `accessKey` and `secretKey`
+- `secret/onyx-ai/valkey` containing field `password`
+
+```yaml
+externalSecrets:
+  enabled: true
+  secretStoreRefKind: ClusterSecretStore
+  secretStoreRefName: vault-backend
+  refreshInterval: "1h"
+
+  garage:
+    enabled: true
+    remoteRefs:
+      s3_aws_access_key_id:
+        key: secret/data/onyx-ai/garage
+        property: accessKey
+      s3_aws_secret_access_key:
+        key: secret/data/onyx-ai/garage
+        property: secretKey
+      garage_access_key_id:
+        key: secret/data/onyx-ai/garage
+        property: accessKey
+      garage_secret_access_key:
+        key: secret/data/onyx-ai/garage
+        property: secretKey
+
+  valkey:
+    enabled: true
+    remoteRefs:
+      default-password:
+        key: secret/data/onyx-ai/valkey
+        property: password
+```
+
+The `s3_aws_*` and `garage_*` keys typically map to the same backend
+property — the duplication exists because the Onyx S3 client and the
+Garage CLI use different conventions for the same credential pair.
+
+#### Backend layout — keys ESO must populate
+
+**Garage** (target secret: `{fullname}-garage-credentials`):
+
+| Target key in K8s Secret    | Required | Typical backend field |
+| --------------------------- | -------- | --------------------- |
+| `s3_aws_access_key_id`      | yes      | `accessKey`           |
+| `s3_aws_secret_access_key`  | yes      | `secretKey`           |
+| `garage_access_key_id`      | yes      | `accessKey` (same)    |
+| `garage_secret_access_key`  | yes      | `secretKey` (same)    |
+
+**Valkey** (target secret: `{fullname}-valkey-credentials`):
+
+| Target key in K8s Secret  | Required | Typical backend field |
+| ------------------------- | -------- | --------------------- |
+| `default-password`        | yes      | `password`            |
+
+#### Selective migration
+
+The two per-secret toggles (`externalSecrets.garage.enabled` and
+`externalSecrets.valkey.enabled`) are independent. You can adopt ESO
+for garage first, leave Valkey on the wrapper's lookup-based
+auto-generation, and migrate Valkey later — or vice versa. The
+skip-guard on the wrapper's `garage-credentials-secret.yaml` only
+fires when ESO is BOTH globally enabled AND the per-secret toggle is on.
+
+#### Out of scope
+
+The Spotahome `RedisFailover` password secret (`{fullname}-redis-ha`,
+created when `redis.ha.enabled: true`) is NOT covered by the ESO
+integration in v0.2.0. If you use HA Redis, you still need an
+`ignoreDifferences` block for that one secret. Tracking note in
+`templates/redis-ha-secret.yaml`.
+
+#### Further reading
+
+- ESO documentation: <https://external-secrets.io>
+- SecretStore vs ClusterSecretStore:
+  <https://external-secrets.io/latest/api/secretstore/>
+- ExternalSecret reference:
+  <https://external-secrets.io/latest/api/externalsecret/>
+
+### Alternative: pre-create secrets out of band
+
+If you'd rather not run external-secrets-operator at all, you can
+pre-create the credential secrets with any tool of your choice
+([sealed-secrets](https://github.com/bitnami-labs/sealed-secrets),
+plain `kubectl create secret`, etc.) and disable both the wrapper's
+lookup-based generation and the ESO integration:
+
+1. Pre-create secrets with the expected names
+   (`{release}-garage-credentials`, `{release}-valkey-credentials`,
+   optionally `{release}-redis-ha`) and the expected keys (see
+   `values.yaml` comments on `onyx.auth.objectstorage.secretKeys` /
+   `onyx.auth.redis.secretKeys`).
+2. Set `onyx.auth.*.existingSecret` to point at the pre-created secret
+   names. The wrapper validation will accept these and the
+   `lookup`-based templates will re-emit their values from the live
+   cluster on subsequent renders.
 
 ## Bootstrap Job is an ArgoCD Sync hook
 

@@ -515,6 +515,107 @@
         }
       }
     },
+    "externalSecrets": {
+      "type": "object",
+      "description": "External Secrets Operator (ESO) integration. When enabled, the wrapper renders ExternalSecret CRs that source the garage and valkey credentials from an upstream backend instead of generating them via Helm lookup.",
+      "additionalProperties": true,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Master switch for ESO integration. When false, no ExternalSecret CRs are rendered."
+        },
+        "secretStoreRefKind": {
+          "type": "string",
+          "enum": ["SecretStore", "ClusterSecretStore"],
+          "default": "ClusterSecretStore",
+          "description": "Kind of the (Cluster)SecretStore to reference."
+        },
+        "secretStoreRefName": {
+          "type": "string",
+          "default": "",
+          "description": "Name of the (Cluster)SecretStore. Required when enabled is true."
+        },
+        "apiVersion": {
+          "type": "string",
+          "default": "external-secrets.io/v1beta1",
+          "description": "ExternalSecret CRD apiVersion."
+        },
+        "refreshInterval": {
+          "type": "string",
+          "default": "1h",
+          "description": "How often ESO reconciles secret values from the backend."
+        },
+        "garage": {
+          "type": "object",
+          "description": "ESO settings for the GarageFS credentials secret.",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true,
+              "description": "When true (and externalSecrets.enabled is true), render an ExternalSecret for garage credentials and skip the wrapper's lookup-based secret."
+            },
+            "remoteRefs": {
+              "type": "object",
+              "description": "Per-target-key mapping to backend (key, property) tuples. All four entries are required when enabled.",
+              "properties": {
+                "s3_aws_access_key_id": {
+                  "type": "object",
+                  "properties": {
+                    "key": { "type": "string", "default": "", "description": "Backend path (e.g. Vault KV path)." },
+                    "property": { "type": "string", "default": "", "description": "Field within the backend payload (optional for some backends)." }
+                  }
+                },
+                "s3_aws_secret_access_key": {
+                  "type": "object",
+                  "properties": {
+                    "key": { "type": "string", "default": "" },
+                    "property": { "type": "string", "default": "" }
+                  }
+                },
+                "garage_access_key_id": {
+                  "type": "object",
+                  "properties": {
+                    "key": { "type": "string", "default": "" },
+                    "property": { "type": "string", "default": "" }
+                  }
+                },
+                "garage_secret_access_key": {
+                  "type": "object",
+                  "properties": {
+                    "key": { "type": "string", "default": "" },
+                    "property": { "type": "string", "default": "" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "valkey": {
+          "type": "object",
+          "description": "ESO settings for the Valkey credentials secret.",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true,
+              "description": "When true (and externalSecrets.enabled is true), render an ExternalSecret that creates a {fullname}-valkey-credentials Secret with key default-password."
+            },
+            "remoteRefs": {
+              "type": "object",
+              "properties": {
+                "default-password": {
+                  "type": "object",
+                  "properties": {
+                    "key": { "type": "string", "default": "", "description": "Backend path containing the Valkey password." },
+                    "property": { "type": "string", "default": "", "description": "Field within the backend payload." }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "ingress": {
       "type": "object",
       "description": "Ingress configuration for exposing Onyx via Kubernetes Ingress or Traefik IngressRoute",

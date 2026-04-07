@@ -72,15 +72,25 @@ tests:
           pattern: "ignoreDifferences"
 
   - it: does NOT fire when garage-only and externalSecrets.enabled=true (ESO escape hatch)
-    # Forward-compatibility: if a future values.yaml adds `externalSecrets.enabled`,
-    # setting it to true suppresses the warning because the operator has opted
-    # into External Secrets Operator integration and is not using `lookup`-based
-    # credential generation. The condition uses `hasKey` so this is safe even
-    # on chart versions where `externalSecrets` is not declared in values.yaml.
+    # When the operator has opted into External Secrets Operator integration
+    # (shipped in the same 0.2.0 release as this warning), the lookup-based
+    # credential secrets are no longer rendered by the wrapper, so the
+    # credential-churn warning should not fire. This test exercises the
+    # `.Values.externalSecrets.enabled` short-circuit in NOTES.txt.
+    #
+    # Note: the ESO validation helper requires secretStoreRefName and all
+    # remoteRef.key fields when externalSecrets.enabled is true, so we
+    # provide minimal-valid values for both garage and valkey here.
     values:
       - ../ci/default-values.yaml
     set:
       externalSecrets.enabled: true
+      externalSecrets.secretStoreRefName: test-store
+      externalSecrets.garage.remoteRefs.s3_aws_access_key_id.key: secret/test/garage
+      externalSecrets.garage.remoteRefs.s3_aws_secret_access_key.key: secret/test/garage
+      externalSecrets.garage.remoteRefs.garage_access_key_id.key: secret/test/garage
+      externalSecrets.garage.remoteRefs.garage_secret_access_key.key: secret/test/garage
+      externalSecrets.valkey.remoteRefs.default-password.key: secret/test/valkey
     asserts:
       - notMatchRegexRaw:
           pattern: "WARNING: RENDERED WITHOUT CLUSTER ACCESS"
