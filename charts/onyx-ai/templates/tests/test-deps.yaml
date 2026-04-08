@@ -1,11 +1,27 @@
+{{/*
+Wrapper-managed `helm test` Pod that exercises PostgreSQL, Redis, and the
+api-server end-to-end. This is intentionally distinct from (and rendered
+alongside) the upstream onyx subchart's own test-connection Pod, which
+only checks the webserver. Both run when an operator invokes
+`helm test {release}`.
+
+The Pod name is deliberately NOT `{fullname}-test-connection` because the
+upstream onyx subchart already produces a Pod with that exact name (its
+helper `onyx.fullname` collapses to the parent release name when used as
+a subchart). Two manifests with identical GVK+namespace+name trip
+ArgoCD's RepeatedResourceWarning at render time even though both are
+helm test hooks and neither would actually be applied during sync.
+Using `{fullname}-test-deps` here keeps the names distinct.
+*/}}
 apiVersion: v1
 kind: Pod
 metadata:
-  name: "{{ include "onyx-ai.fullname" . }}-test-connection"
+  name: "{{ include "onyx-ai.fullname" . }}-test-deps"
   labels:
     {{- include "onyx-ai.labels" . | nindent 4 }}
   annotations:
     "helm.sh/hook": test
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 spec:
   restartPolicy: Never
   containers:
