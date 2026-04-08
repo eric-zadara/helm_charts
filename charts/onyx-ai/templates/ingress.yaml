@@ -7,6 +7,7 @@ apply to the entire Ingress, not per-path. API needs stripPrefix, web does not.
 {{- $fullName := include "onyx-ai.fullname" . -}}
 {{- $apiService := printf "%s-api-service" .Release.Name -}}
 {{- $webService := printf "%s-webserver" .Release.Name -}}
+{{- $userAnnotations := .Values.ingress.annotations | default dict -}}
 ---
 # API Ingress - handles /api path with stripPrefix middleware
 apiVersion: networking.k8s.io/v1
@@ -26,12 +27,19 @@ metadata:
          the sync fails and the Ingress is never created. Ingresses
          have no ordering dependency on Deployments — the Services
          they route to are already at wave 0. */}}
-    {{- /* Traefik-specific annotations for middleware support */ -}}
+    {{- /* Traefik-specific annotations. Each auto-emitted annotation
+         is suppressed when the operator has already set the same key
+         in ingress.annotations — YAML technically permits duplicate
+         keys but it's ugly in diffs and confusing to read. An
+         explicit user-supplied value always wins over the chart
+         default. */ -}}
     {{- if eq .Values.ingress.className "traefik" }}
-    {{- if .Values.ingress.traefik.entryPoints }}
+    {{- if and .Values.ingress.traefik.entryPoints (not (hasKey $userAnnotations "traefik.ingress.kubernetes.io/router.entrypoints")) }}
     traefik.ingress.kubernetes.io/router.entrypoints: {{ join "," .Values.ingress.traefik.entryPoints }}
     {{- end }}
+    {{- if not (hasKey $userAnnotations "traefik.ingress.kubernetes.io/router.middlewares") }}
     traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace }}-{{ $fullName }}-strip-api-prefix@kubernetescrd
+    {{- end }}
     {{- end }}
     {{- with .Values.ingress.annotations }}
     {{- toYaml . | nindent 4 }}
@@ -69,10 +77,12 @@ metadata:
     {{- include "onyx-ai.labels" . | nindent 4 }}
   annotations:
     {{- /* See the comment block on the api Ingress above for why
-         there is NO argocd.argoproj.io/sync-wave annotation here. */}}
+         there is NO argocd.argoproj.io/sync-wave annotation here,
+         and why the auto-emitted annotation is suppressed when the
+         operator has already set the same key in ingress.annotations. */}}
     {{- /* Traefik entrypoints only, NO middleware for web server */ -}}
     {{- if eq .Values.ingress.className "traefik" }}
-    {{- if .Values.ingress.traefik.entryPoints }}
+    {{- if and .Values.ingress.traefik.entryPoints (not (hasKey $userAnnotations "traefik.ingress.kubernetes.io/router.entrypoints")) }}
     traefik.ingress.kubernetes.io/router.entrypoints: {{ join "," .Values.ingress.traefik.entryPoints }}
     {{- end }}
     {{- end }}

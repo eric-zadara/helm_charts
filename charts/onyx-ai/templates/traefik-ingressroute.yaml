@@ -12,15 +12,29 @@ metadata:
   name: {{ $fullName }}-ingress
   labels:
     {{- include "onyx-ai.labels" . | nindent 4 }}
-  {{- /* NO argocd.argoproj.io/sync-wave annotation — see
-       templates/garage-bootstrap-job.yaml for the deadlock
+  {{- /* Operator-supplied annotations from ingress.annotations.
+       NOTE: no argocd.argoproj.io/sync-wave is injected here — see
+       templates/garage-bootstrap-job.yaml for the full deadlock
        explanation. TL;DR: ArgoCD gates wave N+1 on wave N becoming
        Healthy; a non-zero wave here means the IngressRoute is only
        created after every wave-0 Deployment is Healthy, and if any
        Deployment trips progressDeadlineSeconds the sync fails
-       before the IngressRoute is ever applied. IngressRoutes have
-       no ordering dependency on Deployments — the Services they
-       route to are already at wave 0. */}}
+       before the IngressRoute is ever applied.
+
+       ALSO NOTE about cert-manager.io/cluster-issuer: cert-manager's
+       ingress-shim controller only watches networking.k8s.io/v1
+       Ingress resources, NOT Traefik IngressRoute CRs. Setting a
+       cert-manager.io/cluster-issuer annotation here is a no-op —
+       cert-manager will never see it. If you want cert-manager to
+       auto-provision certs for an IngressRoute, either (a) manually
+       create a cert-manager.io/v1 Certificate resource and reference
+       its secret via ingress.tls.secretName, or (b) switch to
+       ingress.type: ingress with cert-manager's Ingress annotation,
+       or (c) use Traefik's built-in ACME via ingress.tls.certResolver. */}}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   entryPoints:
     {{- toYaml .Values.ingress.traefik.entryPoints | nindent 4 }}
@@ -77,8 +91,13 @@ metadata:
   name: {{ $fullName }}-ingress-http
   labels:
     {{- include "onyx-ai.labels" . | nindent 4 }}
-  {{- /* See the comment on the main IngressRoute above for why
-       there is NO argocd.argoproj.io/sync-wave annotation here. */}}
+  {{- /* Same annotations propagation as the main IngressRoute. See
+       the comment there for the sync-wave note and the
+       cert-manager-on-IngressRoute caveat. */}}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   entryPoints:
     - web
