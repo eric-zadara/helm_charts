@@ -2019,6 +2019,47 @@ entries:
       testing/timeout: 25m
     apiVersion: v2
     appVersion: v3.1.1
+    created: "2026-04-08T16:05:28.267153198Z"
+    dependencies:
+    - name: onyx
+      repository: https://onyx-dot-app.github.io/onyx/
+      version: 0.4.40
+    - alias: postgresql-cluster
+      condition: cnpg.enabled
+      name: cluster
+      repository: https://cloudnative-pg.github.io/charts
+      version: 0.5.0
+    - condition: garage.enabled
+      name: garage
+      repository: https://datahub-local.github.io/garage-helm
+      version: 0.4.1
+    - condition: redis.enabled
+      name: valkey
+      repository: https://valkey.io/valkey-helm/
+      version: 0.9.3
+    description: Helm chart wrapping Onyx with HA defaults, CNPG PostgreSQL, and Traefik
+      ingress
+    digest: 4b14f02a13a25360cbd215626b4a456454943669ffbabe296c173529e7ccb979
+    home: https://github.com/zadarastorage/helm-charts
+    maintainers:
+    - name: Zadara Storage
+      url: https://github.com/zadarastorage
+    name: onyx-ai
+    sources:
+    - https://github.com/zadarastorage/helm-charts
+    - https://github.com/onyx-dot-app/onyx
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/onyx-ai-0.2.8/onyx-ai-0.2.8.tgz
+    version: 0.2.8
+  - annotations:
+      category: AI/RAG
+      licenses: MIT
+      testing/prerequisites: cnpg-operator
+      testing/tier: "2"
+      testing/timeout: 25m
+    apiVersion: v2
+    appVersion: v3.1.1
     created: "2026-04-08T14:18:12.089030843Z"
     dependencies:
     - name: onyx
@@ -2361,4 +2402,4 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/zadara-aws-config-0.0.1/zadara-aws-config-0.0.1.tgz
     version: 0.0.1
-generated: "2026-04-08T14:18:12.060437Z"
+generated: "2026-04-08T16:05:28.239309891Z"
