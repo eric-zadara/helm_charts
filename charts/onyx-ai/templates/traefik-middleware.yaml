@@ -1,14 +1,4 @@
-{{/*
-Skip entirely when ingress.traefik.createMiddlewares is false. This is the
-opt-out for clusters that do not have the Traefik CRDs installed (any
-non-k3s cluster without Traefik will reject `traefik.io/v1alpha1` resources
-and, under ArgoCD's ServerSideApply, a single unknown API group fails the
-ENTIRE sync operation — not just the Middleware — which bricks the whole
-install. Operators on such clusters set
-`ingress.traefik.createMiddlewares: false` in their values to opt out.
-See values.yaml for the full explanation and caveats.
-*/}}
-{{- if and .Values.ingress.enabled .Values.ingress.traefik.createMiddlewares (or (eq .Values.ingress.type "ingressroute") (eq .Values.ingress.className "traefik")) }}
+{{- if and .Values.ingress.enabled (or (eq .Values.ingress.type "ingressroute") (eq .Values.ingress.className "traefik")) }}
 {{/*
 Strip API Prefix Middleware
 Removes /api prefix before forwarding to API server.
