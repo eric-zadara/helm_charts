@@ -11,14 +11,158 @@ ArgoCD's `helm template` rendering model.
 - [ ] Your `argocd-application-controller` service account can create
   cluster-scoped resources (see
   [Cluster-scoped RBAC](#cluster-scoped-rbac))
-- [ ] Your `Application` manifest includes `ignoreDifferences` for the
-  three wrapper-managed credential secrets (see
-  [Credential secrets use Helm lookup](#credential-secrets-use-helm-lookup))
+- [ ] Your `Application` manifest includes `ignoreDifferences` for
+  StatefulSet `volumeClaimTemplates` defaulting (see
+  [StatefulSet volumeClaimTemplates defaulting](#statefulset-volumeclaimtemplates-defaulting))
+- [ ] On chart versions **< 0.2.5**, your `Application` manifest also
+  includes `ignoreDifferences` for the three wrapper-managed credential
+  secrets (see
+  [Credential secrets use Helm lookup](#credential-secrets-use-helm-lookup)).
+  On **0.2.5 and later** the chart-side drift fix makes those entries
+  unnecessary — see the "Fixed in 0.2.5" note in that section.
 - [ ] You're aware that the garage bootstrap Job is an argocd Sync
   hook, not a tracked resource (see
   [Bootstrap Job is an ArgoCD Sync hook](#bootstrap-job-is-an-argocd-sync-hook))
 
+## StatefulSet `volumeClaimTemplates` defaulting
+
+### Symptom
+
+After a successful argocd sync, one or more StatefulSets
+(`onyx-ai-garage`, `da-vespa`, `onyx-opensearch-master`) appear
+permanently `OutOfSync`. The argocd diff shows that
+`volumeClaimTemplates` entries in the LIVE cluster state contain extra
+fields the rendered manifest does not:
+
+```yaml
+volumeClaimTemplates:
+- apiVersion: v1                    # <-- in live, not in rendered
+  kind: PersistentVolumeClaim       # <-- in live, not in rendered
+  metadata:
+    creationTimestamp: null         # <-- in live, not in rendered
+    name: data
+  spec:
+    ...
+    volumeMode: Filesystem          # <-- in live, not in rendered
+  status:                           # <-- in live, not in rendered
+    phase: Pending
+```
+
+### Why it happens
+
+This is a Kubernetes API server behavior, not a chart bug. When you
+apply a `StatefulSet` with `volumeClaimTemplates`, the API server
+defaults each entry as if it were a full `PersistentVolumeClaim`
+resource — adding `apiVersion`, `kind`, `metadata.creationTimestamp`,
+`spec.volumeMode`, and a `status` subresource. The stored form never
+matches what the chart rendered, and because `volumeClaimTemplates` is
+**immutable after StatefulSet creation** in Kubernetes, argocd also
+cannot "fix" the drift by reapplying.
+
+Reference: kubernetes/kubernetes#99490 — open upstream issue.
+
+The chart cannot prevent this; every chart that ships a StatefulSet
+with `volumeClaimTemplates` hits the same problem under argocd.
+
+### Fix: jqPathExpressions in `ignoreDifferences`
+
+Tell argocd to ignore the specific fields Kubernetes adds, AND the
+drifting `checksum/secret` annotation on the garage StatefulSet
+(explained below). Add this block to `spec.ignoreDifferences` in your
+`Application`:
+
+```yaml
+spec:
+  ignoreDifferences:
+    - group: apps
+      kind: StatefulSet
+      jqPathExpressions:
+        # Kubernetes API-server defaulting on volumeClaimTemplates
+        - .spec.volumeClaimTemplates[].apiVersion
+        - .spec.volumeClaimTemplates[].kind
+        - .spec.volumeClaimTemplates[].metadata.creationTimestamp
+        - .spec.volumeClaimTemplates[].status
+        # Upstream garage subchart re-renders its rpcSecret/adminToken
+        # on every ArgoCD render (no lookup pattern), and its
+        # workload.yaml bakes a sha256 of the rendered content into
+        # this annotation. Different value every render → STS drifts
+        # every reconcile even though ignoreDifferences on the Secret
+        # itself is honored. Ignoring this annotation stops the
+        # downstream drift; the annotation's rollout-trigger purpose
+        # is moot because the "change" is just argocd's render
+        # nondeterminism, not a real credential rotation.
+        - .spec.template.metadata.annotations["checksum/secret"]
+```
+
+Scope: the rule applies to every StatefulSet in the Application, so it
+covers all three (`onyx-ai-garage`, `da-vespa`,
+`onyx-opensearch-master`) plus any future ones without needing to
+list them individually. The `volumeClaimTemplates` paths only ignore
+the specific fields Kubernetes defaults; genuine operator changes to
+`volumeClaimTemplates` (e.g., a new volume with a different name)
+would still surface as drift correctly. The `checksum/secret`
+annotation ignore is harmless in practice because the annotation's
+only purpose — triggering a pod restart when the referenced secret
+changes — is defeated by the same non-deterministic rendering that
+makes the annotation drift in the first place.
+
+After the first sync post-patch, all three StatefulSets transition
+from `OutOfSync` to `Synced`. No pod restarts required.
+
+### Why the `checksum/secret` drift happens (deep dive)
+
+The upstream `datahub-local/garage` subchart's
+`templates/workload.yaml` carries a standard helm pattern to roll the
+StatefulSet when its backing secret changes:
+
+```
+  template:
+    metadata:
+      annotations:
+        checksum/secret: {{ include "garage.secret.content" . | sha256sum }}
+```
+
+`garage.secret.content` is a helper that emits:
+
+```
+rpcSecret:  {{ .Values.garage.secret.rpcSecret  | default (randHex 64) | b64enc | quote }}
+adminToken: {{ .Values.garage.secret.adminToken | default (randHex 64) | b64enc | quote }}
+```
+
+Under `helm install/upgrade`, `lookup` is not involved — but the
+chart uses Helm's release state to persist the generated values
+across upgrades via the `helm.sh/resource-policy: keep` annotation on
+the Secret.
+
+Under ArgoCD (`helm template` mode), there is no release state and no
+lookup fallback. `randHex 64` fires fresh on every render, producing
+a different content → a different sha256 → a different annotation.
+The live StatefulSet has whatever value was baked in when argocd last
+applied it; the desired manifest has a fresh value. Argocd sees the
+annotation diff and keeps trying to re-apply the StatefulSet.
+
+Meanwhile, `ignoreDifferences` on the Secret itself **is** honored —
+the Secret's `/data` field doesn't bump on reconcile. So the secret
+stays stable, but the annotation that hashes it keeps drifting. The
+StatefulSet never reaches Synced.
+
+Ignoring the annotation via `jqPathExpressions` is the cleanest
+operator-side workaround. The root fix would be an upstream PR to
+add `lookup`-based persistence to the garage secret template, same
+pattern the wrapper uses for `onyx-ai-valkey-credentials` etc.
+Tracked as a future upstream contribution.
+
 ## Credential secrets use Helm `lookup`
+
+> **Fixed in 0.2.5.** Starting with chart version 0.2.5, the three
+> wrapper-managed credential secrets use `data:` + `b64enc` instead of
+> `stringData:`, which makes argocd's `ignoreDifferences` JSON pointer
+> `/data` actually match the rendered manifest's structure and stops
+> the drift at the source. On chart version 0.2.5 and later, the
+> `ignoreDifferences` block in this section is no longer required —
+> existing entries become no-ops and can be removed from your
+> Application for cleanliness. The section below is preserved as
+> reference for operators on < 0.2.5 or debugging legacy state.
 
 Three wrapper templates generate random credentials on first apply and
 then re-read the live Secret on subsequent renders so the password stays
