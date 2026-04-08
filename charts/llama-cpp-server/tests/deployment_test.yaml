@@ -31,6 +31,16 @@ tests:
           path: spec.strategy.rollingUpdate.maxSurge
           value: 1
 
+  - it: should omit rollingUpdate block when type is Recreate
+    set:
+      updateStrategy.type: Recreate
+    asserts:
+      - equal:
+          path: spec.strategy.type
+          value: Recreate
+      - notExists:
+          path: spec.strategy.rollingUpdate
+
   - it: should not render when Knative is enabled
     set:
       knative.enabled: true
