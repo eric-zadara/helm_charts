@@ -12,8 +12,15 @@ metadata:
   name: {{ $fullName }}-ingress
   labels:
     {{- include "onyx-ai.labels" . | nindent 4 }}
-  annotations:
-    argocd.argoproj.io/sync-wave: "1"
+  {{- /* NO argocd.argoproj.io/sync-wave annotation — see
+       templates/garage-bootstrap-job.yaml for the deadlock
+       explanation. TL;DR: ArgoCD gates wave N+1 on wave N becoming
+       Healthy; a non-zero wave here means the IngressRoute is only
+       created after every wave-0 Deployment is Healthy, and if any
+       Deployment trips progressDeadlineSeconds the sync fails
+       before the IngressRoute is ever applied. IngressRoutes have
+       no ordering dependency on Deployments — the Services they
+       route to are already at wave 0. */}}
 spec:
   entryPoints:
     {{- toYaml .Values.ingress.traefik.entryPoints | nindent 4 }}
@@ -70,8 +77,8 @@ metadata:
   name: {{ $fullName }}-ingress-http
   labels:
     {{- include "onyx-ai.labels" . | nindent 4 }}
-  annotations:
-    argocd.argoproj.io/sync-wave: "1"
+  {{- /* See the comment on the main IngressRoute above for why
+       there is NO argocd.argoproj.io/sync-wave annotation here. */}}
 spec:
   entryPoints:
     - web

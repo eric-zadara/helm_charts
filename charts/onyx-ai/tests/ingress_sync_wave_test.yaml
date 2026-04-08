@@ -1,0 +1,92 @@
+suite: Ingress templates have no ArgoCD sync-wave annotation
+templates:
+  - ingress.yaml
+  - traefik-ingressroute.yaml
+release:
+  name: onyx-ai
+  namespace: onyx-ai
+
+# Regression guard for the same class of bug that bit garage-bootstrap-job.yaml.
+#
+# ArgoCD strictly gates wave N+1 on wave N becoming Healthy. If any of the
+# chart's wave-0 resources (every Deployment and StatefulSet, by default)
+# fails to become Healthy within its progressDeadlineSeconds, the sync
+# fails and nothing at a higher wave is ever applied. Ingresses have NO
+# ordering dependency on Deployments — the Services they route to exist
+# at wave 0 and are always reachable once rendered — so placing them at
+# wave 1 just creates a fragility where transient Deployment startup
+# delays (e.g. api-server waiting on slow CNPG postgres) permanently
+# strand the ingress resources.
+#
+# The fix is identical to what we did for the bootstrap Job: drop the
+# sync-wave annotation entirely, let the ingresses apply at the default
+# wave 0, and rely on Kubernetes' own ordering (a rule pointing at a
+# Service that does not yet back any ready pods simply returns 503
+# until the pods come up, which is exactly the desired behavior).
+
+tests:
+  # --------------------------------------------------------------------------
+  # Standard Ingress path (ingress.type: ingress) — both Ingress resources
+  # --------------------------------------------------------------------------
+  - it: Ingress (api) has no sync-wave annotation
+    template: ingress.yaml
+    values:
+      - ../ci/ingress-standard-values.yaml
+    documentIndex: 0
+    asserts:
+      - equal:
+          path: kind
+          value: Ingress
+      - equal:
+          path: metadata.name
+          value: onyx-ai-ingress-api
+      - notExists:
+          path: metadata.annotations["argocd.argoproj.io/sync-wave"]
+
+  - it: Ingress (web) has no sync-wave annotation
+    template: ingress.yaml
+    values:
+      - ../ci/ingress-standard-values.yaml
+    documentIndex: 1
+    asserts:
+      - equal:
+          path: kind
+          value: Ingress
+      - equal:
+          path: metadata.name
+          value: onyx-ai-ingress-web
+      - notExists:
+          path: metadata.annotations["argocd.argoproj.io/sync-wave"]
+
+  # --------------------------------------------------------------------------
+  # Traefik IngressRoute path (ingress.type: ingressroute) — main + http redirect
+  # --------------------------------------------------------------------------
+  - it: IngressRoute has no sync-wave annotation
+    template: traefik-ingressroute.yaml
+    values:
+      - ../ci/ingress-values.yaml
+    documentIndex: 0
+    asserts:
+      - equal:
+          path: kind
+          value: IngressRoute
+      - equal:
+          path: metadata.name
+          value: onyx-ai-ingress
+      - notExists:
+          path: metadata.annotations["argocd.argoproj.io/sync-wave"]
+
+  - it: HTTP-redirect IngressRoute has no sync-wave annotation
+    template: traefik-ingressroute.yaml
+    values:
+      - ../ci/ingress-values.yaml
+    documentIndex: 1
+    asserts:
+      - equal:
+          path: kind
+          value: IngressRoute
+      - equal:
+          path: metadata.name
+          value: onyx-ai-ingress-http
+      - notExists:
+          path: metadata.annotations["argocd.argoproj.io/sync-wave"]

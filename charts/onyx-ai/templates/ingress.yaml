@@ -16,7 +16,16 @@ metadata:
   labels:
     {{- include "onyx-ai.labels" . | nindent 4 }}
   annotations:
-    argocd.argoproj.io/sync-wave: "1"
+    {{- /* NO argocd.argoproj.io/sync-wave annotation — see
+         templates/garage-bootstrap-job.yaml for the deadlock
+         explanation. TL;DR: ArgoCD strictly gates wave N+1 on wave
+         N becoming Healthy. A non-zero wave here means the Ingress
+         is only applied after every wave-0 Deployment is Healthy.
+         If any wave-0 Deployment trips its progressDeadlineSeconds
+         (e.g. api-server waiting on slow CNPG postgres startup),
+         the sync fails and the Ingress is never created. Ingresses
+         have no ordering dependency on Deployments — the Services
+         they route to are already at wave 0. */}}
     {{- /* Traefik-specific annotations for middleware support */ -}}
     {{- if eq .Values.ingress.className "traefik" }}
     {{- if .Values.ingress.traefik.entryPoints }}
@@ -59,7 +68,8 @@ metadata:
   labels:
     {{- include "onyx-ai.labels" . | nindent 4 }}
   annotations:
-    argocd.argoproj.io/sync-wave: "1"
+    {{- /* See the comment block on the api Ingress above for why
+         there is NO argocd.argoproj.io/sync-wave annotation here. */}}
     {{- /* Traefik entrypoints only, NO middleware for web server */ -}}
     {{- if eq .Values.ingress.className "traefik" }}
     {{- if .Values.ingress.traefik.entryPoints }}
