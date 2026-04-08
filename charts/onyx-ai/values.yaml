@@ -971,7 +971,16 @@ postgresql-cluster:
     primaryUpdateStrategy: unsupervised  # Auto-failover during CNPG operator upgrades
     enableSuperuserAccess: true  # Required for Alembic migrations
     postgresql:
-      parameters: {}
+      parameters:
+        # Onyx api-server opens 2 SQLAlchemy pools (sync + async) of 10 connections each
+        # (20 per pod) plus celery workers each open additional pools. With 1 api-server +
+        # 8 celery workers, the default max_connections=100 is exhausted within 30 seconds
+        # of a rolling restart — operators see "FATAL: sorry, too many clients already".
+        # 500 provides ample headroom for the full worker fleet plus connection spikes.
+        max_connections: "500"
+        # Reclaim idle-in-transaction connections after 60s to prevent pool starvation
+        # from crashed workers that hold open transactions.
+        idle_in_transaction_session_timeout: "60000"  # 60 seconds in milliseconds
       pg_hba: []
 
   # PgBouncer poolers - created when cnpg.pooler.enabled: true
