@@ -1,0 +1,97 @@
+suite: NOTES.txt WEB_DOMAIN / ingress.host consistency validator
+templates:
+  - NOTES.txt
+release:
+  name: onyx-ai
+  namespace: onyx-ai
+
+# The validator lives in templates/_helpers.tpl as
+# `onyx-ai.ingress.validateWebDomain` and is invoked from NOTES.txt alongside
+# the other render-time validators. It fires only when ingress.enabled=true
+# and exists to catch the silent two-place-config bug where operators set
+# ingress.host but forget to update onyx.configMap.WEB_DOMAIN (or vice versa),
+# breaking OAuth redirect URIs and email links.
+
+tests:
+  # --------------------------------------------------------------------------
+  # Disabled-ingress paths: validator must be a no-op
+  # --------------------------------------------------------------------------
+  - it: ingress disabled — does not require WEB_DOMAIN
+    values:
+      - ../ci/default-values.yaml
+    set:
+      ingress.enabled: false
+      onyx.configMap.WEB_DOMAIN: ""
+    asserts:
+      - notFailedTemplate: {}
+
+  - it: ingress disabled — does not flag a contradictory WEB_DOMAIN
+    values:
+      - ../ci/default-values.yaml
+    set:
+      ingress.enabled: false
+      onyx.configMap.WEB_DOMAIN: "https://this.is.completely.wrong.example.com"
+    asserts:
+      - notFailedTemplate: {}
+
+  # --------------------------------------------------------------------------
+  # Enabled-ingress failures: validator must fail with a useful message
+  # --------------------------------------------------------------------------
+  - it: ingress enabled — fails when WEB_DOMAIN is unset
+    values:
+      - ../ci/ingress-standard-values.yaml
+    set:
+      onyx.configMap.WEB_DOMAIN: ""
+    asserts:
+      - failedTemplate:
+          errorMessage: "onyx.configMap.WEB_DOMAIN is required when ingress.enabled is true (so OAuth callbacks, email links, and frontend asset URLs match the public hostname). Set to: https://onyx.example.com"
+
+  - it: ingress enabled — fails when WEB_DOMAIN host disagrees with ingress.host
+    values:
+      - ../ci/ingress-standard-values.yaml
+    set:
+      onyx.configMap.WEB_DOMAIN: "https://different.example.com"
+    asserts:
+      - failedTemplate:
+          errorMessage: "onyx.configMap.WEB_DOMAIN (\"https://different.example.com\") does not contain ingress.host (\"onyx.example.com\"). They MUST agree or OAuth callbacks and email links will point at the wrong host. Expected something like: https://onyx.example.com"
+
+  - it: ingress enabled with TLS — fails when WEB_DOMAIN uses http://
+    values:
+      - ../ci/ingress-standard-values.yaml
+    set:
+      onyx.configMap.WEB_DOMAIN: "http://onyx.example.com"
+    asserts:
+      - failedTemplate:
+          errorMessage: "onyx.configMap.WEB_DOMAIN starts with http:// but ingress.tls.enabled is true. OAuth providers (notably Google) reject http redirect URIs on non-localhost hosts. Set WEB_DOMAIN to: https://onyx.example.com"
+
+  # --------------------------------------------------------------------------
+  # Enabled-ingress successes: validator must NOT fire
+  # --------------------------------------------------------------------------
+  - it: ingress enabled — passes when WEB_DOMAIN matches ingress.host with https
+    values:
+      - ../ci/ingress-standard-values.yaml
+    asserts:
+      - notFailedTemplate: {}
+
+  - it: ingress enabled — passes when WEB_DOMAIN includes a port suffix
+    values:
+      - ../ci/ingress-standard-values.yaml
+    set:
+      onyx.configMap.WEB_DOMAIN: "https://onyx.example.com:8443"
+    asserts:
+      - notFailedTemplate: {}
+
+  - it: ingressroute variant — passes when WEB_DOMAIN matches ingress.host
+    values:
+      - ../ci/ingress-values.yaml
+    asserts:
+      - notFailedTemplate: {}
+
+  - it: ingress enabled without TLS — passes when WEB_DOMAIN uses http://
+    values:
+      - ../ci/ingress-standard-values.yaml
+    set:
+      ingress.tls.enabled: false
+      onyx.configMap.WEB_DOMAIN: "http://onyx.example.com"
+    asserts:
+      - notFailedTemplate: {}

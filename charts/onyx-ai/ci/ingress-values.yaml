@@ -14,6 +14,10 @@ ingress:
       enabled: true
 # Minimal onyx config to avoid heavy components
 onyx:
+  configMap:
+    # Required by onyx-ai.ingress.validateWebDomain when ingress.enabled is true.
+    # Must match ingress.host above (and use https when ingress.tls.enabled).
+    WEB_DOMAIN: "https://onyx.example.com"
   opensearch:
     enabled: false
   codeInterpreter:

@@ -620,6 +620,50 @@ Usage: {{ include "onyx-ai.garage.validateCredentials" . }}
 {{- end -}}
 
 {{/*
+Validate that onyx.configMap.WEB_DOMAIN is set and agrees with ingress.host
+when ingress.enabled is true.
+
+Why: WEB_DOMAIN is the public URL Onyx embeds in OAuth callback URLs, password
+reset emails, and frontend asset references. It MUST match the hostname the
+ingress serves, otherwise OAuth flows return to the wrong host (often
+localhost:3000), email links 404, and Google specifically rejects the entire
+flow if the redirect_uri doesn't match what's registered in Google Cloud
+Console. Helm subchart values can't be templated from the parent chart, so
+the wrapper can't auto-derive WEB_DOMAIN from ingress.host — but it CAN
+fail-fast at render time if the operator forgot to set it (or set it to a
+value that contradicts the ingress).
+
+The hostname check is a substring match rather than an exact equality so
+operators can add a port (https://onyx.example.com:8443) or a path prefix
+without tripping the validator.
+
+Usage: {{ include "onyx-ai.ingress.validateWebDomain" . }}
+*/}}
+{{- define "onyx-ai.ingress.validateWebDomain" -}}
+{{- if .Values.ingress.enabled -}}
+  {{- $host := .Values.ingress.host | default "" -}}
+  {{- if eq $host "" -}}
+    {{/* ingress.host emptiness is already enforced by the ingress templates
+         themselves via `required`. Skip here so the operator gets the more
+         specific error from the actual ingress template. */}}
+  {{- else -}}
+    {{- $scheme := ternary "https" "http" .Values.ingress.tls.enabled -}}
+    {{- $expected := printf "%s://%s" $scheme $host -}}
+    {{- $current := .Values.onyx.configMap.WEB_DOMAIN | default "" -}}
+    {{- if eq $current "" -}}
+      {{- fail (printf "onyx.configMap.WEB_DOMAIN is required when ingress.enabled is true (so OAuth callbacks, email links, and frontend asset URLs match the public hostname). Set to: %s" $expected) -}}
+    {{- end -}}
+    {{- if not (contains $host $current) -}}
+      {{- fail (printf "onyx.configMap.WEB_DOMAIN (%q) does not contain ingress.host (%q). They MUST agree or OAuth callbacks and email links will point at the wrong host. Expected something like: %s" $current $host $expected) -}}
+    {{- end -}}
+    {{- if and .Values.ingress.tls.enabled (hasPrefix "http://" $current) -}}
+      {{- fail (printf "onyx.configMap.WEB_DOMAIN starts with http:// but ingress.tls.enabled is true. OAuth providers (notably Google) reject http redirect URIs on non-localhost hosts. Set WEB_DOMAIN to: %s" $expected) -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
 ================================================================================
 External Secrets Operator (ESO) Validation
 ================================================================================
