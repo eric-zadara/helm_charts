@@ -26,12 +26,20 @@ metadata:
          the sync fails and the Ingress is never created. Ingresses
          have no ordering dependency on Deployments — the Services
          they route to are already at wave 0. */}}
-    {{- /* Traefik-specific annotations for middleware support */ -}}
+    {{- /* Traefik-specific annotations for middleware support. The
+         router.middlewares annotation is ONLY emitted when createMiddlewares
+         is true, otherwise it would reference a Middleware CR that does
+         not exist in the cluster (which is harmless to Traefik — it just
+         logs a warning and skips the middleware — but avoids the 'this
+         chart depends on Traefik' coupling for clusters using a different
+         ingress controller). */ -}}
     {{- if eq .Values.ingress.className "traefik" }}
     {{- if .Values.ingress.traefik.entryPoints }}
     traefik.ingress.kubernetes.io/router.entrypoints: {{ join "," .Values.ingress.traefik.entryPoints }}
     {{- end }}
+    {{- if .Values.ingress.traefik.createMiddlewares }}
     traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace }}-{{ $fullName }}-strip-api-prefix@kubernetescrd
+    {{- end }}
     {{- end }}
     {{- with .Values.ingress.annotations }}
     {{- toYaml . | nindent 4 }}

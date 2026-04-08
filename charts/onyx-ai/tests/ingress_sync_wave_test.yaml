@@ -1,7 +1,8 @@
-suite: Ingress templates have no ArgoCD sync-wave annotation
+suite: Ingress + Traefik Middleware — sync-wave + createMiddlewares flag
 templates:
   - ingress.yaml
   - traefik-ingressroute.yaml
+  - traefik-middleware.yaml
 release:
   name: onyx-ai
   namespace: onyx-ai
@@ -90,3 +91,63 @@ tests:
           value: onyx-ai-ingress-http
       - notExists:
           path: metadata.annotations["argocd.argoproj.io/sync-wave"]
+
+  # --------------------------------------------------------------------------
+  # Traefik Middleware opt-out for clusters without Traefik CRDs
+  # --------------------------------------------------------------------------
+  # Regression guard for the reproduction where a clean kind cluster without
+  # Traefik CRDs had its ENTIRE ArgoCD sync operation bricked because
+  # ServerSideApply can't apply a traefik.io/v1alpha1 Middleware without the
+  # corresponding CRDs, and ArgoCD treats any unknown API group as a hard
+  # fail of the whole sync. Operators on non-Traefik clusters must be able
+  # to opt out of Middleware rendering entirely.
+
+  - it: Middleware renders by default when ingress is enabled + traefik class
+    template: traefik-middleware.yaml
+    values:
+      - ../ci/ingress-standard-values.yaml
+    documentIndex: 0
+    asserts:
+      - equal:
+          path: kind
+          value: Middleware
+      - equal:
+          path: apiVersion
+          value: traefik.io/v1alpha1
+      - matchRegex:
+          path: metadata.name
+          pattern: strip-api-prefix$
+
+  - it: Middleware is NOT rendered when createMiddlewares is false
+    template: traefik-middleware.yaml
+    values:
+      - ../ci/ingress-standard-values.yaml
+    set:
+      ingress.traefik.createMiddlewares: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: standard Ingress drops router.middlewares annotation when createMiddlewares is false
+    template: ingress.yaml
+    values:
+      - ../ci/ingress-standard-values.yaml
+    set:
+      ingress.traefik.createMiddlewares: false
+    documentIndex: 0
+    asserts:
+      - equal:
+          path: kind
+          value: Ingress
+      - notExists:
+          path: metadata.annotations["traefik.ingress.kubernetes.io/router.middlewares"]
+
+  - it: standard Ingress KEEPS router.middlewares annotation by default
+    template: ingress.yaml
+    values:
+      - ../ci/ingress-standard-values.yaml
+    documentIndex: 0
+    asserts:
+      - matchRegex:
+          path: metadata.annotations["traefik.ingress.kubernetes.io/router.middlewares"]
+          pattern: strip-api-prefix@kubernetescrd

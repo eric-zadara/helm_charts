@@ -456,6 +456,36 @@ ingress:
     # These are applied to ALL routes in addition to chart-created middleware
     # Example: ["myns-ratelimit@kubernetescrd", "myns-compress@kubernetescrd"]
     middlewares: []
+    # Render the chart-created Traefik Middleware CRs
+    # (traefik.io/v1alpha1 Middleware).
+    #
+    # Default is `true` because most Traefik deployments — including k3s's
+    # built-in Traefik — have the Traefik CRDs installed.
+    #
+    # Set to `false` when deploying to a cluster that does NOT have the
+    # Traefik CRDs installed (e.g., stock kind / eks / gke without Traefik,
+    # or clusters using a different ingress controller). When false:
+    #   * templates/traefik-middleware.yaml renders nothing
+    #   * templates/ingress.yaml (standard K8s Ingress mode) also drops the
+    #     `traefik.ingress.kubernetes.io/router.middlewares` annotation that
+    #     would otherwise reference the non-existent Middleware CR, and
+    #     drops the API `/api/*` stripPrefix handling entirely (you are
+    #     expected to handle path rewriting some other way, or serve onyx
+    #     at root without the /api prefix).
+    #   * templates/traefik-ingressroute.yaml (IngressRoute mode) has no
+    #     sensible fallback — setting createMiddlewares=false together with
+    #     ingress.type=ingressroute is not supported; the rendered
+    #     IngressRoute would reference middlewares that don't exist.
+    #
+    # Why this flag exists: without it, enabling ingress on a cluster
+    # without Traefik CRDs causes ArgoCD's ServerSideApply to fail the
+    # ENTIRE sync on "unknown API group traefik.io/v1alpha1", blocking
+    # every other resource in the chart from being applied. We reproduced
+    # this in a clean kind cluster and it bricks the install silently —
+    # 0 resources land, argocd retries 5 times, gives up, operator has no
+    # idea what's wrong. The opt-out lets non-Traefik clusters use
+    # `ingress.type=ingress` with plain class-based routing.
+    createMiddlewares: true
 
 # ------------------------------------------------------------------------------
 # External Secrets Operator (ESO) Integration
