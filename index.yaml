@@ -1661,6 +1661,33 @@ entries:
       testing/tier: "0"
     apiVersion: v2
     appVersion: b8445
+    created: "2026-04-08T21:46:42.371539556Z"
+    description: Helm chart for llama.cpp server — deploy GGUF models with GPU/CPU
+      support, multi-model routing, and OpenAI-compatible API
+    digest: 4a2edbc9995fe42e187dd92d011a3102fd4dafd1ca7b3fd25362759d9d6a00c3
+    home: https://github.com/eric-zadara/helm_charts
+    keywords:
+    - llama.cpp
+    - llm
+    - gguf
+    - inference
+    - ai
+    kubeVersion: '>=1.26.0-0'
+    maintainers:
+    - name: eric-zadara
+      url: https://github.com/eric-zadara
+    name: llama-cpp-server
+    sources:
+    - https://github.com/eric-zadara/helm_charts
+    - https://github.com/ggml-org/llama.cpp
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/llama-cpp-server-0.1.6/llama-cpp-server-0.1.6.tgz
+    version: 0.1.6
+  - annotations:
+      testing/tier: "0"
+    apiVersion: v2
+    appVersion: b8445
     created: "2026-03-20T21:27:17.167399813Z"
     description: Helm chart for llama.cpp server — deploy GGUF models with GPU/CPU
       support, multi-model routing, and OpenAI-compatible API
@@ -2011,6 +2038,47 @@ entries:
     - https://github.com/eric-zadara/helm_charts/releases/download/networking-layer-0.1.1/networking-layer-0.1.1.tgz
     version: 0.1.1
   onyx-ai:
+  - annotations:
+      category: AI/RAG
+      licenses: MIT
+      testing/prerequisites: cnpg-operator
+      testing/tier: "2"
+      testing/timeout: 25m
+    apiVersion: v2
+    appVersion: v3.1.1
+    created: "2026-04-08T21:46:42.399103176Z"
+    dependencies:
+    - name: onyx
+      repository: https://onyx-dot-app.github.io/onyx/
+      version: 0.4.40
+    - alias: postgresql-cluster
+      condition: cnpg.enabled
+      name: cluster
+      repository: https://cloudnative-pg.github.io/charts
+      version: 0.5.0
+    - condition: garage.enabled
+      name: garage
+      repository: https://datahub-local.github.io/garage-helm
+      version: 0.4.1
+    - condition: redis.enabled
+      name: valkey
+      repository: https://valkey.io/valkey-helm/
+      version: 0.9.3
+    description: Helm chart wrapping Onyx with HA defaults, CNPG PostgreSQL, and Traefik
+      ingress
+    digest: 3b3751c49320ea7c25c8e0629df1a10f1ad6b6d5766266509b64e4f0f39a2051
+    home: https://github.com/zadarastorage/helm-charts
+    maintainers:
+    - name: Zadara Storage
+      url: https://github.com/zadarastorage
+    name: onyx-ai
+    sources:
+    - https://github.com/zadarastorage/helm-charts
+    - https://github.com/onyx-dot-app/onyx
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/onyx-ai-0.2.10/onyx-ai-0.2.10.tgz
+    version: 0.2.10
   - annotations:
       category: AI/RAG
       licenses: MIT
@@ -2402,4 +2470,4 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/zadara-aws-config-0.0.1/zadara-aws-config-0.0.1.tgz
     version: 0.0.1
-generated: "2026-04-08T16:05:28.239309891Z"
+generated: "2026-04-08T21:46:42.370006434Z"
