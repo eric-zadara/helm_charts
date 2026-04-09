@@ -585,7 +585,7 @@ onyx:
   # onyx subchart version in Chart.yaml (upstream does not pin their
   # chart's appVersion either).
   global:
-    version: "v3.1.1"
+    version: "v3.1.2"
     pullPolicy: "IfNotPresent"
 
   # ---------------------------------------------------------------------------
