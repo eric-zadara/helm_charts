@@ -143,3 +143,14 @@ gpu-operator:
   enabled: true
   # -- Set chart version
   targetRevision: v24.6.1
+
+opensearch-operator:
+  # -- Enable opensearch-operator ArgoCD Application
+  enabled: true
+  # -- Set chart version (keep in sync with inference-operators dep)
+  targetRevision: 3.0.2
+  # -- Target namespace for the operator
+  namespace: opensearch-operator
+  argocdApps:
+    annotations:
+      argocd.argoproj.io/sync-wave: "4"    # same wave as cloudnative-pg
