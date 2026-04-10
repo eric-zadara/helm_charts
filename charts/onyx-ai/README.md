@@ -6,11 +6,11 @@ Batteries-included Helm chart for [Onyx](https://github.com/onyx-dot-app/onyx), 
 
 | Component | Chart | Description |
 |-----------|-------|-------------|
-| Onyx | `onyx` (upstream, `onyx-dot-app/onyx` 0.4.40) | API server, web server, background workers, Vespa search engine |
+| Onyx | `onyx` (upstream, `onyx-dot-app/onyx` 0.4.40) | API server, web server, background workers |
 | PostgreSQL | `cluster` (CNPG, aliased `postgresql-cluster`) | HA PostgreSQL via CloudNative-PG operator |
 | Object Storage | `garage` (`datahub-local/garage-helm` 0.4.1) | Lightweight S3-compatible storage for document files (wrapper-managed bootstrap job handles bucket + key + ACL setup via the garage admin API v2) |
 | Redis/Cache | `valkey` (`valkey-io/valkey-helm` 0.9.3, official) | Redis-compatible cache and Celery task queue backend |
-| OpenSearch | `opensearch` (upstream) | Document search and analytics (enabled by default since upstream 0.4.35) |
+| OpenSearch | `opensearch-cluster` (opensearch-k8s-operator, aliased `opensearch-cluster`) | Document search via operator-managed OpenSearch cluster (since 0.4.0; replaces Vespa) |
 | Code Interpreter | `codeInterpreter` (upstream) | Python sandbox for code execution (enabled by default since upstream 0.4.35) |
 
 ## Prerequisites
@@ -18,6 +18,7 @@ Batteries-included Helm chart for [Onyx](https://github.com/onyx-dot-app/onyx), 
 - Kubernetes 1.25+
 - Helm 3.8+
 - CNPG operator installed cluster-wide (install via `inference-operators` chart or standalone from [cloudnative-pg.io](https://cloudnative-pg.io))
+- opensearch-k8s-operator v3.0.2+ installed cluster-wide (install via `inference-operators` >= 0.9.0 or `argo-examples-operators` >= 0.0.15)
 
 ## Minimum Requirements
 
@@ -25,15 +26,14 @@ The default deployment (with all batteries-included components) requests approxi
 
 - **~20 CPU cores** (requests total across all pods)
 - **~33 Gi memory** (requests total across all pods)
-- **~132 Gi storage** (PVCs for PostgreSQL, Vespa, GarageFS, Valkey, OpenSearch)
+- **~132 Gi storage** (PVCs for PostgreSQL, OpenSearch, GarageFS, Valkey)
 
 Heaviest components:
 
 | Component | CPU Request | Memory Request |
 |-----------|------------|----------------|
-| Vespa | 4 CPU | 8 Gi |
+| OpenSearch (3 nodes) | 6 CPU | 6 Gi |
 | Model Servers | 6 CPU | 6 Gi |
-| OpenSearch | 2 CPU | 4 Gi |
 | PostgreSQL (3 instances) | 1.5 CPU | 3 Gi |
 
 For dev/testing environments, reduce resources via a CI-style values file. See `ci/default-values.yaml` for a reference starting point.
@@ -145,8 +145,8 @@ Both modes split traffic between the API server (`/api` -> port 8080) and web se
 | `ingress.tls.certResolver` | string | `""` | Traefik ACME certResolver (IngressRoute only) |
 | `ingress.tls.hsts.enabled` | bool | `false` | Add HSTS security headers |
 | `garage.enabled` | bool | `true` | Deploy built-in GarageFS object storage |
-| `cnpg.enabled` | bool | `true` | Deploy CNPG-managed PostgreSQL cluster |
-| `cnpg.instances` | int | `3` | PostgreSQL instances (1 primary + N-1 replicas) |
+| `postgresql-cluster.enabled` | bool | `true` | Deploy CNPG-managed PostgreSQL cluster |
+| `postgresql-cluster.cluster.instances` | int | `3` | PostgreSQL instances (1 primary + N-1 replicas) |
 | `redis.enabled` | bool | `true` | Deploy Valkey via `valkey-io/valkey-helm` (Redis-compatible, no operator required) |
 | `onyx.configMap.POSTGRES_HOST` | string | `onyx-ai-postgresql-cluster-rw` | PostgreSQL hostname |
 | `onyx.configMap.REDIS_HOST` | string | `onyx-ai-valkey` | Redis hostname (valkey-io/valkey-helm primary service; NO `-primary` suffix) |
@@ -155,7 +155,7 @@ Both modes split traffic between the API server (`/api` -> port 8080) and web se
 | `onyx.auth.redis.existingSecret` | string | `onyx-ai-valkey-credentials` | Redis credentials secret (wrapper-managed, key `default-password`) |
 | `onyx.auth.objectstorage.existingSecret` | string | `onyx-ai-garage-credentials` | S3 credentials secret |
 
-See `values.yaml` for the full set of configuration options including CNPG pooler settings, resource limits, and subchart passthroughs.
+See `values.yaml` for the full set of configuration options including PostgreSQL pooler settings, resource limits, and subchart passthroughs.
 
 ## TLS / HTTPS
 
@@ -204,7 +204,7 @@ Disable any bundled service and point to an external provider instead.
 ### External PostgreSQL
 
 ```yaml
-cnpg:
+postgresql-cluster:
   enabled: false
 
 externalPostgresql:
@@ -220,6 +220,30 @@ onyx:
     postgresql:
       existingSecret: my-pg-secret
 ```
+
+### Connection pooling (pgbouncer)
+
+Since 0.4.0 the chart ships a session-mode pgbouncer pooler by default. Onyx pods connect through `{release}-postgresql-cluster-pooler-rw` instead of the direct `-rw` service. This absorbs connection bursts during rolling restarts that previously caused `FATAL: sorry, too many clients already` errors at `max_connections=100` (fixed in 0.2.6 → 500, further hardened in 0.4.0 → 750 backend + 2000 client via pooler).
+
+**Why session mode?** Alembic migrations (Onyx startup) require DDL access, which PgBouncer transaction mode blocks. Session mode pins a server connection for the client session's duration, preserving DDL semantics at the cost of not multiplexing clients onto fewer server connections. For Onyx's workload the main benefit is burst absorption and fork-cost amortization, not connection multiplexing.
+
+**Adjusting the pooler:** Edit `postgresql-cluster.poolers[0]` in your values overlay:
+
+```yaml
+postgresql-cluster:
+  poolers:
+    - name: rw
+      type: rw
+      poolMode: session
+      instances: 4                      # bump for more HA
+      parameters:
+        max_client_conn: "4000"          # raise the user-visible cap
+        default_pool_size: "500"         # raise server-side capacity
+```
+
+**Disabling the pooler entirely:** Set `postgresql-cluster.poolers: []` AND override `onyx.configMap.POSTGRES_HOST` to `"{release}-postgresql-cluster-rw"`. The chart's validation helper will fail render if only one of the two is done.
+
+**Adding a read-only pooler for analytics workloads:** Append a second entry with `type: ro` and route analytics clients at `{release}-postgresql-cluster-pooler-ro`. The main onyx pods continue to use the `rw` pooler.
 
 ### External Redis
 
@@ -309,19 +333,50 @@ onyx:
 
 For IAM/IRSA mode (e.g., EKS with IAM roles for service accounts), set `objectStorage.useIAM: true` and `onyx.auth.objectstorage.enabled: false` instead of providing credentials.
 
-### OpenSearch Security
+## OpenSearch (search backend)
 
-The upstream Onyx chart defaults OpenSearch admin password to `OnyxDev1!`. **Change this for production:**
+Since 0.4.0 the chart ships OpenSearch managed by [opensearch-k8s-operator](https://github.com/opensearch-project/opensearch-k8s-operator) v3.0.2+ via the sibling `opensearch-cluster` convenience subchart (v3.2.2). Vespa is retired.
+
+**Prerequisites:** the `opensearch-operator` chart must be installed cluster-wide. In this repo's stack:
+
+- Via `inference-operators` >= 0.9.0 (helm deps path)
+- Via `argo-examples-operators` >= 0.0.15 (ArgoCD app-of-apps path)
+
+Either path installs the operator + CRDs. Without the operator, the `OpenSearchCluster` CR emitted by onyx-ai will render but not reconcile.
+
+**Default topology:** single combined nodePool with roles `[master, data, ingest]`, 3 replicas, 30Gi per node, 2Gi/8Gi resource limits, JVM heap `3g`.
+
+**Dedicated masters + data topology:** operators who want role separation can split the nodePool list. See `ci/opensearch-dedicated-masters-values.yaml` for a working example. Adjust `opensearch-cluster.cluster.nodePools` in your overlay:
 
 ```yaml
-onyx:
-  auth:
-    opensearch:
-      values:
-        opensearch_admin_password: "YOUR-SECURE-PASSWORD-HERE"
+opensearch-cluster:
+  cluster:
+    nodePools:
+      - component: masters
+        replicas: 3
+        diskSize: "10Gi"
+        roles: [master]
+        resources:
+          requests: { cpu: 250m, memory: 1Gi }
+          limits: { memory: 2Gi }
+      - component: data
+        replicas: 3
+        diskSize: "200Gi"
+        roles: [data, ingest]
+        resources:
+          requests: { cpu: 1000m, memory: 4Gi }
+          limits: { memory: 16Gi }
 ```
 
-Generate a secure password: `openssl rand -base64 32`
+**External OpenSearch:** set `opensearch-cluster.enabled: false` and populate `externalOpenSearch.host` / `externalOpenSearch.existingSecret`. The wrapper will skip rendering the CR and wire onyx to the external service.
+
+**vm.max_map_count gotcha:** OpenSearch requires `vm.max_map_count >= 262144` at the kernel level. The operator installs a privileged init container per data pod (`opensearch-cluster.cluster.general.setVMMaxMapCount: true`, default). On nodes with strict PodSecurityStandards this may fail -- in that case set `setVMMaxMapCount: false` and configure the sysctl via a node-level DaemonSet or k3s node config.
+
+**Admin credentials:** the wrapper owns a lookup-pattern secret named `{release}-opensearch-admin` with `username` / `password` keys. It persists across upgrades (no password rotation drift). Consumed by both the operator (for cluster management) and onyx (via `onyx.auth.opensearch.existingSecret`).
+
+**Upgrading the OpenSearch version:** bump `opensearch-cluster.cluster.general.version` in your overlay. The operator drains data nodes shard-by-shard for safe rolling upgrades.
+
+**Rollback to Vespa:** helm rollback to onyx-ai 0.2.11 restores Vespa -- the 0.2.11 values still have `onyx.vespa.enabled: true`. The `OpenSearchCluster` CR carries `helm.sh/resource-policy: keep` so it will persist as an orphan; delete manually if desired.
 
 ## Scaling / HPA
 
@@ -347,26 +402,27 @@ When HPA is enabled, `replicaCount` is used as the initial replica count and HPA
 
 ## Monitoring
 
-CNPG exposes Prometheus metrics natively on the PostgreSQL pods. No ServiceMonitor is created by default. To scrape metrics, configure your Prometheus instance to target the CNPG pods directly or add a PodMonitor/ServiceMonitor to your monitoring stack.
+CloudNative-PG exposes Prometheus metrics natively on the PostgreSQL pods. No ServiceMonitor is created by default. To scrape metrics, configure your Prometheus instance to target the CNPG pods directly or add a PodMonitor/ServiceMonitor to your monitoring stack.
 
 ## Backups
 
-CNPG supports automated backups to S3-compatible storage:
+CloudNative-PG supports automated backups to S3-compatible storage:
 
 ```yaml
-cnpg:
-  backup:
-    enabled: true
-    schedule: "0 0 * * *"  # Daily at midnight UTC
-    retentionPolicy: "7d"
-    s3:
-      bucket: my-backup-bucket
-      region: us-east-1
-      endpoint: "https://s3.amazonaws.com"
-      existingSecret: my-backup-s3-secret  # keys: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+postgresql-cluster:
+  cluster:
+    backup:
+      enabled: true
+      schedule: "0 0 * * *"  # Daily at midnight UTC
+      retentionPolicy: "7d"
+      s3:
+        bucket: my-backup-bucket
+        region: us-east-1
+        endpoint: "https://s3.amazonaws.com"
+        existingSecret: my-backup-s3-secret  # keys: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
 ```
 
-This configures both scheduled backups and enables on-demand `Backup` CRD usage via CNPG.
+This configures both scheduled backups and enables on-demand `Backup` CRD usage via CloudNative-PG.
 
 ## Secret Rotation
 
@@ -441,21 +497,19 @@ permissions on the bucket and onyx pods would crash-loop forever on
 AccessDenied. The wrapper now owns this step to guarantee permissions
 actually get applied, or the install fails loudly.
 
-### Vespa deployment namespace
+### OpenSearch cluster not reconciling
 
-Vespa hardcodes `.default.svc.cluster.local` in its service discovery (see Known Limitations below). If deploying to a non-default namespace, override the Vespa host:
-
-```yaml
-onyx:
-  configMap:
-    VESPA_HOST: "vespa-0.vespa.YOUR-NAMESPACE.svc.cluster.local"
-```
-
-Check for Vespa connectivity errors:
+If the `OpenSearchCluster` CR is created but pods never appear, the opensearch-k8s-operator is likely not installed. Check:
 
 ```bash
-kubectl logs -l app=vespa -c vespa --tail=50
+# Operator must be running
+kubectl get pods -l app.kubernetes.io/name=opensearch-k8s-operator -A
+
+# CR status
+kubectl get opensearchcluster -n {namespace} {release}-opensearch -o yaml | grep -A20 status
 ```
+
+Install the operator via `inference-operators` >= 0.9.0 or `argo-examples-operators` >= 0.0.15 before retrying.
 
 ### PgBouncer bypass for migrations
 
@@ -544,15 +598,15 @@ pod and onyx pods read `default-password` from the same
 
 ### Earlier versions
 
-- **PgBouncer pooler disabled by default (0.1.3):** The CNPG pooler is now disabled by default since POSTGRES_HOST connects directly to the `-rw` service for Alembic DDL compatibility. Enable manually if needed for external consumers via `cnpg.pooler.enabled: true`.
-- **OpenSearch auth section added (0.1.3):** The wrapper now includes an explicit `onyx.auth.opensearch` section. Upstream default password `OnyxDev1!` is used unless overridden — set `onyx.auth.opensearch.values.opensearch_admin_password` for production.
+- **PgBouncer pooler disabled by default (0.1.3):** The CNPG pooler was disabled by default since POSTGRES_HOST connects directly to the `-rw` service for Alembic DDL compatibility. In 0.4.0 a session-mode pooler is re-enabled by default with DDL-safe session mode; use `postgresql-cluster.poolers: []` to disable.
+- **OpenSearch auth section added (0.1.3):** The wrapper includes an explicit `onyx.auth.opensearch` section. Since 0.4.0 the wrapper owns the admin credentials secret (`{release}-opensearch-admin`) via lookup-pattern — no manual password management needed.
 - **AUTH_TYPE default changed in 0.4.35:** Upstream changed `AUTH_TYPE` from `"disabled"` to `"basic"`. If you relied on the old default, explicitly set `onyx.configMap.AUTH_TYPE: "disabled"` to preserve the previous behavior.
 - **PVC sizes can only increase:** Kubernetes PersistentVolumeClaims cannot be shrunk. If you need smaller volumes, delete the PVC and let it be recreated (data loss).
-- **Privileged containers:** Vespa, model servers, and the code-interpreter run as privileged or with elevated capabilities. Review your PodSecurityPolicy/PodSecurityStandards if running in a restricted cluster.
+- **Privileged containers:** Model servers and the code-interpreter run as privileged or with elevated capabilities. Review your PodSecurityPolicy/PodSecurityStandards if running in a restricted cluster.
 
 ## Known Limitations
 
-- **Vespa namespace:** The upstream Onyx chart hardcodes Vespa's internal address as `vespa-0.vespa.default.svc.cluster.local`. Deploying to any namespace other than `default` will break Vespa connectivity unless you override `VESPA_HOST` in `onyx.configMap`. This is an upstream issue.
+- **OpenSearch operator prerequisite:** The `OpenSearchCluster` CR will render but not reconcile without the opensearch-k8s-operator installed cluster-wide. See the Prerequisites section and the troubleshooting subsection above.
 - **Release name wiring:** Helm `values.yaml` cannot contain template expressions, so service hostnames and secret names are hardcoded for release name `onyx-ai`. Using a different release name requires manual overrides (see Release Name Convention above).
 - **Dual credential configuration:** S3 and database credentials must be configured in two places (`objectStorage.*` / `externalPostgresql.*` and `onyx.auth.*`) due to Helm's values.yaml limitation. The chart validates consistency and fails with clear error messages if misconfigured.
 - **CNPG externalClusters fix:** The chart includes a template override (`_cnpg-fix.tpl`) that fixes a null value bug in the upstream CNPG cluster chart's `externalClusters` handling for standalone mode. This override may need updating when upgrading the CNPG chart dependency.
