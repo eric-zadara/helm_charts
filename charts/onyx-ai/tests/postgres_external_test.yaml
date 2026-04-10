@@ -1,0 +1,28 @@
+suite: PostgreSQL external mode (cnpg disabled)
+release:
+  name: onyx-ai
+  namespace: onyx-ai
+tests:
+  - it: renders the external-postgresql-secret when postgresql-cluster disabled + inline creds
+    template: external-postgresql-secret.yaml
+    set:
+      postgresql-cluster.enabled: false
+      externalPostgresql.host: "pg.example.com"
+      externalPostgresql.username: "onyx"
+      externalPostgresql.password: "secret"
+      externalPostgresql.database: "onyx"
+      onyx.auth.postgresql.existingSecret: "onyx-ai-onyx-ai-external-postgresql"
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: Secret
+      - equal:
+          path: metadata.name
+          value: onyx-ai-external-postgresql
+
+  - it: does not render external-postgresql-secret when postgresql-cluster enabled
+    template: external-postgresql-secret.yaml
+    asserts:
+      - hasDocuments:
+          count: 0

@@ -1,0 +1,60 @@
+suite: OpenSearch multi-nodePool topology
+release:
+  name: onyx-ai
+  namespace: onyx-ai
+templates:
+  - charts/opensearch-cluster/templates/cluster.yaml
+tests:
+  - it: renders two nodePools when operator splits masters and data
+    set:
+      opensearch-cluster.cluster.nodePools:
+        - component: masters
+          replicas: 3
+          diskSize: "10Gi"
+          roles:
+            - master
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "1Gi"
+            limits:
+              cpu: "1000m"
+              memory: "2Gi"
+        - component: data
+          replicas: 3
+          diskSize: "100Gi"
+          roles:
+            - data
+            - ingest
+          resources:
+            requests:
+              cpu: "1000m"
+              memory: "4Gi"
+            limits:
+              cpu: "4000m"
+              memory: "16Gi"
+    asserts:
+      - equal:
+          path: spec.nodePools[0].component
+          value: masters
+      - equal:
+          path: spec.nodePools[0].replicas
+          value: 3
+      - contains:
+          path: spec.nodePools[0].roles
+          content: master
+      - equal:
+          path: spec.nodePools[1].component
+          value: data
+      - equal:
+          path: spec.nodePools[1].replicas
+          value: 3
+      - contains:
+          path: spec.nodePools[1].roles
+          content: data
+      - contains:
+          path: spec.nodePools[1].roles
+          content: ingest
+      - equal:
+          path: spec.nodePools[1].resources.limits.memory
+          value: "16Gi"

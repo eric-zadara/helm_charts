@@ -1,0 +1,78 @@
+# CI test values for onyx-ai chart — external OpenSearch path
+#
+# Exercises the regression path where opensearch-cluster.enabled: false
+# and onyx connects to an externally-managed OpenSearch.
+
+opensearch-cluster:
+  enabled: false
+
+externalOpenSearch:
+  host: "opensearch.example.com"
+  port: 9200
+  existingSecret: "my-external-opensearch-secret"
+
+postgresql-cluster:
+  enabled: true
+  cluster:
+    instances: 1
+    storage:
+      size: 1Gi
+    resources: {}
+    enableSuperuserAccess: true
+  poolers:
+    - name: rw
+      type: rw
+      poolMode: session
+      instances: 1
+      parameters:
+        default_pool_size: "10"
+        max_client_conn: "100"
+      template:
+        spec:
+          containers:
+            - name: pgbouncer
+              resources:
+                requests: { cpu: 50m, memory: 32Mi }
+                limits: { memory: 128Mi }
+
+onyx:
+  configMap:
+    OPENSEARCH_HOST: "opensearch.example.com"
+    OPENSEARCH_REST_API_PORT: "9200"
+    ENABLE_OPENSEARCH_INDEXING_FOR_ONYX: "true"
+    ENABLE_OPENSEARCH_RETRIEVAL_FOR_ONYX: "true"
+  auth:
+    opensearch:
+      enabled: true
+      existingSecret: "my-external-opensearch-secret"
+      secretKeys:
+        OPENSEARCH_ADMIN_USERNAME: username
+        OPENSEARCH_ADMIN_PASSWORD: password
+  api:
+    replicaCount: 1
+  webserver:
+    replicaCount: 1
+  vespa:
+    enabled: false
+  opensearch:
+    enabled: false
+  inferenceCapability:
+    replicaCount: 1
+  indexCapability:
+    replicaCount: 1
+  celery_beat:
+    replicaCount: 1
+  celery_worker_primary:
+    replicaCount: 1
+  celery_worker_light:
+    replicaCount: 1
+  celery_worker_heavy:
+    replicaCount: 1
+  celery_worker_monitoring:
+    replicaCount: 1
+  celery_worker_docprocessing:
+    replicaCount: 1
+  celery_worker_docfetching:
+    replicaCount: 1
+  celery_worker_user_file_processing:
+    replicaCount: 1

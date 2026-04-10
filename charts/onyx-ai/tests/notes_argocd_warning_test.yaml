@@ -38,7 +38,7 @@ tests:
       redis.ha.enabled: true
       redis.ha.sentinels: 3
       onyx.auth.redis.existingSecret: onyx-ai-redis-ha
-      cnpg.enabled: true
+      postgresql-cluster.enabled: true
       onyx.auth.postgresql.existingSecret: onyx-ai-postgresql-cluster-superuser
     asserts:
       - matchRegexRaw:
@@ -62,7 +62,7 @@ tests:
       externalRedis.host: redis.example.com
       externalRedis.existingSecret: my-external-redis
       onyx.auth.redis.existingSecret: my-external-redis
-      cnpg.enabled: false
+      postgresql-cluster.enabled: false
       externalPostgresql.host: pg.example.com
       externalPostgresql.existingSecret: my-external-pg
     asserts:
@@ -108,7 +108,7 @@ tests:
       externalRedis.host: redis.example.com
       externalRedis.existingSecret: my-external-redis
       onyx.auth.redis.existingSecret: my-external-redis
-      cnpg.enabled: false
+      postgresql-cluster.enabled: false
       externalPostgresql.host: pg.example.com
       externalPostgresql.existingSecret: my-external-pg
     asserts:

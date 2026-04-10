@@ -1,0 +1,143 @@
+suite: OpenSearchCluster CR + admin secret + onyx env wiring
+release:
+  name: onyx-ai
+  namespace: onyx-ai
+tests:
+  - it: renders OpenSearchCluster CR via opensearch-cluster subchart
+    template: charts/opensearch-cluster/templates/cluster.yaml
+    asserts:
+      - isKind:
+          of: OpenSearchCluster
+      - equal:
+          path: apiVersion
+          value: opensearch.org/v1
+      - equal:
+          path: metadata.name
+          value: onyx-ai-opensearch
+      - equal:
+          path: metadata.annotations["helm.sh/resource-policy"]
+          value: keep
+      - equal:
+          path: spec.general.version
+          value: "2.19.1"
+      - equal:
+          path: spec.general.httpPort
+          value: 9200
+      - equal:
+          path: spec.general.setVMMaxMapCount
+          value: true
+
+  - it: nodePool has combined master+data+ingest roles with 3 replicas
+    template: charts/opensearch-cluster/templates/cluster.yaml
+    asserts:
+      - equal:
+          path: spec.nodePools[0].component
+          value: nodes
+      - equal:
+          path: spec.nodePools[0].replicas
+          value: 3
+      - equal:
+          path: spec.nodePools[0].diskSize
+          value: "30Gi"
+      - contains:
+          path: spec.nodePools[0].roles
+          content: master
+      - contains:
+          path: spec.nodePools[0].roles
+          content: data
+      - contains:
+          path: spec.nodePools[0].roles
+          content: ingest
+      - equal:
+          path: spec.nodePools[0].resources.limits.memory
+          value: "8Gi"
+
+  - it: security config references the wrapper-owned admin secret
+    template: charts/opensearch-cluster/templates/cluster.yaml
+    asserts:
+      - equal:
+          path: spec.security.config.adminCredentialsSecret.name
+          value: onyx-ai-opensearch-admin
+
+  - it: renders the wrapper-owned admin secret with data fields
+    template: opensearch-admin-secret.yaml
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: Secret
+      - equal:
+          path: metadata.name
+          value: onyx-ai-opensearch-admin
+      - equal:
+          path: metadata.annotations["helm.sh/resource-policy"]
+          value: keep
+      - equal:
+          path: metadata.annotations["argocd.argoproj.io/compare-options"]
+          value: IgnoreExtraneous
+      - exists:
+          path: data.username
+      - exists:
+          path: data.password
+      - notExists:
+          path: stringData
+
+  - it: does not render the admin secret when opensearch-cluster disabled
+    template: opensearch-admin-secret.yaml
+    set:
+      opensearch-cluster.enabled: false
+      externalOpenSearch.host: "os.example.com"
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: onyx ConfigMap passthrough includes OPENSEARCH_HOST and retrieval flag
+    template: charts/onyx/templates/configmap.yaml
+    asserts:
+      - equal:
+          path: data.OPENSEARCH_HOST
+          value: "onyx-ai-opensearch"
+      - equal:
+          path: data.OPENSEARCH_REST_API_PORT
+          value: "9200"
+      - equal:
+          path: data.ENABLE_OPENSEARCH_INDEXING_FOR_ONYX
+          value: "true"
+      - equal:
+          path: data.ENABLE_OPENSEARCH_RETRIEVAL_FOR_ONYX
+          value: "true"
+
+  # NOTE: helm-unittest cannot load disabled-subchart templates (same limitation
+  # as Task 2/8). The vespa and upstream bundled-opensearch StatefulSet "is NOT
+  # rendered" assertions are omitted; correctness is verified by the configmap
+  # assertion above and downstream integration tests.
+
+  - it: render fails when both opensearch-cluster and onyx.opensearch are enabled
+    template: templates/NOTES.txt
+    set:
+      opensearch-cluster.enabled: true
+      onyx.opensearch.enabled: true
+    asserts:
+      - failedTemplate:
+          errorMessage: "opensearch-cluster.enabled AND onyx.opensearch.enabled are both true — pick one. Set onyx.opensearch.enabled: false when using the wrapper's operator-managed cluster."
+
+  - it: render fails when no opensearch backend is configured and vespa is also disabled
+    template: templates/NOTES.txt
+    set:
+      opensearch-cluster.enabled: false
+      onyx.opensearch.enabled: false
+      externalOpenSearch.host: ""
+      onyx.vespa.enabled: false
+      onyx.configMap.ENABLE_OPENSEARCH_RETRIEVAL_FOR_ONYX: "true"
+    asserts:
+      - failedTemplate:
+          errorMessage: "No OpenSearch backend configured. Set one of: opensearch-cluster.enabled: true, onyx.opensearch.enabled: true, or externalOpenSearch.host."
+
+  - it: render fails when vespa disabled but retrieval flag not set to true
+    template: templates/NOTES.txt
+    set:
+      onyx.vespa.enabled: false
+      onyx.configMap.ENABLE_OPENSEARCH_RETRIEVAL_FOR_ONYX: "false"
+    asserts:
+      - failedTemplate:
+          errorMessage: "onyx.vespa.enabled is false but onyx.configMap.ENABLE_OPENSEARCH_RETRIEVAL_FOR_ONYX is not \"true\". Onyx would index but not query — explicitly set the retrieval flag."

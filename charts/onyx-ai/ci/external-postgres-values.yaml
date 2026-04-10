@@ -4,11 +4,9 @@
 # (no CNPG operator required). Also uses external Redis and S3.
 # All heavy components use replicaCount: 1 (minimum) for CI rendering.
 
-cnpg:
-  enabled: false
 postgresql-cluster:
-  cluster:
-    instances: 1
+  enabled: false
+
 externalPostgresql:
   host: "postgres.example.com"
   port: 5432
@@ -57,12 +55,22 @@ onyx:
       existingSecret: "my-redis-secret"
       secretKeys:
         REDIS_PASSWORD: redis_password
+    opensearch:
+      enabled: true
+      existingSecret: "my-external-opensearch-secret"
+      secretKeys:
+        OPENSEARCH_ADMIN_USERNAME: username
+        OPENSEARCH_ADMIN_PASSWORD: password
   configMap:
     HOSTNAME: "0.0.0.0"
     POSTGRES_HOST: "postgres.example.com"
     REDIS_HOST: "redis.example.com"
     S3_ENDPOINT_URL: "https://s3.example.com"
     S3_FILE_STORE_BUCKET_NAME: "my-bucket"
+    OPENSEARCH_HOST: "opensearch.example.com"
+    OPENSEARCH_REST_API_PORT: "9200"
+    ENABLE_OPENSEARCH_INDEXING_FOR_ONYX: "true"
+    ENABLE_OPENSEARCH_RETRIEVAL_FOR_ONYX: "true"
 redis:
   enabled: false
 garage:
@@ -74,3 +82,14 @@ objectStorage:
 externalRedis:
   host: "redis.example.com"
   existingSecret: "my-redis-secret"
+
+# External OpenSearch — disable the wrapper-managed cluster and point onyx
+# at an external service. Exercises the parallel disable path for the
+# opensearch-cluster subchart.
+opensearch-cluster:
+  enabled: false
+
+externalOpenSearch:
+  host: "opensearch.example.com"
+  port: 9200
+  existingSecret: "my-external-opensearch-secret"

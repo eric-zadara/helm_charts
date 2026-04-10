@@ -3,33 +3,22 @@
 # Tests the batteries-included deployment with internal CNPG cluster and Valkey.
 # Requires operators to be installed (testing/prerequisites annotation):
 #   - CNPG operator (for PostgreSQL)
+#   - OpenSearch operator (for OpenSearch cluster)
 #
 # Release name in CI: "onyx-ai" (helm install "$chart_name" ...)
 #
 # This configures minimal resources for CI while still deploying real pods:
-#   - CNPG PostgreSQL: 1 instance (no pooler, smaller storage)
+#   - CNPG PostgreSQL: 1 instance + minimal pooler (rendering coverage)
 #   - Valkey: 1 replica (standalone mode, no operator needed)
 #   - Object storage: GarageFS built-in (no external S3 needed)
 #   - API/Web: 1 replica each
-#   - Vespa: 1 replica with reduced resources for CI
+#   - OpenSearch: operator-managed single-node cluster (bundled opensearch disabled)
 #   - Celery workers: 1 replica each with minimal resources
 #
 # Model servers included with minimal resources (replicaCount: 1):
 #   - inferenceCapability and indexCapability are deployed but will not finish
 #     downloading multi-GB ML models within CI timeout. They are included for
 #     template rendering coverage; CI tests should not depend on them becoming Ready.
-
-# ------------------------------------------------------------------------------
-# CNPG PostgreSQL - single instance for CI
-# ------------------------------------------------------------------------------
-cnpg:
-  enabled: true
-  instances: 1
-  storage:
-    size: 1Gi
-  pooler:
-    enabled: false  # Direct connection, simpler for CI
-  resources: {}
 
 # ------------------------------------------------------------------------------
 # Redis/Valkey - enabled for CI (Bitnami Valkey, no operator required)
@@ -51,13 +40,41 @@ ingress:
 # CNPG Cluster subchart - minimal for CI
 # ------------------------------------------------------------------------------
 postgresql-cluster:
+  enabled: true
   cluster:
     instances: 1
     storage:
       size: 1Gi
     resources: {}
     enableSuperuserAccess: true
-  poolers: []
+    postgresql:
+      parameters:
+        max_connections: "100"
+        idle_in_transaction_session_timeout: "60000"
+  # CI uses a minimal pooler (1 instance) to exercise the rendering path.
+  # Real prod defaults (2 instances, 2000 max_client_conn) come from values.yaml.
+  poolers:
+    - name: rw
+      type: rw
+      poolMode: session
+      instances: 1
+      parameters:
+        default_pool_size: "10"
+        max_client_conn: "100"
+      monitoring:
+        enabled: false
+        podMonitor:
+          enabled: false
+      template:
+        spec:
+          containers:
+            - name: pgbouncer
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 32Mi
+                limits:
+                  memory: 128Mi
   backups:
     enabled: false
 
@@ -103,11 +120,9 @@ onyx:
         memory: 512Mi
 
   # ---------------------------------------------------------------------------
-  # Vespa: reduced resources for CI (upstream default is 1000m/4Gi)
+  # Vespa: REQUIRED through onyx v3.x (hardcoded runtime dependency in
+  # factory.py). Reduced resources for CI. Drop when upstream ships v4.0.0.
   # ---------------------------------------------------------------------------
-  # 3Gi limit (up from 2Gi): Onyx 0.4.40 ships Vespa 8.609.39 which OOMKills
-  # repeatedly at 2Gi during cold startup on kind. 3Gi leaves enough headroom
-  # for the JVM warm-up phase without blowing the CI node budget.
   vespa:
     enabled: true
     resources:
@@ -126,22 +141,12 @@ onyx:
               storage: 2Gi
 
   # ---------------------------------------------------------------------------
-  # OpenSearch: reduced resources for CI (upstream default is 4Gi/8Gi)
+  # OpenSearch: disabled because CI uses the operator-managed cluster
+  # (opensearch-cluster.enabled: true via chart default).  Enabling both
+  # would trigger the onyx-ai.opensearch.validate double-provision guard.
   # ---------------------------------------------------------------------------
   opensearch:
-    enabled: true
-    replicas: 1
-    singleNode: true
-    opensearchJavaOpts: "-Xmx1g -Xms1g"
-    resources:
-      requests:
-        cpu: 200m
-        memory: 1Gi
-      limits:
-        memory: 2Gi
-    persistence:
-      enabled: true
-      size: 2Gi
+    enabled: false
 
   # ---------------------------------------------------------------------------
   # Code Interpreter: minimal resources for CI
@@ -253,6 +258,43 @@ onyx:
         memory: 512Mi
 
   # ---------------------------------------------------------------------------
-  # ConfigMap, auth, and redis overrides are NOT needed here — the chart
-  # defaults are pre-wired for release name "onyx-ai" (CI uses that name).
+  # ConfigMap overrides: POSTGRES_HOST points at the direct -rw service to
+  # match the pooler-rw name expected by the onyx-ai.postgresql.validate guard
+  # (pooler is named "rw", so the service is "...-pooler-rw").
+  # OpenSearch envs point at the operator-managed cluster.
   # ---------------------------------------------------------------------------
+  configMap:
+    POSTGRES_HOST: "onyx-ai-postgresql-cluster-rw"
+    OPENSEARCH_HOST: "onyx-ai-opensearch"
+    OPENSEARCH_REST_API_PORT: "9200"
+    ENABLE_OPENSEARCH_INDEXING_FOR_ONYX: "true"
+    ENABLE_OPENSEARCH_RETRIEVAL_FOR_ONYX: "true"
+
+# ------------------------------------------------------------------------------
+# OpenSearch cluster subchart - minimal for CI
+# ------------------------------------------------------------------------------
+# NOTE: opensearch-operator must exist in the cluster before this Application
+# can be reconciled. For CI rendering (helm template only), the CR is emitted
+# even without the operator.
+opensearch-cluster:
+  enabled: true
+  cluster:
+    general:
+      version: "2.19.1"
+    nodePools:
+      - component: nodes
+        replicas: 1
+        diskSize: "1Gi"
+        roles:
+          - master
+          - data
+          - ingest
+        resources:
+          requests:
+            cpu: 100m
+            memory: 512Mi
+          limits:
+            memory: 1Gi
+        env:
+          - name: OPENSEARCH_JAVA_OPTS
+            value: "-Xmx512m -Xms512m"

@@ -1,0 +1,96 @@
+# CI test values for onyx-ai chart — dedicated masters OpenSearch topology
+#
+# Exercises the multi-nodePool path with 3 masters + 3 data nodes.
+
+postgresql-cluster:
+  enabled: true
+  cluster:
+    instances: 1
+    storage:
+      size: 1Gi
+    resources: {}
+    enableSuperuserAccess: true
+  poolers:
+    - name: rw
+      type: rw
+      poolMode: session
+      instances: 1
+      parameters:
+        default_pool_size: "10"
+        max_client_conn: "100"
+      template:
+        spec:
+          containers:
+            - name: pgbouncer
+              resources:
+                requests: { cpu: 50m, memory: 32Mi }
+                limits: { memory: 128Mi }
+
+opensearch-cluster:
+  enabled: true
+  cluster:
+    general:
+      version: "2.19.1"
+    nodePools:
+      - component: masters
+        replicas: 3
+        diskSize: "1Gi"
+        roles:
+          - master
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            memory: 512Mi
+        additionalConfig:
+          ES_JAVA_OPTS: "-Xmx256m -Xms256m"
+      - component: data
+        replicas: 3
+        diskSize: "2Gi"
+        roles:
+          - data
+          - ingest
+        resources:
+          requests:
+            cpu: 200m
+            memory: 1Gi
+          limits:
+            memory: 2Gi
+        additionalConfig:
+          ES_JAVA_OPTS: "-Xmx1g -Xms1g"
+
+onyx:
+  configMap:
+    OPENSEARCH_HOST: "onyx-ai-opensearch"
+    OPENSEARCH_REST_API_PORT: "9200"
+    ENABLE_OPENSEARCH_INDEXING_FOR_ONYX: "true"
+    ENABLE_OPENSEARCH_RETRIEVAL_FOR_ONYX: "true"
+  api:
+    replicaCount: 1
+  webserver:
+    replicaCount: 1
+  vespa:
+    enabled: false
+  opensearch:
+    enabled: false
+  inferenceCapability:
+    replicaCount: 1
+  indexCapability:
+    replicaCount: 1
+  celery_beat:
+    replicaCount: 1
+  celery_worker_primary:
+    replicaCount: 1
+  celery_worker_light:
+    replicaCount: 1
+  celery_worker_heavy:
+    replicaCount: 1
+  celery_worker_monitoring:
+    replicaCount: 1
+  celery_worker_docprocessing:
+    replicaCount: 1
+  celery_worker_docfetching:
+    replicaCount: 1
+  celery_worker_user_file_processing:
+    replicaCount: 1
