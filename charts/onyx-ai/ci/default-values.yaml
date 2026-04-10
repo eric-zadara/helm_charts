@@ -280,7 +280,7 @@ opensearch-cluster:
   enabled: true
   cluster:
     general:
-      version: "2.19.1"
+      version: "3.6.0"
     nodePools:
       - component: nodes
         replicas: 1
