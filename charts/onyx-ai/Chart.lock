@@ -11,5 +11,8 @@ dependencies:
 - name: valkey
   repository: https://valkey.io/valkey-helm/
   version: 0.9.3
-digest: sha256:ed93ea4e7a89cc98ee3c1f4752f95d0a3b2e10612237167d4c8cdb5b577542cf
-generated: "2026-04-08T06:04:33.661549656Z"
+- name: opensearch-cluster
+  repository: https://opensearch-project.github.io/opensearch-k8s-operator
+  version: 3.2.2
+digest: sha256:d1da90aa992905087eb6abff21630949256e7d08bb3cf1cdbc1487cc53404010
+generated: "2026-04-09T20:09:07.104466869Z"

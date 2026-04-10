@@ -45,66 +45,9 @@ global:
   storageClass: ""
 
 # ------------------------------------------------------------------------------
-# CNPG PostgreSQL Configuration (Phase 3)
-# ------------------------------------------------------------------------------
-# CloudNative-PG cluster for HA PostgreSQL. Requires CNPG operator pre-installed.
-# Set cnpg.enabled: false to use external PostgreSQL instead.
-
-cnpg:
-  # Enable CNPG-managed PostgreSQL (set false to use externalPostgresql)
-  enabled: true
-
-  # Cluster sizing
-  instances: 3  # 1 primary + 2 replicas (minimum 2 for HA)
-
-  # Storage configuration
-  storage:
-    size: 20Gi
-    storageClass: ""  # Empty = use global.storageClass or cluster default
-
-  # PostgreSQL resource limits
-  resources:
-    requests:
-      cpu: 500m
-      memory: 1Gi
-    limits:
-      cpu: 2000m
-      memory: 4Gi
-
-  # PgBouncer connection pooler
-  # NOTE: Disabled by default because POSTGRES_HOST points to the direct -rw
-  # service (not pooler). Alembic migrations need DDL access which PgBouncer
-  # transaction mode blocks. Enable for external consumers or split read/write
-  # routing. When enabled, also populate postgresql-cluster.poolers (see below).
-  pooler:
-    enabled: false
-    instances: 2
-    # Pool mode: transaction (recommended for web apps) or session
-    poolMode: transaction
-    parameters:
-      default_pool_size: "25"
-      max_client_conn: "1000"
-
-  # Backup configuration (optional)
-  backup:
-    enabled: false
-    # Cron schedule for scheduled backups
-    schedule: "0 0 * * *"  # Daily at midnight UTC
-    # Retention policy (e.g., "7d", "30d")
-    retentionPolicy: "7d"
-    # S3 configuration for backup storage (separate from Onyx object storage)
-    s3:
-      bucket: ""
-      region: ""
-      endpoint: ""
-      # Use existingSecret for credentials (recommended)
-      # Secret must contain AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
-      existingSecret: ""
-
-# ------------------------------------------------------------------------------
 # External PostgreSQL Configuration
 # ------------------------------------------------------------------------------
-# Use when cnpg.enabled: false. Connect to existing PostgreSQL instance.
+# Use when postgresql-cluster.enabled: false. Connect to existing PostgreSQL instance.
 
 externalPostgresql:
   host: ""
@@ -613,7 +556,13 @@ onyx:
   postgresql:
     enabled: false  # Disabled - using postgresql-cluster subchart instead
 
-  # Vespa search engine - required for Onyx
+  # Vespa search engine — REQUIRED through onyx v3.x (hardcoded runtime dependency).
+  # The v3.x application code unconditionally instantiates VespaIndex in
+  # factory.py's get_all_document_indices() and crashes on startup if Vespa
+  # is unreachable. OpenSearch is the RETRIEVAL backend (via the
+  # ENABLE_OPENSEARCH_RETRIEVAL_FOR_ONYX flag below), but Vespa still
+  # receives all index writes as a dual-write partner.
+  # Drop Vespa when upstream ships v4.0.0 (VespaIndex removed from code).
   vespa:
     enabled: true
 
@@ -637,8 +586,25 @@ onyx:
   configMap:
     # Next.js must bind to all interfaces for Kubernetes networking
     HOSTNAME: "0.0.0.0"
-    POSTGRES_HOST: "onyx-ai-postgresql-cluster-rw"
+    # Routes through the CNPG session-mode pgbouncer pooler. The service name
+    # is {cluster-fullname}-pooler-{pooler-name}. If you disable the pooler
+    # (set postgresql-cluster.poolers: []), override this back to
+    # "onyx-ai-postgresql-cluster-rw".
+    POSTGRES_HOST: "onyx-ai-postgresql-cluster-pooler-rw"
     POSTGRES_PORT: "5432"
+    # --- OpenSearch wiring (operator-managed cluster, dual-write) ---
+    # v3.x dual-write: Vespa receives all index writes (hardcoded in factory.py),
+    # OpenSearch ALSO receives writes (ENABLE_OPENSEARCH_INDEXING), and OpenSearch
+    # handles all retrieval queries (ENABLE_OPENSEARCH_RETRIEVAL).
+    #
+    # The upstream configmap only emits OPENSEARCH_* keys when
+    # onyx.opensearch.enabled is true AND hardcodes the retrieval flag to "false".
+    # Since we disabled the upstream subchart (replaced by our operator-managed
+    # cluster), we re-emit and flip the retrieval flag here.
+    OPENSEARCH_HOST: "onyx-ai-opensearch"
+    OPENSEARCH_REST_API_PORT: "9200"
+    ENABLE_OPENSEARCH_INDEXING_FOR_ONYX: "true"
+    ENABLE_OPENSEARCH_RETRIEVAL_FOR_ONYX: "true"
     # valkey-io/valkey-helm primary service is "{release}-valkey"
     # (no `-primary` suffix — this is the upstream chart's convention).
     REDIS_HOST: "onyx-ai-valkey"
@@ -747,10 +713,10 @@ onyx:
     # Helm values.yaml cannot contain template expressions - they are evaluated
     # at render time, not in values.yaml. So existingSecret cannot be auto-computed.
     #
-    # IMPORTANT: When cnpg.enabled: true, you MUST set:
+    # IMPORTANT: When postgresql-cluster.enabled: true, you MUST set:
     #   onyx.auth.postgresql.existingSecret: "{release}-postgresql-cluster-app"
     #
-    # For external PostgreSQL (cnpg.enabled: false):
+    # For external PostgreSQL (postgresql-cluster.enabled: false):
     #   - Use externalPostgresql.existingSecret for credentials, then set:
     #     onyx.auth.postgresql.existingSecret: (same secret name)
     #   - OR use inline credentials (externalPostgresql.username/password), then set:
@@ -815,27 +781,22 @@ onyx:
       values:
         user_auth_secret: ""
 
-    # ---------------------------------------------------------------------------
     # OpenSearch Credentials (auth.opensearch passthrough)
-    # ---------------------------------------------------------------------------
-    # WARNING: Upstream defaults to admin password "OnyxDev1!" — CHANGE THIS
-    # for production. The chart does not override this by default to avoid
-    # breaking existing deployments. Generate a secure password:
-    #   openssl rand -base64 32
+    #
+    # Wrapper-owned admin credentials via templates/opensearch-admin-secret.yaml
+    # (Helm lookup pattern). The wrapper-owned secret uses `username` and
+    # `password` keys — NOT the upstream default `opensearch_admin_username` /
+    # `opensearch_admin_password` — so we remap secretKeys accordingly.
     opensearch:
       enabled: true
+      existingSecret: onyx-ai-opensearch-admin
       secretKeys:
-        OPENSEARCH_ADMIN_USERNAME: opensearch_admin_username
-        OPENSEARCH_ADMIN_PASSWORD: opensearch_admin_password
-      values:
-        opensearch_admin_username: "admin"
-        opensearch_admin_password: "OnyxDev1!"  # CHANGE THIS for production!
+        OPENSEARCH_ADMIN_USERNAME: username
+        OPENSEARCH_ADMIN_PASSWORD: password
 
-  # OpenSearch - enabled by default since upstream 0.4.35
-  # WARNING: Upstream defaults to admin password "OnyxDev1!" — change for production.
-  # Override via: onyx.auth.opensearch.values.opensearch_admin_password
+  # OpenSearch - disabled in 0.4.0 cutover (replaced by operator-managed cluster above)
   opensearch:
-    enabled: true
+    enabled: false   # was: true — replaced by operator-managed cluster above
 
   # Code Interpreter - enabled by default since upstream 0.4.35
   codeInterpreter:
@@ -926,78 +887,93 @@ onyx:
     enabled: false
 
 # ------------------------------------------------------------------------------
-# CNPG Cluster Chart Values (alias: postgresql-cluster)
+# CloudNativePG Cluster (alias: postgresql-cluster → cnpg/cluster subchart)
 # ------------------------------------------------------------------------------
-# Passthrough to cnpg/cluster subchart. Structure matches chart expectations.
-# Only active when cnpg.enabled: true (via dependency condition).
+# This block is the SINGLE SOURCE OF TRUTH for Postgres configuration.
+# All keys are a direct passthrough to the cnpg/cluster subchart — see
+# https://github.com/cloudnative-pg/charts for the full values schema.
 #
-# Key mappings from cnpg.* (our interface) to postgresql-cluster.* (chart interface):
-#   cnpg.instances             -> postgresql-cluster.cluster.instances
-#   cnpg.storage.size          -> postgresql-cluster.cluster.storage.size
-#   cnpg.storage.storageClass  -> postgresql-cluster.cluster.storage.storageClass
-#   cnpg.resources             -> postgresql-cluster.cluster.resources
-#   cnpg.pooler.enabled        -> controls whether poolers[] is populated
-#   cnpg.pooler.instances      -> postgresql-cluster.poolers[0].instances
-#   cnpg.pooler.poolMode       -> postgresql-cluster.poolers[0].poolMode
-#   cnpg.pooler.parameters     -> postgresql-cluster.poolers[0].parameters
-#   cnpg.backup.enabled        -> postgresql-cluster.backups.enabled
+# Set postgresql-cluster.enabled: false to use externalPostgresql instead.
+# The wrapper dep condition (Chart.yaml) reads from postgresql-cluster.enabled.
 
 postgresql-cluster:
-  # Cluster type and mode
+  enabled: true    # gates the dep + all wrapper templates guarded on CNPG
+
   type: postgresql
   mode: standalone
 
-  # PostgreSQL version
   version:
     postgresql: "16"
 
-  # Cluster configuration
   cluster:
-    # ArgoCD sync-wave for proper ordering (infrastructure wave)
-    # Ensures Cluster deploys after Secrets/ConfigMaps (wave -1)
     annotations:
       argocd.argoproj.io/sync-wave: "0"
-    instances: 3  # Matches cnpg.instances default
+    instances: 3
     storage:
-      size: 20Gi  # Matches cnpg.storage.size default
-      storageClass: ""  # Matches cnpg.storage.storageClass default
+      size: 20Gi
+      storageClass: ""
     resources:
       requests:
         cpu: 500m
-        memory: 1Gi
+        memory: 2Gi      # bumped from 1Gi in 0.4.0 to give the backend headroom
+                         # for concurrent session-mode pooler connections
       limits:
         cpu: 2000m
-        memory: 4Gi
-    primaryUpdateStrategy: unsupervised  # Auto-failover during CNPG operator upgrades
-    enableSuperuserAccess: true  # Required for Alembic migrations
+        memory: 8Gi      # bumped from 4Gi in 0.4.0
+    primaryUpdateStrategy: unsupervised  # auto-failover during operator upgrades
+    enableSuperuserAccess: true          # required for Alembic migrations
     postgresql:
       parameters:
-        # Onyx api-server opens 2 SQLAlchemy pools (sync + async) of 10 connections each
-        # (20 per pod) plus celery workers each open additional pools. With 1 api-server +
-        # 8 celery workers, the default max_connections=100 is exhausted within 30 seconds
-        # of a rolling restart — operators see "FATAL: sorry, too many clients already".
-        # 500 provides ample headroom for the full worker fleet plus connection spikes.
-        max_connections: "500"
-        # Reclaim idle-in-transaction connections after 60s to prevent pool starvation
-        # from crashed workers that hold open transactions.
-        idle_in_transaction_session_timeout: "60000"  # 60 seconds in milliseconds
+        # Backend connection slots. Sized for the pooler's worst-case server-
+        # side count, NOT the user-visible client cap. The user-visible "2000"
+        # number lives on the pooler below (max_client_conn), where each client
+        # costs ~2KB instead of ~10MB on a postgres backend.
+        max_connections: "750"
+        # Reclaim idle-in-transaction connections after 60s to prevent pool
+        # starvation from crashed workers that hold open transactions.
+        idle_in_transaction_session_timeout: "60000"  # milliseconds
       pg_hba: []
 
-  # PgBouncer poolers - created when cnpg.pooler.enabled: true
-  # The cnpg/cluster chart creates Pooler CRs from this list.
-  # Default: empty (matches cnpg.pooler.enabled: false).
-  # To enable, set cnpg.pooler.enabled: true and uncomment the pooler config:
-  #   poolers:
-  #     - name: rw
-  #       type: rw
-  #       poolMode: transaction
-  #       instances: 2
-  #       parameters:
-  #         default_pool_size: "25"
-  #         max_client_conn: "1000"
-  poolers: []
+  # PgBouncer poolers — each entry becomes a CNPG Pooler CR. The cluster
+  # subchart renders templates/pooler.yaml by iterating this list.
+  #
+  # DEFAULT: one session-mode rw pooler. Session mode is REQUIRED because
+  # onyx.configMap.POSTGRES_HOST (below) points at the pooler Service, and
+  # Alembic runs DDL on startup. Transaction mode would block DDL.
+  #
+  # To disable pooling entirely: set `poolers: []` AND override
+  # `onyx.configMap.POSTGRES_HOST` to "{release}-postgresql-cluster-rw".
+  poolers:
+    - name: rw
+      type: rw
+      poolMode: session
+      instances: 2
+      parameters:
+        default_pool_size: "250"
+        # The user-visible "2000 connections" number lives HERE. pgbouncer
+        # reserves ~2KB per client; 2000 ≈ 4MB heap per pooler pod. pgbouncer
+        # queues overflow clients instead of returning FATAL when the
+        # backend is saturated.
+        max_client_conn: "2000"
+      monitoring:
+        enabled: false
+        podMonitor:
+          enabled: false
+      # The subchart dumps this block raw under Pooler.spec.template.
+      # It must be a full PodTemplateSpec — no short-form allowed.
+      template:
+        spec:
+          containers:
+            - name: pgbouncer
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  cpu: 500m
+                  memory: 256Mi
 
-  # Backups (disabled by default, configured via cnpg.backup.*)
+  # Backups (disabled by default; configure here when enabling).
   backups:
     enabled: false
 
@@ -1086,3 +1062,105 @@ valkey:
   # to be served by the redis.ha.enabled (Spotahome operator) path.
   replica:
     enabled: false
+
+# ------------------------------------------------------------------------------
+# OpenSearch (alias: opensearch-cluster → opensearch-project/opensearch-cluster)
+# ------------------------------------------------------------------------------
+# This block is the SINGLE SOURCE OF TRUTH for OpenSearch configuration.
+# Direct passthrough to the opensearch-cluster subchart; see
+# https://github.com/opensearch-project/opensearch-k8s-operator for the
+# full values schema.
+#
+# Requires opensearch-operator installed cluster-wide. The platform install
+# step is inference-operators ≥ 0.9.0 (or argo-examples-operators ≥ 0.0.15).
+#
+# Set opensearch-cluster.enabled: false to use externalOpenSearch instead.
+
+opensearch-cluster:
+  enabled: true
+  apiGroup: opensearch.org  # stable CRD group (chart default; pinned for clarity)
+
+  cluster:
+    # Fixed cluster name so the generated Service is always
+    # "onyx-ai-opensearch" regardless of how .Release.Name evolves.
+    # Onyx env vars in onyx.configMap below key off this.
+    name: onyx-ai-opensearch
+
+    annotations:
+      argocd.argoproj.io/sync-wave: "0"
+      # Dataloss is acceptable today but require explicit operator action to
+      # destroy the cluster. Blocks an accidental argocd app delete from
+      # wiping OpenSearch data.
+      helm.sh/resource-policy: keep
+
+    general:
+      version: "2.19.1"
+      image: docker.io/opensearchproject/opensearch
+      httpPort: 9200
+      drainDataNodes: true          # safer rolling upgrades
+      setVMMaxMapCount: true        # privileged init container sets sysctl
+      serviceName: ""               # empty → defaults to cluster.name
+      pluginsList: []
+      snapshotRepositories: []      # enable later for S3 backups
+      additionalConfig: {}
+
+    dashboards:
+      # OpenSearch Dashboards is not needed by Onyx. Operators who want the UI
+      # can override this in a values overlay.
+      enable: false
+
+    confMgmt:
+      smartScaler: true
+
+    security:
+      config:
+        adminCredentialsSecret:
+          # Wrapper-owned lookup-pattern secret; see
+          # templates/opensearch-admin-secret.yaml
+          name: onyx-ai-opensearch-admin
+      tls:
+        transport:
+          generate: true
+          perNode: true
+        http:
+          generate: true
+
+    nodePools:
+      # Default: single combined pool (masters + data + ingest), 3 replicas.
+      # For dedicated-master topologies, split into two entries with different
+      # replicas/resources. See ci/opensearch-dedicated-masters-values.yaml.
+      - component: nodes
+        replicas: 3
+        diskSize: "30Gi"
+        roles:
+          - master
+          - data
+          - ingest
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "2Gi"
+          limits:
+            cpu: "2000m"
+            memory: "8Gi"
+        jvm: "-Xmx3g -Xms3g"   # ~37.5% of memory limit; stays well below 50%/32Gi cap
+        nodeSelector: {}
+        tolerations: []
+        affinity: {}
+        topologySpreadConstraints: []
+        additionalConfig: {}
+
+# ------------------------------------------------------------------------------
+# External OpenSearch Configuration
+# ------------------------------------------------------------------------------
+# Used when opensearch-cluster.enabled is false. Connect onyx to an existing
+# OpenSearch deployment.
+
+externalOpenSearch:
+  host: ""
+  port: 9200
+  # Credentials - use existingSecret (recommended) or inline values.
+  # The secret must contain `username` and `password` keys.
+  existingSecret: ""
+  username: ""
+  password: ""

@@ -114,6 +114,41 @@ PostgreSQL Helper Functions (Phase 3)
 */}}
 
 {{/*
+True when the in-cluster CNPG cluster is enabled (i.e., we own postgres).
+Wraps the hyphenated subchart alias into a readable name — Go templates
+cannot use `.Values.postgresql-cluster.enabled` directly because of the
+hyphen. Returns the literal string "true" or "false" so call sites use
+`eq (include "...") "true"` for comparison.
+
+Usage: {{ include "onyx-ai.cnpgEnabled" . }}
+*/}}
+{{- define "onyx-ai.cnpgEnabled" -}}
+{{- if (index .Values "postgresql-cluster" "enabled") -}}true{{- else -}}false{{- end -}}
+{{- end -}}
+
+{{/*
+True (as a truthy non-empty string) when at least one pooler is defined
+under postgresql-cluster.poolers. Used in onyx-ai.postgresql.host to pick
+the pooler service name vs the direct -rw service name.
+
+Usage: {{ if (include "onyx-ai.cnpgPoolerEnabled" .) }}...{{ end }}
+*/}}
+{{- define "onyx-ai.cnpgPoolerEnabled" -}}
+{{- $poolers := index .Values "postgresql-cluster" "poolers" -}}
+{{- if and $poolers (gt (len $poolers) 0) -}}true{{- end -}}
+{{- end -}}
+
+{{/*
+True when the in-cluster OpenSearch cluster is enabled. Returns the literal
+string "true" or "false" for use with eq comparisons.
+
+Usage: {{ include "onyx-ai.opensearchEnabled" . }}
+*/}}
+{{- define "onyx-ai.opensearchEnabled" -}}
+{{- if (index .Values "opensearch-cluster" "enabled") -}}true{{- else -}}false{{- end -}}
+{{- end -}}
+
+{{/*
 Get PostgreSQL host based on configuration.
 Returns pooler service when pooler is enabled, direct PostgreSQL service otherwise,
 or external host when CNPG is disabled.
@@ -126,10 +161,10 @@ cnpg/cluster chart naming convention:
 Usage: {{ include "onyx-ai.postgresql.host" . }}
 */}}
 {{- define "onyx-ai.postgresql.host" -}}
-{{- if not .Values.cnpg.enabled -}}
+{{- if not (eq (include "onyx-ai.cnpgEnabled" .) "true") -}}
   {{- /* External PostgreSQL mode */ -}}
-  {{- required "externalPostgresql.host is required when cnpg.enabled is false" .Values.externalPostgresql.host -}}
-{{- else if .Values.cnpg.pooler.enabled -}}
+  {{- required "externalPostgresql.host is required when postgresql-cluster.enabled is false" .Values.externalPostgresql.host -}}
+{{- else if (include "onyx-ai.cnpgPoolerEnabled" .) -}}
   {{- /* CNPG Pooler creates service: {cluster}-pooler-{pooler-name} */ -}}
   {{- /* Our pooler is named "rw" in postgresql-cluster.poolers[0].name */ -}}
   {{- printf "%s-postgresql-cluster-pooler-rw" .Release.Name -}}
@@ -146,7 +181,7 @@ Returns 5432 for CNPG (both pooler and direct), or external port when configured
 Usage: {{ include "onyx-ai.postgresql.port" . }}
 */}}
 {{- define "onyx-ai.postgresql.port" -}}
-{{- if not .Values.cnpg.enabled -}}
+{{- if not (eq (include "onyx-ai.cnpgEnabled" .) "true") -}}
   {{- .Values.externalPostgresql.port | default 5432 -}}
 {{- else -}}
   {{- /* CNPG always uses 5432 */ -}}
@@ -164,7 +199,7 @@ cnpg/cluster chart naming: {release}-postgresql-cluster-app
 Usage: {{ include "onyx-ai.postgresql.secretName" . }}
 */}}
 {{- define "onyx-ai.postgresql.secretName" -}}
-{{- if not .Values.cnpg.enabled -}}
+{{- if not (eq (include "onyx-ai.cnpgEnabled" .) "true") -}}
   {{- if .Values.externalPostgresql.existingSecret -}}
     {{- .Values.externalPostgresql.existingSecret -}}
   {{- else -}}
@@ -185,7 +220,7 @@ cnpg/cluster chart naming: {release}-postgresql-cluster-superuser
 Usage: {{ include "onyx-ai.postgresql.superuserSecretName" . }}
 */}}
 {{- define "onyx-ai.postgresql.superuserSecretName" -}}
-{{- if .Values.cnpg.enabled -}}
+{{- if eq (include "onyx-ai.cnpgEnabled" .) "true" -}}
   {{- /* CNPG superuser secret follows convention: {cluster-name}-superuser */ -}}
   {{- printf "%s-postgresql-cluster-superuser" .Release.Name -}}
 {{- end -}}
@@ -198,7 +233,7 @@ CNPG default database is 'app'. External uses configured value.
 Usage: {{ include "onyx-ai.postgresql.database" . }}
 */}}
 {{- define "onyx-ai.postgresql.database" -}}
-{{- if not .Values.cnpg.enabled -}}
+{{- if not (eq (include "onyx-ai.cnpgEnabled" .) "true") -}}
   {{- .Values.externalPostgresql.database | default "postgres" -}}
 {{- else -}}
   {{- /* CNPG default database is 'app' */ -}}
@@ -213,12 +248,66 @@ Fails if cnpg is disabled but external PostgreSQL is not properly configured.
 Usage: {{ include "onyx-ai.postgresql.validate" . }}
 */}}
 {{- define "onyx-ai.postgresql.validate" -}}
-{{- if not .Values.cnpg.enabled -}}
+{{- if not (eq (include "onyx-ai.cnpgEnabled" .) "true") -}}
   {{- if not .Values.externalPostgresql.host -}}
-    {{- fail "externalPostgresql.host is required when cnpg.enabled is false" -}}
+    {{- fail "externalPostgresql.host is required when postgresql-cluster.enabled is false" -}}
   {{- end -}}
   {{- if and (not .Values.externalPostgresql.existingSecret) (not .Values.externalPostgresql.username) -}}
-    {{- fail "externalPostgresql.existingSecret or externalPostgresql.username is required when cnpg.enabled is false" -}}
+    {{- fail "externalPostgresql.existingSecret or externalPostgresql.username is required when postgresql-cluster.enabled is false" -}}
+  {{- end -}}
+{{- else -}}
+  {{- /* CNPG enabled — check POSTGRES_HOST matches pooler availability */ -}}
+  {{- $host := .Values.onyx.configMap.POSTGRES_HOST | default "" -}}
+  {{- $poolerEnabled := include "onyx-ai.cnpgPoolerEnabled" . -}}
+  {{- if and (hasSuffix "-pooler-rw" $host) (not $poolerEnabled) -}}
+    {{- fail "onyx.configMap.POSTGRES_HOST points at a pooler service, but postgresql-cluster.poolers is empty. Either add a pooler entry or override POSTGRES_HOST to end in -rw (the direct service)." -}}
+  {{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Validate OpenSearch configuration.
+Fails on misconfiguration that would silently break search.
+
+Guards:
+1. Double-provision: both opensearch-cluster.enabled AND onyx.opensearch.enabled.
+2. No backend: all three paths disabled (opensearch-cluster + onyx.opensearch
+   + externalOpenSearch).
+3. Silent retrieval outage: vespa disabled AND ENABLE_OPENSEARCH_RETRIEVAL_FOR_ONYX
+   not set to "true".
+4. Admin secret key-mismatch: wrapper-owned secret used with stale upstream
+   secretKey names (opensearch_admin_username / _password).
+
+Usage: {{ include "onyx-ai.opensearch.validate" . }}
+*/}}
+{{- define "onyx-ai.opensearch.validate" -}}
+{{- $wrapperEnabled := eq (include "onyx-ai.opensearchEnabled" .) "true" -}}
+{{- $bundledEnabled := .Values.onyx.opensearch.enabled | default false -}}
+{{- $externalHost := .Values.externalOpenSearch.host | default "" -}}
+{{- $vespaEnabled := .Values.onyx.vespa.enabled | default false -}}
+{{- $retrievalFlag := index .Values.onyx.configMap "ENABLE_OPENSEARCH_RETRIEVAL_FOR_ONYX" | default "" -}}
+
+{{- /* Guard 1: double-provision */ -}}
+{{- if and $wrapperEnabled $bundledEnabled -}}
+  {{- fail "opensearch-cluster.enabled AND onyx.opensearch.enabled are both true — pick one. Set onyx.opensearch.enabled: false when using the wrapper's operator-managed cluster." -}}
+{{- end -}}
+
+{{- /* Guard 2: no backend (skip if Vespa is enabled — legacy Vespa-only mode) */ -}}
+{{- if and (not $wrapperEnabled) (not $bundledEnabled) (eq $externalHost "") (not $vespaEnabled) -}}
+  {{- fail "No OpenSearch backend configured. Set one of: opensearch-cluster.enabled: true, onyx.opensearch.enabled: true, or externalOpenSearch.host." -}}
+{{- end -}}
+
+{{- /* Guard 3: silent retrieval outage */ -}}
+{{- if and (not $vespaEnabled) (ne $retrievalFlag "true") -}}
+  {{- fail "onyx.vespa.enabled is false but onyx.configMap.ENABLE_OPENSEARCH_RETRIEVAL_FOR_ONYX is not \"true\". Onyx would index but not query — explicitly set the retrieval flag." -}}
+{{- end -}}
+
+{{- /* Guard 4: key-mismatch when using wrapper-owned secret */ -}}
+{{- $authSecret := .Values.onyx.auth.opensearch.existingSecret | default "" -}}
+{{- if eq $authSecret "onyx-ai-opensearch-admin" -}}
+  {{- $userKey := index .Values.onyx.auth.opensearch.secretKeys "OPENSEARCH_ADMIN_USERNAME" | default "" -}}
+  {{- if ne $userKey "username" -}}
+    {{- fail "onyx.auth.opensearch.secretKeys.OPENSEARCH_ADMIN_USERNAME must be \"username\" when using the wrapper-owned onyx-ai-opensearch-admin secret." -}}
   {{- end -}}
 {{- end -}}
 {{- end -}}
@@ -553,11 +642,11 @@ Fails if CNPG is enabled but auth.postgresql.existingSecret is not configured.
 Usage: {{ include "onyx-ai.postgresql.validateCredentials" . }}
 */}}
 {{- define "onyx-ai.postgresql.validateCredentials" -}}
-{{- if .Values.cnpg.enabled -}}
+{{- if eq (include "onyx-ai.cnpgEnabled" .) "true" -}}
   {{- $expectedSecret := printf "%s-postgresql-cluster-superuser" .Release.Name -}}
   {{- $configuredSecret := .Values.onyx.auth.postgresql.existingSecret | default "" -}}
   {{- if eq $configuredSecret "" -}}
-    {{- fail (printf "onyx.auth.postgresql.existingSecret is required when cnpg.enabled is true. Set to: %s" $expectedSecret) -}}
+    {{- fail (printf "onyx.auth.postgresql.existingSecret is required when postgresql-cluster.enabled is true. Set to: %s" $expectedSecret) -}}
   {{- end -}}
 {{- end -}}
 {{- end -}}

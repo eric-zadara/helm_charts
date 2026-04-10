@@ -2,7 +2,7 @@ apiVersion: v2
 name: onyx-ai
 description: Helm chart wrapping Onyx with HA defaults, CNPG PostgreSQL, and Traefik ingress
 type: application
-version: 0.2.11
+version: 0.4.0
 appVersion: "v3.1.2"
 
 home: https://github.com/zadarastorage/helm-charts
@@ -28,7 +28,7 @@ dependencies:
   - name: cluster
     version: "0.5.0"
     repository: "https://cloudnative-pg.github.io/charts"
-    condition: cnpg.enabled
+    condition: postgresql-cluster.enabled
     alias: postgresql-cluster
   - name: garage
     version: "0.4.1"
@@ -38,3 +38,7 @@ dependencies:
     version: "0.9.3"
     repository: "https://valkey.io/valkey-helm/"
     condition: redis.enabled
+  - name: opensearch-cluster
+    version: "3.2.2"
+    repository: "https://opensearch-project.github.io/opensearch-k8s-operator"
+    condition: opensearch-cluster.enabled
