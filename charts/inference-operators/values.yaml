@@ -32,3 +32,20 @@ gpu-operator:
   # Skip driver installation (pre-installed on GPU VMs)
   driver:
     enabled: false
+
+# OpenSearch operator — manages OpenSearchCluster CRs for HA search backends.
+# Required by onyx-ai ≥ 0.4.0 when the vespa→opensearch cutover is active.
+# CRDs are installed inline by the opensearch-operator chart (no separate
+# opensearch-crds chart — matches how cloudnative-pg and envoy-gateway ship).
+opensearch-operator:
+  # -- Enable opensearch-operator deployment
+  enabled: true
+  manager:
+    # Give the manager enough memory to reconcile multi-nodePool clusters
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi

@@ -4,7 +4,7 @@ Umbrella chart that installs all operators required by the LLM inference platfor
 
 ## Overview
 
-This chart bundles five operator subchart dependencies:
+This chart bundles six operator subchart dependencies:
 
 | Component | Version | Type | Default | Description |
 |-----------|---------|------|---------|-------------|
@@ -13,8 +13,9 @@ This chart bundles five operator subchart dependencies:
 | knative-operator | v1.21.0 | Operator | **Disabled** | Manages Knative Serving installation (only needed for Knative deployment mode) |
 | envoy-gateway (gateway-helm) | v1.7.0 | Operator | Enabled | Envoy-based Gateway API controller |
 | gpu-operator | v25.10.1 | Operator | Enabled | NVIDIA GPU device plugin, runtime, and monitoring |
+| opensearch-operator | 3.0.2 | Operator | Enabled | Manages OpenSearchCluster CRs for HA search backends |
 
-By default, this chart installs operators for **Standard mode** (no Knative). If you need Knative deployment mode (scale-to-zero), enable `knative-operator` -- see [Knative Operator](#knative-operator-optional--knative-mode) below.
+By default, this chart installs operators for **Standard mode** (no Knative). If you need Knative deployment mode (scale-to-zero), enable `knative-operator` -- see [Knative Operator](#knative-operator-optional--knative-mode) below. OpenSearch Operator is enabled by default to support onyx-ai ≥ 0.4.0.
 
 CRDs are **not** bundled in this chart. They are installed separately by the prerequisite chart `inference-crds`.
 
@@ -158,6 +159,34 @@ gpu-operator:
   enabled: false
 ```
 
+## OpenSearch Operator
+
+The OpenSearch Operator manages OpenSearch cluster deployments via the `OpenSearchCluster` CRD. It is required by onyx-ai ≥ 0.4.0 when the vespa-to-OpenSearch cutover is active. The operator and its CRDs are installed inline by this chart (no separate CRD chart).
+
+### Enable/Disable OpenSearch Operator
+
+By default, OpenSearch Operator is enabled to support onyx-ai ≥ 0.4.0:
+
+```yaml
+opensearch-operator:
+  enabled: true
+  manager:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+```
+
+If you do not need operator-managed OpenSearch in this cluster, disable it:
+
+```yaml
+opensearch-operator:
+  enabled: false
+```
+
 ## Values
 
 | Key | Type | Default | Description |
@@ -169,6 +198,11 @@ gpu-operator:
 | `envoy-gateway.enabled` | bool | `true` | Install Envoy Gateway controller |
 | `gpu-operator.enabled` | bool | `true` | Install NVIDIA GPU Operator |
 | `gpu-operator.driver.enabled` | bool | `false` | Install NVIDIA drivers (disabled for pre-installed drivers) |
+| `opensearch-operator.enabled` | bool | `true` | Install OpenSearch Operator |
+| `opensearch-operator.manager.resources.requests.cpu` | string | `100m` | OpenSearch Operator manager CPU request |
+| `opensearch-operator.manager.resources.requests.memory` | string | `128Mi` | OpenSearch Operator manager memory request |
+| `opensearch-operator.manager.resources.limits.cpu` | string | `500m` | OpenSearch Operator manager CPU limit |
+| `opensearch-operator.manager.resources.limits.memory` | string | `512Mi` | OpenSearch Operator manager memory limit |
 
 ## Selective Installation
 

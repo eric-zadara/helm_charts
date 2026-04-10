@@ -14,5 +14,8 @@ dependencies:
 - name: gpu-operator
   repository: https://helm.ngc.nvidia.com/nvidia
   version: v25.10.1
-digest: sha256:0d65cd4bcdc27cdaa27be677351bd2abacae48ce6b22d3142327ae7ba2785e02
-generated: "2026-03-06T20:17:36.948164912Z"
+- name: opensearch-operator
+  repository: https://opensearch-project.github.io/opensearch-k8s-operator
+  version: 3.0.2
+digest: sha256:c96fcae012a19485b881d6e9072dc4bcc36f08a19d3d0525eee9805d5003832a
+generated: "2026-04-09T19:41:52.574580089Z"

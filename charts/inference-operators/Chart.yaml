@@ -2,7 +2,7 @@ apiVersion: v2
 name: inference-operators
 description: Operators for LLM inference platform (CNPG, Envoy Gateway, optional Knative)
 type: application
-version: 0.8.0
+version: 0.9.0
 appVersion: "1.0.0"
 home: https://github.com/eric-zadara/helm_charts
 sources:
@@ -37,3 +37,7 @@ dependencies:
     version: "v25.10.1"
     repository: "https://helm.ngc.nvidia.com/nvidia"
     condition: gpu-operator.enabled
+  - name: opensearch-operator
+    version: "3.0.2"
+    repository: "https://opensearch-project.github.io/opensearch-k8s-operator"
+    condition: opensearch-operator.enabled
