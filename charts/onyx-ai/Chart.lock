@@ -1,7 +1,7 @@
 dependencies:
 - name: onyx
   repository: https://onyx-dot-app.github.io/onyx/
-  version: 0.4.43
+  version: 0.4.44
 - name: cluster
   repository: https://cloudnative-pg.github.io/charts
   version: 0.5.0
@@ -14,5 +14,5 @@ dependencies:
 - name: opensearch-cluster
   repository: https://opensearch-project.github.io/opensearch-k8s-operator
   version: 3.2.2
-digest: sha256:dcd89c291a1a402fcb9be4acb4a109b409c46b5b7c198f1d4bc13b5053c22927
-generated: "2026-04-10T23:29:07.177585269Z"
+digest: sha256:381ab3347d9ccec277499d5dee5166030550ead349872ab87c486e95eabe74f0
+generated: "2026-04-13T18:02:56.76209483Z"
