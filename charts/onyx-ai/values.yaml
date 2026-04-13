@@ -955,6 +955,14 @@ postgresql-cluster:
         # queues overflow clients instead of returning FATAL when the
         # backend is saturated.
         max_client_conn: "2000"
+        # Keep idle connections alive through k8s network layers.
+        # PgBouncer applies these to both client and server sockets.
+        tcp_keepalive: "1"
+        tcp_keepidle: "60"
+        tcp_keepintvl: "10"
+        tcp_keepcnt: "6"
+        # Disable forced connection recycling
+        server_lifetime: "0"
       monitoring:
         enabled: false
         podMonitor:
