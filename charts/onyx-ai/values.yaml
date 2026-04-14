@@ -931,7 +931,7 @@ postgresql-cluster:
         max_connections: "750"
         # Reclaim idle-in-transaction connections after 60s to prevent pool
         # starvation from crashed workers that hold open transactions.
-        idle_in_transaction_session_timeout: "60000"  # milliseconds
+        idle_in_transaction_session_timeout: "60min"  # milliseconds
       pg_hba: []
 
   # PgBouncer poolers — each entry becomes a CNPG Pooler CR. The cluster
