@@ -2,35 +2,54 @@
 configKind: ConfigMap
 # -- Set deployment namespace for objects
 configNamespace: null
-# -- Set default annotations for all objects
+# -- Set default annotations for all objects (merged onto every generated ConfigMap)
 configAnnotations: {}
 # -- Set default labels for all objects
 configLabels:
   grafana_dashboard: "1"
+
+# Per-bundle configuration. Each block corresponds to a subdirectory
+# under `dashboards/`. Fields:
+#   enabled:      render the bundle's dashboards as ConfigMaps
+#   folder:       Grafana folder display name (rendered into the
+#                 `grafana_folder` annotation, picked up by the Grafana
+#                 sidecar's folderAnnotation). Override to rename or to
+#                 collapse multiple bundles into one folder.
+#   annotations:  extra annotations on the generated ConfigMaps.
+#                 Setting `grafana_folder` here wins over `folder:`.
+#   labels:       extra labels on the generated ConfigMaps.
 zadara:
   # -- Deploy Zadara dashboards
   enabled: false
+  # -- Grafana folder name for objects in dashboards/zadara
+  folder: Zadara
   # -- Set annotations for objects in dashboards/zadara
   annotations: {}
   # -- Set labels for objects in dashboards/zadara
   labels: {}
 nvidia:
-  # -- Deploy nvidia dashboards
+  # -- Deploy nvidia dashboards (DCGM GPU exporter)
   enabled: false
+  # -- Grafana folder name for objects in dashboards/nvidia
+  folder: NVIDIA
   # -- Set annotations for objects in dashboards/nvidia
   annotations: {}
   # -- Set labels for objects in dashboards/nvidia
   labels: {}
 vespa:
-  # -- Deploy vespa dashboards
+  # -- Deploy vespa dashboards (Onyx vector search backend)
   enabled: false
-  # -- Set annotations for objects in dashboards/nvidia
+  # -- Grafana folder name for objects in dashboards/vespa
+  folder: Vespa
+  # -- Set annotations for objects in dashboards/vespa
   annotations: {}
-  # -- Set labels for objects in dashboards/nvidia
+  # -- Set labels for objects in dashboards/vespa
   labels: {}
 node-exporter:
-  # -- Deploy node-exporter dashboards
+  # -- Deploy node-exporter dashboards (grafana.com ID 1860)
   enabled: false
+  # -- Grafana folder name for objects in dashboards/node-exporter
+  folder: Node Exporter
   # -- Set annotations for objects in dashboards/node-exporter
   annotations: {}
   # -- Set labels for objects in dashboards/node-exporter
@@ -38,6 +57,8 @@ node-exporter:
 valkey:
   # -- Deploy valkey/redis dashboards (grafana.com ID 763, oliver006/redis_exporter)
   enabled: false
+  # -- Grafana folder name for objects in dashboards/valkey
+  folder: Valkey
   # -- Set annotations for objects in dashboards/valkey
   annotations: {}
   # -- Set labels for objects in dashboards/valkey

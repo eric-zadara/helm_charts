@@ -5,7 +5,17 @@
 {{- $folderConfig := get $.Values $folderName }}
 {{- if ne $folderConfig.enabled false }}
 {{- $fileName := base $path }}
-{{- $thisAnnotations := merge (default $folderConfig.annotations (dict)) $.Values.configAnnotations (dict "dashboard-folder" $folderName) }}
+{{- /*
+  Grafana folder name precedence (highest first):
+    1. Per-bundle `annotations.grafana_folder` (full escape hatch)
+    2. Per-bundle `folder:` value (simple override)
+    3. Bundle key (e.g. `nvidia`)
+
+  Annotation key is `grafana_folder` to match the Grafana chart's
+  sidecar convention (sidecar.dashboards.folderAnnotation).
+*/}}
+{{- $defaultFolder := default $folderName $folderConfig.folder }}
+{{- $thisAnnotations := merge (default $folderConfig.annotations (dict)) $.Values.configAnnotations (dict "grafana_folder" $defaultFolder) }}
 {{- $thisLabels := merge (default $folderConfig.labels (dict)) $.Values.configLabels }}
 ---
 # {{ $path }}
