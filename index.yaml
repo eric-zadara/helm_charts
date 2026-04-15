@@ -449,6 +449,13 @@ entries:
     version: 0.1.0
   grafana-dashboards:
   - apiVersion: v2
+    created: "2026-04-15T21:52:40.970477264Z"
+    digest: a5db52b6cf13bc74a816871aa37643bf9fe67f0c2248e8da521a7b1720a2cbe2
+    name: grafana-dashboards
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/grafana-dashboards-0.0.11/grafana-dashboards-0.0.11.tgz
+    version: 0.0.11
+  - apiVersion: v2
     created: "2026-04-15T21:38:58.483149097Z"
     digest: eef91b6b3c1c4fe55bb6ce5fd4805971409031196cedbaf3b413512aa1811a29
     name: grafana-dashboards
@@ -2915,4 +2922,4 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/zadara-aws-config-0.0.1/zadara-aws-config-0.0.1.tgz
     version: 0.0.1
-generated: "2026-04-15T21:38:58.4812573Z"
+generated: "2026-04-15T21:52:40.968077911Z"
