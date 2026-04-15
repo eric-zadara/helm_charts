@@ -1056,14 +1056,37 @@ valkey:
     requestedSize: 2Gi
     className: ""  # Empty = cluster default
 
+  # Raw valkey.conf content (mounted via ConfigMap). This is the
+  # SINGLE source of truth for valkey.conf — anything you set here
+  # REPLACES the string entirely, it does not append to our defaults.
+  # If you override, include `activedefrag yes` unless you have a
+  # specific reason to disable it.
+  #
+  # Why activedefrag by default:
+  #   Onyx's Celery queues churn many short-lived keys with variable
+  #   value sizes (task payloads, result blobs, lock keys). Without
+  #   active defrag, `mem_fragmentation_ratio` climbs to 3-5× within
+  #   a few days of steady indexing, burning RAM on nothing. Valkey's
+  #   defaults for the defrag thresholds are fine — don't tune them
+  #   unless you have evidence they're misbehaving.
+  valkeyConfig: |
+    activedefrag yes
+
   # Resource requests/limits live at the top level (not under `primary:`).
+  # Bumped from initial 100m/128Mi / 500m/512Mi to accommodate:
+  #   - the metrics exporter sidecar (~25-50MB overhead)
+  #   - active defragmentation (uses up to 25% of CPU during heavy
+  #     fragmentation events by default)
+  #   - comfortable headroom for Onyx Celery queue depth at medium scale
+  # Values are still modest in absolute terms — adjust upward in your
+  # overlay if redis_memory_used_bytes approaches the limit.
   resources:
     requests:
-      cpu: 100m
-      memory: 128Mi
+      cpu: 200m
+      memory: 256Mi
     limits:
-      cpu: 500m
-      memory: 512Mi
+      cpu: 1000m
+      memory: 1Gi
 
   # Replication / HA — disabled by default. Set replica.enabled: true to
   # spin up master + N replicas. We're not using this today; HA continues
