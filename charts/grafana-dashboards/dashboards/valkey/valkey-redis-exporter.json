@@ -1594,7 +1594,7 @@
   },
   "timezone": "browser",
   "title": "Valkey / Redis (oliver006/redis_exporter)",
-  "uid": "valkey-redis-oliver006",
-  "version": 1,
+  "uid": "e008bc3f-81a2-40f9-baf2-a33fd8dec7ec",
+  "version": 11,
   "weekStart": ""
 }
