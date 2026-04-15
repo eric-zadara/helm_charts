@@ -2,7 +2,7 @@ apiVersion: v2
 name: onyx-ai
 description: Helm chart wrapping Onyx with HA defaults, CNPG PostgreSQL, and Traefik ingress
 type: application
-version: 0.4.5
+version: 0.4.6
 appVersion: "v3.2.2"
 
 home: https://github.com/zadarastorage/helm-charts

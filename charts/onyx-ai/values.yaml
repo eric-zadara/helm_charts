@@ -1102,7 +1102,7 @@ opensearch-cluster:
       helm.sh/resource-policy: keep
 
     general:
-      version: "3.6.0"
+      version: "3.5.0"
       image: docker.io/opensearchproject/opensearch
       httpPort: 9200
       drainDataNodes: true          # safer rolling upgrades
