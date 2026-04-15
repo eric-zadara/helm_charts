@@ -51,6 +51,22 @@ spec:
           revisionHistoryLimit: {{ $appConfig.revisionHistoryLimit }}
           deploymentStrategy: { type: Recreate }
           persistence: { enabled: true, type: pvc }
+          # Discover dashboards/datasources from ConfigMaps in every namespace.
+          # Matches CMs labelled `grafana_dashboard=1`; folder comes from the
+          # `grafana_folder` annotation. Lets downstream charts (onyx-ai, etc.)
+          # ship their own dashboards without needing them co-located here.
+          sidecar:
+            dashboards:
+              enabled: true
+              searchNamespace: ALL
+              label: grafana_dashboard
+              labelValue: "1"
+              folderAnnotation: grafana_folder
+              provider:
+                foldersFromFilesStructure: true
+            datasources:
+              enabled: true
+              searchNamespace: ALL
           ingress:
             enabled: {{ and (default false $appConfig.ingress.enabled) (not (not $appConfig.ingress.rootDomain)) }}
             {{- if and (default false $appConfig.ingress.enabled) (not (not $appConfig.ingress.rootDomain)) }}
