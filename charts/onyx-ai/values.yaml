@@ -1071,6 +1071,50 @@ valkey:
   replica:
     enabled: false
 
+  # Prometheus metrics exporter (oliver006/redis_exporter as a sidecar).
+  # Default off — opt in by setting metrics.enabled: true in your overlay.
+  #
+  # AUTH WIRING (the reason this block exists):
+  #   The upstream valkey chart does NOT auto-wire Valkey auth into the
+  #   exporter sidecar. Its `extraEnvs` template only emits `value:` (no
+  #   valueFrom/secretKeyRef), so the password can't be injected via env
+  #   directly. We work around this by mounting the users secret and
+  #   shell-wrapping the exporter command to read the password file into
+  #   REDIS_PASSWORD before exec'ing the binary.
+  #
+  #   This assumes auth.enabled=true + the default user above. If you
+  #   DISABLE auth but enable metrics, you MUST override:
+  #       metrics.exporter.command: []
+  #       metrics.exporter.extraExporterSecrets: []
+  #       metrics.exporter.extraVolumeMounts: []
+  #   ...otherwise the pod fails to start (secret mount missing).
+  #
+  # ServiceMonitor label note:
+  #   The chart's `metrics.serviceMonitor.additionalLabels` is a dead
+  #   field — the template only reads `extraLabels`. If your VM/Prom
+  #   stack's serviceMonitorSelector requires a label, put it on
+  #   `serviceMonitor.extraLabels`, NOT additionalLabels.
+  metrics:
+    enabled: false
+    exporter:
+      # Shell-wrap reads the mounted password file into REDIS_PASSWORD
+      # and REDIS_USER, then exec's the exporter binary. `exec` preserves
+      # signal handling. `$()` strips trailing newlines from the secret.
+      command:
+        - sh
+        - -c
+        - |
+          export REDIS_PASSWORD=$(cat /valkey-auth-secret/default-password)
+          export REDIS_USER=default
+          exec /redis_exporter
+      extraExporterSecrets:
+        - name: onyx-ai-valkey-credentials
+          defaultMode: 0440
+      extraVolumeMounts:
+        - name: onyx-ai-valkey-credentials-exporter
+          mountPath: /valkey-auth-secret
+          readOnly: true
+
 # ------------------------------------------------------------------------------
 # OpenSearch (alias: opensearch-cluster → opensearch-project/opensearch-cluster)
 # ------------------------------------------------------------------------------
