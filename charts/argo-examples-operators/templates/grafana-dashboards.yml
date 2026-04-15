@@ -39,5 +39,7 @@ spec:
           enabled: true
         node-exporter:
           enabled: true
+        valkey:
+          enabled: true
 {{- end }}
 {{- end }}

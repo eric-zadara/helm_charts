@@ -35,3 +35,10 @@ node-exporter:
   annotations: {}
   # -- Set labels for objects in dashboards/node-exporter
   labels: {}
+valkey:
+  # -- Deploy valkey/redis dashboards (grafana.com ID 763, oliver006/redis_exporter)
+  enabled: false
+  # -- Set annotations for objects in dashboards/valkey
+  annotations: {}
+  # -- Set labels for objects in dashboards/valkey
+  labels: {}
