@@ -1087,6 +1087,7 @@ valkey:
   #       metrics.exporter.command: []
   #       metrics.exporter.extraExporterSecrets: []
   #       metrics.exporter.extraVolumeMounts: []
+  #       metrics.exporter.image.tag: "v1.79.0"    # drop the -alpine suffix
   #   ...otherwise the pod fails to start (secret mount missing).
   #
   # ServiceMonitor label note:
@@ -1097,6 +1098,16 @@ valkey:
   metrics:
     enabled: false
     exporter:
+      # Override to the `-alpine` variant — the default `v1.79.0` image
+      # from the valkey chart is scratch-based (static Go binary, no
+      # shell), which breaks the shell-wrap command below with
+      # `exec: "sh": executable file not found in $PATH`. The alpine
+      # variant ships the same redis_exporter binary at /redis_exporter
+      # plus a minimal alpine userspace (sh, cat). Upstream explicitly
+      # publishes this variant for exactly this use case. Stay pinned to
+      # the same exporter version the chart defaults to.
+      image:
+        tag: "v1.79.0-alpine"
       # Shell-wrap reads the mounted password file into REDIS_PASSWORD
       # and REDIS_USER, then exec's the exporter binary. `exec` preserves
       # signal handling. `$()` strips trailing newlines from the secret.
