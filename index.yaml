@@ -2149,6 +2149,51 @@ entries:
       testing/timeout: 25m
     apiVersion: v2
     appVersion: v3.2.2
+    created: "2026-04-16T00:52:33.812953226Z"
+    dependencies:
+    - name: onyx
+      repository: https://onyx-dot-app.github.io/onyx/
+      version: 0.4.44
+    - alias: postgresql-cluster
+      condition: postgresql-cluster.enabled
+      name: cluster
+      repository: https://cloudnative-pg.github.io/charts
+      version: 0.5.0
+    - condition: garage.enabled
+      name: garage
+      repository: https://datahub-local.github.io/garage-helm
+      version: 0.4.1
+    - condition: redis.enabled
+      name: valkey
+      repository: https://valkey.io/valkey-helm/
+      version: 0.9.3
+    - condition: opensearch-cluster.enabled
+      name: opensearch-cluster
+      repository: https://opensearch-project.github.io/opensearch-k8s-operator
+      version: 3.2.2
+    description: Helm chart wrapping Onyx with HA defaults, CNPG PostgreSQL, and Traefik
+      ingress
+    digest: decb29b543f030f91ea019e12f192f286b058806a90357dc7a3813986ed77605
+    home: https://github.com/zadarastorage/helm-charts
+    maintainers:
+    - name: Zadara Storage
+      url: https://github.com/zadarastorage
+    name: onyx-ai
+    sources:
+    - https://github.com/zadarastorage/helm-charts
+    - https://github.com/onyx-dot-app/onyx
+    type: application
+    urls:
+    - https://github.com/eric-zadara/helm_charts/releases/download/onyx-ai-0.4.10/onyx-ai-0.4.10.tgz
+    version: 0.4.10
+  - annotations:
+      category: AI/RAG
+      licenses: MIT
+      testing/prerequisites: cnpg-operator
+      testing/tier: "2"
+      testing/timeout: 25m
+    apiVersion: v2
+    appVersion: v3.2.2
     created: "2026-04-15T23:09:15.098243593Z"
     dependencies:
     - name: onyx
@@ -3064,4 +3109,4 @@ entries:
     urls:
     - https://github.com/eric-zadara/helm_charts/releases/download/zadara-aws-config-0.0.1/zadara-aws-config-0.0.1.tgz
     version: 0.0.1
-generated: "2026-04-15T23:36:31.672707434Z"
+generated: "2026-04-16T00:52:33.783657155Z"
