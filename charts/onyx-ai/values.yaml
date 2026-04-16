@@ -879,6 +879,41 @@ onyx:
       periodSeconds: 10
 
   # ---------------------------------------------------------------------------
+  # Celery Worker Resource Tuning
+  # ---------------------------------------------------------------------------
+  # Override upstream 1000m CPU limits on the two burst-heavy workers.
+  # Validated against live cluster CFS throttling metrics (2026-04-15):
+  #
+  #   celery-worker-docfetching at 1000m CPU limit:
+  #     throttled 207 ms max / 27 ms mean during doc ingestion bursts
+  #     document fetch completes in 100ms windows, hits quota, stalls
+  #
+  #   celery-worker-monitoring at 1000m CPU limit:
+  #     throttled 246 ms max / 57 ms mean during celery-beat fan-out
+  #     monitoring scheduler bursts across all queues simultaneously
+  #
+  # Fixes here (partial overrides — Helm deep-merges the rest from the
+  # onyx subchart defaults):
+
+  celery_worker_docfetching:
+    # Triple the CPU limit. Validated: throttling dropped to ~320µs mean
+    # (from 27 ms) in production. Document ingestion bursts now complete
+    # without CFS clipping.
+    resources:
+      limits:
+        cpu: "3000m"
+
+  celery_worker_monitoring:
+    # Drop the CPU limit entirely. celery-beat fan-out bursts beyond
+    # 3 cores momentarily, clipping on ANY fixed limit. Usage mean is
+    # ~0.035 cores — short spikes, not sustained. Request stays as
+    # the scheduling baseline. QoS becomes Burstable for this worker
+    # (acceptable — not on the user-latency-critical path).
+    resources:
+      limits:
+        cpu: ~    # removes the key from the deep-merged output
+
+  # ---------------------------------------------------------------------------
   # Ingress (managed by wrapper chart in Phase 7)
   # ---------------------------------------------------------------------------
 
