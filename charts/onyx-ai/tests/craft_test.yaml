@@ -24,5 +24,7 @@ tests:
       onyx.auth.sandboxPushSecret.enabled: true
       onyx.auth.sandboxPushSecret.values.private_key: "dGVzdC1rZXktZm9yLWhlbG0tdW5pdHRlc3Q="
     asserts:
+      - hasDocuments:
+          count: 1
       - isKind:
           of: Deployment
