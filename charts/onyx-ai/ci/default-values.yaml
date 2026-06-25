@@ -120,27 +120,6 @@ onyx:
         memory: 512Mi
 
   # ---------------------------------------------------------------------------
-  # Vespa: REQUIRED through onyx v3.x (hardcoded runtime dependency in
-  # factory.py). Reduced resources for CI. Drop when upstream ships v4.0.0.
-  # ---------------------------------------------------------------------------
-  vespa:
-    enabled: true
-    resources:
-      requests:
-        cpu: 200m
-        memory: 2Gi
-      limits:
-        memory: 3Gi
-    volumeClaimTemplates:
-      - metadata:
-          name: vespa-storage
-        spec:
-          accessModes: ["ReadWriteOnce"]
-          resources:
-            requests:
-              storage: 2Gi
-
-  # ---------------------------------------------------------------------------
   # OpenSearch: disabled because CI uses the operator-managed cluster
   # (opensearch-cluster.enabled: true via chart default).  Enabling both
   # would trigger the onyx-ai.opensearch.validate double-provision guard.

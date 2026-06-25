@@ -52,8 +52,6 @@ onyx:
     replicaCount: 1
   webserver:
     replicaCount: 1
-  vespa:
-    enabled: false
   opensearch:
     enabled: false
   inferenceCapability:
