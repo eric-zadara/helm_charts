@@ -569,6 +569,14 @@ onyx:
   redis:
     enabled: false
 
+  # ServiceMonitors are wired but DEFAULT-OFF so the chart installs without a
+  # Prometheus Operator. Prod enables them via the Argo overlay and sets
+  # `labels` to match its Prometheus serviceMonitorSelector.
+  monitoring:
+    serviceMonitors:
+      enabled: false
+      labels: {}
+
   # ---------------------------------------------------------------------------
   # ConfigMap overrides (injected into upstream onyx env-configmap)
   # ---------------------------------------------------------------------------
