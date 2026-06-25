@@ -796,6 +796,23 @@ onyx:
         OPENSEARCH_ADMIN_USERNAME: username
         OPENSEARCH_ADMIN_PASSWORD: password
 
+    # ---------------------------------------------------------------------------
+    # Craft sandbox push auth secret (DEFAULT-OFF)
+    # ---------------------------------------------------------------------------
+    # Ed25519 private key for sandbox push auth (only the public key reaches
+    # sandbox pods). Enable via Argo overlay when Craft is active.
+    # Generate with: python3 -c "import base64; from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey as K; from cryptography.hazmat.primitives.serialization import *; print(base64.b64encode(K.generate().private_bytes(Encoding.Raw,PrivateFormat.Raw,NoEncryption())).decode())"
+    sandboxPushSecret:
+      enabled: false
+      # Restricted: only injected into pods that provision sandboxes (API server + scheduled-tasks worker)
+      allPods: false
+      secretName: "onyx-sandbox-push-secret"
+      existingSecret: ""
+      secretKeys:
+        ONYX_SANDBOX_PUSH_PRIVATE_KEY: private_key
+      values:
+        private_key: ""
+
   # OpenSearch - disabled in 0.4.0 cutover (replaced by operator-managed cluster above)
   opensearch:
     enabled: false   # was: true — replaced by operator-managed cluster above
@@ -922,6 +939,75 @@ onyx:
   # We manage ingress via Traefik IngressRoute in the wrapper chart
   ingress:
     enabled: false
+
+  # ---------------------------------------------------------------------------
+  # Craft sandbox subsystem (DEFAULT-OFF)
+  # ---------------------------------------------------------------------------
+  # Craft is the v4 agentic code-execution sandbox, gated behind
+  # onyx.configMap.ENABLE_CRAFT (we intentionally leave it UNSET = off).
+  # Enabling it (via the Argo overlay: onyx.configMap.ENABLE_CRAFT: "true")
+  # renders the scheduled-tasks worker, sandbox egress proxy, sandbox
+  # namespace, RBAC, and NetworkPolicies.
+  #
+  # PREREQUISITES prod must provide before enabling Craft:
+  #   1. A dedicated sandbox node pool: nodes labelled
+  #      `onyx.app/workload: sandbox`, tainted `workload=sandbox:NoSchedule`.
+  #   2. The `sandbox-proxy-ca` CA secret (onyx.sandboxProxy.caSecretName).
+  #   3. configMap.SANDBOX_API_SERVER_URL must be set (e.g. https://onyx.example.com).
+  #   4. auth.sandboxPushSecret.enabled=true with a valid Ed25519 private key.
+  #
+  # Distinct from onyx.codeInterpreter (existing code interpreter sidecar),
+  # which stays on independently of Craft.
+  #
+  # Do NOT add ENABLE_CRAFT here; it is intentionally absent (= off by default).
+  craft:
+    extraBoundServiceAccounts: []
+    # CIDR(s) of any non-pod cluster DNS listener the sandbox must reach
+    # (e.g. NodeLocal DNS cache: ["169.254.20.10/32"]). Empty = standard CoreDNS.
+    dnsExtraCIDRs: []
+    # CIDR(s) of the egress proxy when it is NOT a chart-labeled pod.
+    # Empty (default) = the chart-deployed proxy, covered by the podSelector.
+    proxyExtraCIDRs: []
+
+  sandboxPod:
+    nodeSelector:
+      onyx.app/workload: sandbox
+    tolerations:
+      - key: workload
+        operator: Equal
+        value: sandbox
+        effect: NoSchedule
+
+  sandboxProxy:
+    replicaCount: 2
+    terminationGracePeriodSeconds: 200
+    progressDeadlineSeconds: 300
+    confdirSizeLimit: 100Mi
+    caSecretName: "sandbox-proxy-ca"
+    caConfigMapName: "sandbox-proxy-ca-bundle"
+    podAnnotations: {}
+    serviceAccount:
+      annotations: {}
+      automount: true
+    # Matches the `onyx` user (uid 1001) baked into the backend image.
+    runAsUser: 1001
+    fsGroup: 1001
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+  # NetworkPolicy for the per-sandbox push daemon (port 8731).
+  # allowTelepresenceAmbassador: true only in local-dev overlays.
+  sandboxPushPolicy:
+    allowTelepresenceAmbassador: false
+
 
 # ------------------------------------------------------------------------------
 # CloudNativePG Cluster (alias: postgresql-cluster → cnpg/cluster subchart)
