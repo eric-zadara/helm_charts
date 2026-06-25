@@ -250,8 +250,13 @@ jobs:
                 ;;
               opensearch-operator)
                 echo "Installing OpenSearch operator..."
+                # webhook.enabled=false skips the cert-manager Certificate/Issuer
+                # the operator would otherwise create for its admission webhook
+                # (cert-manager isn't installed). The operator still ships the
+                # opensearch.org CRDs and reconciles OpenSearchCluster CRs.
                 helm install opensearch-operator opensearch-project/opensearch-operator \
                   --namespace opensearch-operator-system --create-namespace \
+                  --set webhook.enabled=false \
                   --wait --timeout 5m
                 ;;
               inference-crds)
