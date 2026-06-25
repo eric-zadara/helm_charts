@@ -26,6 +26,11 @@ tests:
       - equal:
           path: spec.general.setVMMaxMapCount
           value: true
+      # dashboards.tls.secret must be an object ({}), never null — null is
+      # rejected by the OpenSearchCluster CRD under server-side apply.
+      - equal:
+          path: spec.dashboards.tls.secret
+          value: {}
 
   - it: nodePool has combined master+data+ingest roles with 3 replicas
     template: charts/opensearch-cluster/templates/cluster.yaml

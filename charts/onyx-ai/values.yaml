@@ -1318,6 +1318,13 @@ opensearch-cluster:
       # OpenSearch Dashboards is not needed by Onyx. Operators who want the UI
       # can override this in a values overlay.
       enable: false
+      # The subchart serializes the whole dashboards block via `toYaml`, and its
+      # default `tls.secret` is null. Null is invalid for the OpenSearchCluster
+      # CRD's typed-object field under server-side apply (helm 4 / current
+      # operators reject it). Force an empty object — harmless since dashboards
+      # is disabled, and valid under both client- and server-side apply.
+      tls:
+        secret: {}
 
     confMgmt:
       smartScaler: true
