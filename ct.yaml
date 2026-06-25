@@ -20,6 +20,8 @@ chart-repos:
   - nvidia=https://helm.ngc.nvidia.com/nvidia
   - onyx-dot-app=https://onyx-dot-app.github.io/onyx/
   - garage=https://datahub-local.github.io/garage-helm
+  - valkey=https://valkey.io/valkey-helm/
+  - opensearch=https://opensearch-project.github.io/opensearch-k8s-operator
 
 # Helm arguments passed to helm install/upgrade
 helm-extra-args: --timeout 600s

@@ -73,6 +73,44 @@ jobs:
       - name: Install helm-unittest
         run: helm plugin install https://github.com/helm-unittest/helm-unittest.git --verify=false
 
+      - name: Set up yq
+        uses: mikefarah/yq@v4.45.4
+
+      - name: Add Helm repositories
+        run: |
+          helm repo add bitnami https://charts.bitnami.com/bitnami
+          helm repo add cnpg https://cloudnative-pg.github.io/charts
+          helm repo add eric-zadara https://eric-zadara.github.io/helm_charts/
+          helm repo add knative https://knative.github.io/operator
+          helm repo add nvidia https://helm.ngc.nvidia.com/nvidia
+          helm repo add onyx-dot-app https://onyx-dot-app.github.io/onyx/
+          helm repo add garage https://datahub-local.github.io/garage-helm
+          helm repo add valkey https://valkey.io/valkey-helm/
+          helm repo add opensearch-project https://opensearch-project.github.io/opensearch-k8s-operator
+          helm repo update
+
+      - name: Build chart dependencies
+        run: |
+          # helm-unittest renders subchart templates (e.g. charts/onyx/...,
+          # charts/opensearch-cluster/...), so the dependencies must be
+          # materialized first. Resolve eric-zadara sibling charts from the
+          # local checkout (CI-only) the same way the install job does.
+          chart_yaml="charts/${{ matrix.chart }}/Chart.yaml"
+          [[ ! -f "$chart_yaml" ]] && exit 0
+          deps=$(yq -r '.dependencies[]? | [.name, .version, .repository] | @tsv' "$chart_yaml" 2>/dev/null) || true
+          while IFS=$'\t' read -r name version repo; do
+            [[ -z "$name" ]] && continue
+            [[ "$repo" != *"eric-zadara"* ]] && continue
+            [[ ! -f "charts/$name/Chart.yaml" ]] && continue
+            local_version=$(yq -r '.version' "charts/$name/Chart.yaml")
+            if [[ "$version" == "$local_version" ]]; then
+              echo "Resolving $name@$version from local checkout"
+              yq -i "(.dependencies[] | select(.name == \"$name\")).repository = \"file://../$name\"" "$chart_yaml"
+            fi
+          done <<< "$deps"
+          helm dependency build "charts/${{ matrix.chart }}"
+          git checkout -- "$chart_yaml" 2>/dev/null || true
+
       - name: Run helm-unittest
         run: |
           if ls charts/${{ matrix.chart }}/tests/*_test.yaml 1>/dev/null 2>&1; then
@@ -123,6 +161,8 @@ jobs:
           helm repo add nvidia https://helm.ngc.nvidia.com/nvidia
           helm repo add onyx-dot-app https://onyx-dot-app.github.io/onyx/
           helm repo add garage https://datahub-local.github.io/garage-helm
+          helm repo add valkey https://valkey.io/valkey-helm/
+          helm repo add opensearch-project https://opensearch-project.github.io/opensearch-k8s-operator
           helm repo update
 
       - name: Create kind cluster
