@@ -244,7 +244,12 @@ jobs:
                 ;;
               cnpg-operator)
                 echo "Installing CNPG operator..."
+                # Pin to 0.22.0 (CNPG 1.24.0) to match production, which deploys
+                # cloudnative-pg via argo-examples-operators (targetRevision:
+                # 0.22.0). The unpinned latest is several minor versions newer
+                # and reconciles the cluster chart's Pooler CR differently.
                 helm install cnpg cnpg/cloudnative-pg \
+                  --version 0.22.0 \
                   --namespace cnpg-system --create-namespace \
                   --wait --timeout 5m
                 ;;
@@ -339,16 +344,31 @@ jobs:
       - name: Debug on failure
         if: failure()
         run: |
-          echo "=== Failed/Pending pods ==="
-          kubectl get pods -A | grep -v Running | grep -v Completed || true
+          echo "=== All pods ==="
+          kubectl get pods -A -o wide || true
           echo ""
-          echo "=== Pod describe for non-running pods ==="
-          for pod in $(kubectl get pods -A -o jsonpath='{range .items[?(@.status.phase!="Running")]}{.metadata.namespace}/{.metadata.name}{"\n"}{end}' 2>/dev/null); do
-            ns="${pod%%/*}"
-            name="${pod##*/}"
-            echo "--- $ns/$name ---"
-            kubectl describe pod "$name" -n "$ns" 2>/dev/null | tail -30
+          # Select pods that are NOT Ready (covers CrashLoopBackOff/Error, which
+          # report phase=Running, so a phase filter would miss them). Each line:
+          # "<ns> <name>".
+          not_ready=$(kubectl get pods -A \
+            -o jsonpath='{range .items[*]}{.metadata.namespace} {.metadata.name} {range .status.conditions[?(@.type=="Ready")]}{.status}{end}{"\n"}{end}' 2>/dev/null \
+            | awk '$3!="True"{print $1" "$2}')
+          echo "=== Not-Ready pods: describe + logs ==="
+          echo "$not_ready" | while read -r ns name; do
+            [ -z "$name" ] && continue
+            echo "----- $ns/$name -----"
+            kubectl describe pod "$name" -n "$ns" 2>/dev/null | sed -n '/^Events:/,$p'
+            for c in $(kubectl get pod "$name" -n "$ns" -o jsonpath='{.spec.containers[*].name}' 2>/dev/null); do
+              echo "--- logs $ns/$name [$c] (current) ---"
+              kubectl logs "$name" -n "$ns" -c "$c" --tail=60 2>&1 | tail -60 || true
+              echo "--- logs $ns/$name [$c] (previous) ---"
+              kubectl logs "$name" -n "$ns" -c "$c" --previous --tail=60 2>&1 | tail -60 || true
+            done
             echo ""
           done
+          echo "=== CNPG clusters / poolers ==="
+          kubectl get clusters.postgresql.cnpg.io,poolers.postgresql.cnpg.io -A 2>/dev/null || true
+          echo "=== OpenSearchClusters ==="
+          kubectl get opensearchclusters.opensearch.org -A 2>/dev/null || true
           echo "=== Recent events ==="
-          kubectl get events -A --sort-by='.lastTimestamp' 2>/dev/null | tail -40
+          kubectl get events -A --sort-by='.lastTimestamp' 2>/dev/null | tail -60
