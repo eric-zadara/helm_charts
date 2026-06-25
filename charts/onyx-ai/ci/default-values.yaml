@@ -98,6 +98,15 @@ valkey:
 # Onyx subchart overrides
 # ------------------------------------------------------------------------------
 onyx:
+  # v4 hard-requires USER_AUTH_SECRET (signs auth/OAuth/captcha tokens); the
+  # api-server exits on startup if it is empty. Provide a placeholder for CI.
+  # PROD must supply a real, persistent secret (overlay value or existingSecret).
+  auth:
+    userauth:
+      enabled: true
+      values:
+        user_auth_secret: "placeholder-for-ci-testing-only"
+
   # ---------------------------------------------------------------------------
   # Core components: 1 replica each with minimal resources
   # ---------------------------------------------------------------------------
@@ -249,7 +258,9 @@ opensearch-cluster:
   enabled: true
   cluster:
     general:
-      version: "3.6.0"
+      # Match the main values.yaml / prod pin (3.5.0). 3.6.0 is intentionally
+      # avoided (image/cluster-formation issues), and CI must mirror prod.
+      version: "3.5.0"
     nodePools:
       - component: nodes
         replicas: 1
