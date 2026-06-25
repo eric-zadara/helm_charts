@@ -556,12 +556,6 @@ onyx:
   postgresql:
     enabled: false  # Disabled - using postgresql-cluster subchart instead
 
-  # Vespa tombstone — vespa subchart retired in v4. Kept as empty map so the
-  # Task-3 validate guard (.Values.onyx.vespa.enabled | default false) resolves
-  # to false rather than nil-panicking. Task 3 will replace the guard with
-  # ONYX_DISABLE_VESPA logic and remove this block.
-  vespa: {}
-
   # ---------------------------------------------------------------------------
   # Phase 4: Redis subchart (DISABLED - using Valkey at wrapper level)
   # ---------------------------------------------------------------------------

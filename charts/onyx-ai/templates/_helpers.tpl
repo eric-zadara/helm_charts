@@ -272,9 +272,9 @@ Fails on misconfiguration that would silently break search.
 Guards:
 1. Double-provision: both opensearch-cluster.enabled AND onyx.opensearch.enabled.
 2. No backend: all three paths disabled (opensearch-cluster + onyx.opensearch
-   + externalOpenSearch).
-3. Silent retrieval outage: vespa disabled AND ENABLE_OPENSEARCH_RETRIEVAL_FOR_ONYX
-   not set to "true".
+   + externalOpenSearch). OpenSearch is mandatory — Vespa is retired in v4.
+3. Retrieval flag: ENABLE_OPENSEARCH_RETRIEVAL_FOR_ONYX must be "true" —
+   OpenSearch is now the only retrieval backend (Vespa retired in v4).
 4. Admin secret key-mismatch: wrapper-owned secret used with stale upstream
    secretKey names (opensearch_admin_username / _password).
 
@@ -284,7 +284,6 @@ Usage: {{ include "onyx-ai.opensearch.validate" . }}
 {{- $wrapperEnabled := eq (include "onyx-ai.opensearchEnabled" .) "true" -}}
 {{- $bundledEnabled := .Values.onyx.opensearch.enabled | default false -}}
 {{- $externalHost := .Values.externalOpenSearch.host | default "" -}}
-{{- $vespaEnabled := .Values.onyx.vespa.enabled | default false -}}
 {{- $retrievalFlag := index .Values.onyx.configMap "ENABLE_OPENSEARCH_RETRIEVAL_FOR_ONYX" | default "" -}}
 
 {{- /* Guard 1: double-provision */ -}}
@@ -292,14 +291,14 @@ Usage: {{ include "onyx-ai.opensearch.validate" . }}
   {{- fail "opensearch-cluster.enabled AND onyx.opensearch.enabled are both true — pick one. Set onyx.opensearch.enabled: false when using the wrapper's operator-managed cluster." -}}
 {{- end -}}
 
-{{- /* Guard 2: no backend (skip if Vespa is enabled — legacy Vespa-only mode) */ -}}
-{{- if and (not $wrapperEnabled) (not $bundledEnabled) (eq $externalHost "") (not $vespaEnabled) -}}
+{{- /* Guard 2: no backend — OpenSearch is now mandatory (Vespa retired) */ -}}
+{{- if and (not $wrapperEnabled) (not $bundledEnabled) (eq $externalHost "") -}}
   {{- fail "No OpenSearch backend configured. Set one of: opensearch-cluster.enabled: true, onyx.opensearch.enabled: true, or externalOpenSearch.host." -}}
 {{- end -}}
 
-{{- /* Guard 3: silent retrieval outage */ -}}
-{{- if and (not $vespaEnabled) (ne $retrievalFlag "true") -}}
-  {{- fail "onyx.vespa.enabled is false but onyx.configMap.ENABLE_OPENSEARCH_RETRIEVAL_FOR_ONYX is not \"true\". Onyx would index but not query — explicitly set the retrieval flag." -}}
+{{- /* Guard 3: retrieval flag must be on — OpenSearch is the only index */ -}}
+{{- if ne $retrievalFlag "true" -}}
+  {{- fail "ENABLE_OPENSEARCH_RETRIEVAL_FOR_ONYX must be \"true\": Vespa is retired, so OpenSearch is the only retrieval backend." -}}
 {{- end -}}
 
 {{- /* Guard 4: key-mismatch when using wrapper-owned secret */ -}}
