@@ -32,8 +32,8 @@ postgresql-cluster:
           containers:
             - name: pgbouncer
               resources:
-                requests: { cpu: 50m, memory: 32Mi }
-                limits: { memory: 128Mi }
+                requests: {cpu: 50m, memory: 32Mi}
+                limits: {memory: 128Mi}
 
 onyx:
   configMap:

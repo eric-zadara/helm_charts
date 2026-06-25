@@ -800,8 +800,9 @@ onyx:
     # Craft sandbox push auth secret (DEFAULT-OFF)
     # ---------------------------------------------------------------------------
     # Ed25519 private key for sandbox push auth (only the public key reaches
-    # sandbox pods). Enable via Argo overlay when Craft is active.
-    # Generate with: python3 -c "import base64; from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey as K; from cryptography.hazmat.primitives.serialization import *; print(base64.b64encode(K.generate().private_bytes(Encoding.Raw,PrivateFormat.Raw,NoEncryption())).decode())"
+    # sandbox pods). Enable via Argo overlay when Craft is active. Generate a
+    # fresh key (base64 of the 32 raw Ed25519 private bytes), e.g.:
+    #   openssl genpkey -algorithm ed25519 -outform DER | tail -c 32 | base64
     sandboxPushSecret:
       enabled: false
       # Restricted: only injected into pods that provision sandboxes (API server + scheduled-tasks worker)
