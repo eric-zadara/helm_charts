@@ -141,3 +141,18 @@ tests:
     asserts:
       - failedTemplate:
           errorMessage: "onyx.vespa.enabled is false but onyx.configMap.ENABLE_OPENSEARCH_RETRIEVAL_FOR_ONYX is not \"true\". Onyx would index but not query — explicitly set the retrieval flag."
+
+  - it: configmap disables vespa and keeps OpenSearch as sole index
+    template: charts/onyx/templates/configmap.yaml
+    asserts:
+      - equal:
+          path: data.ONYX_DISABLE_VESPA
+          value: "true"
+      - equal:
+          path: data.ENABLE_OPENSEARCH_INDEXING_FOR_ONYX
+          value: "true"
+      - equal:
+          path: data.ENABLE_OPENSEARCH_RETRIEVAL_FOR_ONYX
+          value: "true"
+      - notExists:
+          path: data.VESPA_HOST

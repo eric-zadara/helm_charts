@@ -556,15 +556,11 @@ onyx:
   postgresql:
     enabled: false  # Disabled - using postgresql-cluster subchart instead
 
-  # Vespa search engine — REQUIRED through onyx v3.x (hardcoded runtime dependency).
-  # The v3.x application code unconditionally instantiates VespaIndex in
-  # factory.py's get_all_document_indices() and crashes on startup if Vespa
-  # is unreachable. OpenSearch is the RETRIEVAL backend (via the
-  # ENABLE_OPENSEARCH_RETRIEVAL_FOR_ONYX flag below), but Vespa still
-  # receives all index writes as a dual-write partner.
-  # Drop Vespa when upstream ships v4.0.0 (VespaIndex removed from code).
-  vespa:
-    enabled: true
+  # Vespa tombstone — vespa subchart retired in v4. Kept as empty map so the
+  # Task-3 validate guard (.Values.onyx.vespa.enabled | default false) resolves
+  # to false rather than nil-panicking. Task 3 will replace the guard with
+  # ONYX_DISABLE_VESPA logic and remove this block.
+  vespa: {}
 
   # ---------------------------------------------------------------------------
   # Phase 4: Redis subchart (DISABLED - using Valkey at wrapper level)
@@ -592,15 +588,19 @@ onyx:
     # "onyx-ai-postgresql-cluster-rw".
     POSTGRES_HOST: "onyx-ai-postgresql-cluster-pooler-rw"
     POSTGRES_PORT: "5432"
-    # --- OpenSearch wiring (operator-managed cluster, dual-write) ---
-    # v3.x dual-write: Vespa receives all index writes (hardcoded in factory.py),
-    # OpenSearch ALSO receives writes (ENABLE_OPENSEARCH_INDEXING), and OpenSearch
-    # handles all retrieval queries (ENABLE_OPENSEARCH_RETRIEVAL).
+    # --- OpenSearch wiring (operator-managed cluster, sole document index) ---
+    # v4 (chart 0.6.x) retired the bundled Vespa subchart. Onyx code keeps
+    # VespaIndex behind ONYX_DISABLE_VESPA (default "true"); with Vespa
+    # disabled, OpenSearch is the only index. factory.py guards REQUIRE that
+    # when ONYX_DISABLE_VESPA is true, OpenSearch indexing AND retrieval are
+    # enabled — both are forced "true" here. We dual-wrote to OpenSearch since
+    # v3, so it already holds the full live index (no reindex on cutover).
     #
     # The upstream configmap only emits OPENSEARCH_* keys when
-    # onyx.opensearch.enabled is true AND hardcodes the retrieval flag to "false".
-    # Since we disabled the upstream subchart (replaced by our operator-managed
-    # cluster), we re-emit and flip the retrieval flag here.
+    # onyx.opensearch.enabled is true AND hardcodes the retrieval flag to
+    # "false". Since we disabled the upstream subchart (operator-managed
+    # cluster instead), we re-emit and flip the retrieval flag here.
+    ONYX_DISABLE_VESPA: "true"
     OPENSEARCH_HOST: "onyx-ai-opensearch"
     OPENSEARCH_REST_API_PORT: "9200"
     ENABLE_OPENSEARCH_INDEXING_FOR_ONYX: "true"
