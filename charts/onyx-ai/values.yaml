@@ -1046,6 +1046,14 @@ postgresql-cluster:
         memory: 8Gi      # bumped from 4Gi in 0.4.0
     primaryUpdateStrategy: unsupervised  # auto-failover during operator upgrades
     enableSuperuserAccess: true          # required for Alembic migrations
+    # CNPG BootstrapInitDB. Must be a NON-EMPTY object: the cluster subchart
+    # renders `initdb:` then `{{- with .Values.cluster.initdb }}`, and an empty
+    # `{}` is falsy in Go templates → bare `initdb:` → null, which the Cluster
+    # CRD rejects under server-side apply (helm 4). `database: app` is CNPG's
+    # own default; onyx connects to the `postgres` db as superuser, so this app
+    # database name is immaterial to onyx — it only makes the CR schema-valid.
+    initdb:
+      database: app
     postgresql:
       parameters:
         # Backend connection slots. Sized for the pooler's worst-case server-

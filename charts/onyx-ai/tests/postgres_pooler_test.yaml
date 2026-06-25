@@ -27,6 +27,12 @@ tests:
       - equal:
           path: spec.resources.limits.memory
           value: 8Gi
+      # bootstrap.initdb must be a non-null object — the subchart renders bare
+      # `initdb:` (null) for an empty {}, which the Cluster CRD rejects under
+      # server-side apply.
+      - equal:
+          path: spec.bootstrap.initdb.database
+          value: app
 
   - it: renders a single session-mode rw Pooler CR with max_client_conn 2000
     template: charts/postgresql-cluster/templates/pooler.yaml
