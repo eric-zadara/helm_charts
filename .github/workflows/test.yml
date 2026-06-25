@@ -250,15 +250,14 @@ jobs:
                 ;;
               opensearch-operator)
                 echo "Installing OpenSearch operator..."
-                # Pin to the operator chart whose app version (2.8.0) matches our
-                # opensearch-cluster dependency (chart 3.2.2, appVersion 2.8.0).
-                # The unpinned latest is a 3.0.0-alpha pre-release with a different
-                # CRD schema. webhook.enabled=false skips the cert-manager
-                # Certificate/Issuer the operator would otherwise create for its
-                # admission webhook (cert-manager isn't installed); the operator
-                # still ships the opensearch.org CRDs and reconciles the CR.
+                # Pin to 3.0.2 to match production, which deploys this operator
+                # via the argo-examples-operators chart (targetRevision: 3.0.2).
+                # webhook.enabled=false skips the cert-manager Certificate/Issuer
+                # the operator would otherwise create for its admission webhook
+                # (cert-manager isn't installed); the operator still ships the
+                # opensearch.org CRDs and reconciles the CR.
                 helm install opensearch-operator opensearch-project/opensearch-operator \
-                  --version 2.8.2 \
+                  --version 3.0.2 \
                   --namespace opensearch-operator-system --create-namespace \
                   --set webhook.enabled=false \
                   --wait --timeout 5m
