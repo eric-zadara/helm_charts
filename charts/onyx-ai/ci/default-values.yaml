@@ -15,10 +15,10 @@
 #   - OpenSearch: operator-managed single-node cluster (bundled opensearch disabled)
 #   - Celery workers: 1 replica each with minimal resources
 #
-# Model servers included with minimal resources (replicaCount: 1):
-#   - inferenceCapability and indexCapability are deployed but will not finish
-#     downloading multi-GB ML models within CI timeout. They are included for
-#     template rendering coverage; CI tests should not depend on them becoming Ready.
+# Model servers (inferenceCapability, indexCapability) are DISABLED here
+# (replicaCount: 0): they download multi-GB ML models that never become Ready
+# within the CI timeout, which would hang `helm install --wait`. Their template
+# rendering is covered by helm-unittest instead.
 
 # ------------------------------------------------------------------------------
 # Redis/Valkey - enabled for CI (Bitnami Valkey, no operator required)
@@ -141,25 +141,15 @@ onyx:
         memory: 512Mi
 
   # ---------------------------------------------------------------------------
-  # Model servers: 1 replica each with minimal resources
-  # These download multi-GB ML models at startup, so they need extended timeout.
+  # Model servers: NOT deployed in the kind install (replicaCount: 0).
+  # They download multi-GB ML models at startup and never become Ready within
+  # the CI timeout, which would hang `helm install --wait`. Their template
+  # rendering is covered by helm-unittest instead.
   # ---------------------------------------------------------------------------
   inferenceCapability:
-    replicaCount: 1
-    resources:
-      requests:
-        cpu: 50m
-        memory: 256Mi
-      limits:
-        memory: 2Gi
+    replicaCount: 0
   indexCapability:
-    replicaCount: 1
-    resources:
-      requests:
-        cpu: 50m
-        memory: 256Mi
-      limits:
-        memory: 2Gi
+    replicaCount: 0
 
   # ---------------------------------------------------------------------------
   # Celery workers: 1 replica each with minimal resources

@@ -248,6 +248,12 @@ jobs:
                   --namespace cnpg-system --create-namespace \
                   --wait --timeout 5m
                 ;;
+              opensearch-operator)
+                echo "Installing OpenSearch operator..."
+                helm install opensearch-operator opensearch-project/opensearch-operator \
+                  --namespace opensearch-operator-system --create-namespace \
+                  --wait --timeout 5m
+                ;;
               inference-crds)
                 install_prereq inference-crds 5m
                 ;;
