@@ -19,7 +19,7 @@ tests:
           value: keep
       - equal:
           path: spec.general.version
-          value: "3.6.0"
+          value: "3.5.0"
       - equal:
           path: spec.general.httpPort
           value: 9200
