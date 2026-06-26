@@ -777,11 +777,21 @@ onyx:
     # Required when using AUTH_TYPE "basic" with password reset or OIDC flows.
     # Generate secret: openssl rand -hex 32
     userauth:
-      enabled: false
+      # v4 REQUIRES USER_AUTH_SECRET (signs password-reset/verification tokens,
+      # OAuth/OIDC state, captcha cookies); the api-server exits on startup if
+      # it is empty. v3 did not require it. The wrapper generates and PERSISTS
+      # it via templates/user-auth-secret.yaml (Helm lookup) and wires it in
+      # through existingSecret below — same managed-secret pattern as
+      # opensearch-admin / valkey-credentials / garage-credentials.
+      #
+      # To manage the value yourself instead, point existingSecret at your own
+      # secret (or source it via externalSecrets); the wrapper-managed secret
+      # then no-ops. ArgoCD: add `onyx-ai-userauth` to ignoreDifferences
+      # (see docs/argocd.md) — if it churns, every session/token is invalidated.
+      enabled: true
+      existingSecret: onyx-ai-userauth
       secretKeys:
         USER_AUTH_SECRET: user_auth_secret
-      values:
-        user_auth_secret: ""
 
     # OpenSearch Credentials (auth.opensearch passthrough)
     #

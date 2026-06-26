@@ -98,14 +98,8 @@ valkey:
 # Onyx subchart overrides
 # ------------------------------------------------------------------------------
 onyx:
-  # v4 hard-requires USER_AUTH_SECRET (signs auth/OAuth/captcha tokens); the
-  # api-server exits on startup if it is empty. Provide a placeholder for CI.
-  # PROD must supply a real, persistent secret (overlay value or existingSecret).
-  auth:
-    userauth:
-      enabled: true
-      values:
-        user_auth_secret: "placeholder-for-ci-testing-only"
+  # USER_AUTH_SECRET is generated+persisted by the wrapper (see main values.yaml
+  # onyx.auth.userauth + templates/user-auth-secret.yaml); CI needs no override.
 
   # ---------------------------------------------------------------------------
   # Core components: 1 replica each with minimal resources

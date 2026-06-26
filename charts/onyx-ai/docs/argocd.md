@@ -215,6 +215,15 @@ spec:
       jsonPointers:
         - /data
         - /stringData
+    # USER_AUTH_SECRET (Onyx v4+). IMPORTANT: if this churns, every issued
+    # session/token is invalidated (mass logout), so this entry matters more
+    # than the datastore-password ones above.
+    - group: ""
+      kind: Secret
+      name: onyx-ai-userauth
+      jsonPointers:
+        - /data
+        - /stringData
 ```
 
 Replace `onyx-ai-` with your actual release name if different.
