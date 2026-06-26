@@ -1,0 +1,83 @@
+# CI-only standalone OpenSearch (NOT part of the chart).
+#
+# The kind smoke test points onyx at this via externalOpenSearch instead of the
+# operator-managed OpenSearchCluster. The opensearch-k8s-operator's single-node
+# bootstrap races with kind's lazy local-path volume binding (the bootstrap pod
+# is created then deleted before its PVC binds, and is never retried), so a
+# single-node operator cluster never forms on the CI runner. The operator-managed
+# path is covered by helm-unittest rendering + multi-node production.
+#
+# Security plugin disabled => plain HTTP on :9200, no TLS/auth. onyx still sends
+# its default admin creds, which a security-disabled node ignores; CI sets
+# OPENSEARCH_USE_SSL=false so onyx speaks HTTP.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opensearch-ci
+  namespace: default
+  labels:
+    app: opensearch-ci
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: opensearch-ci
+  template:
+    metadata:
+      labels:
+        app: opensearch-ci
+    spec:
+      initContainers:
+        - name: sysctl
+          image: busybox:1.36
+          command: ["sh", "-c", "sysctl -w vm.max_map_count=262144 || true"]
+          securityContext:
+            privileged: true
+      containers:
+        - name: opensearch
+          image: opensearchproject/opensearch:3.5.0
+          env:
+            - name: discovery.type
+              value: single-node
+            - name: DISABLE_SECURITY_PLUGIN
+              value: "true"
+            - name: DISABLE_INSTALL_DEMO_CONFIG
+              value: "true"
+            - name: bootstrap.memory_lock
+              value: "false"
+            # Disable disk-based shard-allocation watermarks. On a space-tight
+            # CI node (>85-95% disk) OpenSearch otherwise sets a read-only /
+            # create-index block (FORBIDDEN/10), which fails onyx's index setup.
+            - name: cluster.routing.allocation.disk.threshold_enabled
+              value: "false"
+            - name: OPENSEARCH_JAVA_OPTS
+              value: "-Xms512m -Xmx512m"
+          ports:
+            - containerPort: 9200
+          readinessProbe:
+            httpGet:
+              path: /_cluster/health
+              port: 9200
+            initialDelaySeconds: 20
+            periodSeconds: 5
+            failureThreshold: 30
+          resources:
+            requests:
+              cpu: 100m
+              memory: 768Mi
+            limits:
+              memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: opensearch-ci
+  namespace: default
+  labels:
+    app: opensearch-ci
+spec:
+  selector:
+    app: opensearch-ci
+  ports:
+    - port: 9200
+      targetPort: 9200

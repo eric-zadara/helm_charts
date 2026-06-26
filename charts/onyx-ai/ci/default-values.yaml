@@ -144,15 +144,28 @@ onyx:
         memory: 512Mi
 
   # ---------------------------------------------------------------------------
-  # Model servers: NOT deployed in the kind install (replicaCount: 0).
-  # They download multi-GB ML models at startup and never become Ready within
-  # the CI timeout, which would hang `helm install --wait`. Their template
-  # rendering is covered by helm-unittest instead.
+  # Model servers: deployed (replicaCount: 1) but with NO readiness probe
+  # (upstream default), so they count as Ready once the container is running —
+  # `helm install --wait` does not block on the multi-GB model download. They
+  # MUST be present: the api-server queries the indexing model service's
+  # /api/gpu-status at startup and exits if it is unreachable.
   # ---------------------------------------------------------------------------
   inferenceCapability:
-    replicaCount: 0
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
+      limits:
+        memory: 2Gi
   indexCapability:
-    replicaCount: 0
+    replicaCount: 1
+    resources:
+      requests:
+        cpu: 50m
+        memory: 256Mi
+      limits:
+        memory: 2Gi
 
   # ---------------------------------------------------------------------------
   # Celery workers: 1 replica each with minimal resources
@@ -237,38 +250,35 @@ onyx:
   # ---------------------------------------------------------------------------
   configMap:
     POSTGRES_HOST: "onyx-ai-postgresql-cluster-rw"
-    OPENSEARCH_HOST: "onyx-ai-opensearch"
+    # Point onyx at the standalone (security-disabled, HTTP) OpenSearch from the
+    # opensearch-standalone prerequisite. USE_SSL=false because that node serves
+    # plain HTTP; onyx's default admin creds are sent but ignored (no security).
+    OPENSEARCH_HOST: "opensearch-ci"
     OPENSEARCH_REST_API_PORT: "9200"
+    OPENSEARCH_USE_SSL: "false"
     ENABLE_OPENSEARCH_INDEXING_FOR_ONYX: "true"
     ENABLE_OPENSEARCH_RETRIEVAL_FOR_ONYX: "true"
+  # The wrapper-owned opensearch-admin secret only renders for the operator-
+  # managed cluster (disabled here), so don't reference it. The standalone has
+  # no auth; onyx falls back to default creds, which it ignores.
+  auth:
+    opensearch:
+      enabled: false
+      existingSecret: ""
 
 # ------------------------------------------------------------------------------
-# OpenSearch cluster subchart - minimal for CI
+# OpenSearch: CI uses a standalone (security-disabled, HTTP) OpenSearch via
+# externalOpenSearch, NOT the operator-managed cluster. The opensearch-k8s-
+# operator's single-node bootstrap races with kind's lazy local-path volume
+# binding (the bootstrap pod is created then deleted before its PVC binds and
+# is never retried), so a single-node operator cluster never forms on the
+# runner. The operator-managed OpenSearchCluster path stays covered by
+# helm-unittest rendering + multi-node production. The standalone is deployed
+# by the `opensearch-standalone` prerequisite (ci/opensearch-standalone.yaml).
 # ------------------------------------------------------------------------------
-# NOTE: opensearch-operator must exist in the cluster before this Application
-# can be reconciled. For CI rendering (helm template only), the CR is emitted
-# even without the operator.
 opensearch-cluster:
-  enabled: true
-  cluster:
-    general:
-      # Match the main values.yaml / prod pin (3.5.0). 3.6.0 is intentionally
-      # avoided (image/cluster-formation issues), and CI must mirror prod.
-      version: "3.5.0"
-    nodePools:
-      - component: nodes
-        replicas: 1
-        diskSize: "1Gi"
-        roles:
-          - master
-          - data
-          - ingest
-        resources:
-          requests:
-            cpu: 100m
-            memory: 512Mi
-          limits:
-            memory: 1Gi
-        env:
-          - name: OPENSEARCH_JAVA_OPTS
-            value: "-Xmx512m -Xms512m"
+  enabled: false
+
+externalOpenSearch:
+  host: "opensearch-ci"
+  port: 9200

@@ -261,11 +261,22 @@ jobs:
                 # the operator would otherwise create for its admission webhook
                 # (cert-manager isn't installed); the operator still ships the
                 # opensearch.org CRDs and reconciles the CR.
+                # NOTE: not used by the default CI install (see opensearch-standalone)
+                # — kept for profiles that exercise the operator-managed cluster.
                 helm install opensearch-operator opensearch-project/opensearch-operator \
                   --version 3.0.2 \
                   --namespace opensearch-operator-system --create-namespace \
                   --set webhook.enabled=false \
                   --wait --timeout 5m
+                ;;
+              opensearch-standalone)
+                echo "Deploying standalone OpenSearch (CI external backend)..."
+                # A single-node, security-disabled OpenSearch the chart points at
+                # via externalOpenSearch. Avoids the operator's flaky single-node
+                # bootstrap on kind (see ci/opensearch-standalone.yaml).
+                kubectl apply -f charts/${{ matrix.chart }}/ci/opensearch-standalone.yaml
+                kubectl wait --for=condition=available deploy/opensearch-ci \
+                  --namespace default --timeout 5m
                 ;;
               inference-crds)
                 install_prereq inference-crds 5m
@@ -307,6 +318,28 @@ jobs:
 
           # Restore Chart.yaml after local resolution
           git checkout -- "$chart_yaml" 2>/dev/null || true
+
+      - name: Pre-load chart images into kind
+        run: |
+          # Pull the chart's onyx images on the runner and load them into the
+          # kind node BEFORE install. Otherwise the (multi-GB) onyx-backend and
+          # onyx-model-server pulls happen during `helm install --wait` and can
+          # blow each Deployment's progressDeadlineSeconds (k8s default 600s,
+          # which onyx's api/celery/model deployments don't override). No-op for
+          # charts without onyxdotapp images.
+          VALUES_ARGS=""
+          if [[ -f "charts/${{ matrix.chart }}/ci/default-values.yaml" ]]; then
+            VALUES_ARGS="-f charts/${{ matrix.chart }}/ci/default-values.yaml"
+          fi
+          imgs=$(helm template "${{ matrix.chart }}" "charts/${{ matrix.chart }}" $VALUES_ARGS 2>/dev/null \
+            | grep -oE 'image: *"?[^"[:space:]]+' | awk '{print $2}' | tr -d '"' \
+            | sort -u | grep -iE 'onyxdotapp' || true)
+          for img in $imgs; do
+            echo "::group::pre-load $img"
+            docker pull "$img" && kind load docker-image "$img" \
+              --name "test-${{ matrix.chart }}-${{ matrix.k8s-version }}" || echo "skip $img"
+            echo "::endgroup::"
+          done
 
       - name: Install chart
         run: |
