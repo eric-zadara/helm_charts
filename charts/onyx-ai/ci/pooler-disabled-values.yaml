@@ -30,8 +30,6 @@ onyx:
     replicaCount: 1
   webserver:
     replicaCount: 1
-  vespa:
-    enabled: false
   opensearch:
     enabled: false
   inferenceCapability:
@@ -64,7 +62,7 @@ opensearch-cluster:
         diskSize: "1Gi"
         roles: [master, data, ingest]
         resources:
-          requests: { cpu: 100m, memory: 512Mi }
-          limits: { memory: 1Gi }
+          requests: {cpu: 100m, memory: 512Mi}
+          limits: {memory: 1Gi}
         additionalConfig:
           ES_JAVA_OPTS: "-Xmx512m -Xms512m"

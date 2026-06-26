@@ -1,0 +1,16 @@
+suite: Onyx backend image tracks the pinned app version
+release:
+  name: onyx-ai
+  namespace: onyx-ai
+tests:
+  # Guards against the appVersion / onyx.global.version drift that shipped a
+  # v3 backend image under a v4 chart (the v3 backend hard-requires Vespa and
+  # crashes when ONYX_DISABLE_VESPA is set). onyx.global.version is the value
+  # that actually sets the running image tag — keep it in lockstep with
+  # Chart.yaml appVersion.
+  - it: api-server runs the pinned v4 onyx image, not a stale v3 tag
+    template: charts/onyx/templates/api-deployment.yaml
+    asserts:
+      - matchRegex:
+          path: spec.template.spec.containers[0].image
+          pattern: ':v4\.2\.0$'

@@ -4,6 +4,12 @@ This chart works with ArgoCD, but there are a few things to know up front
 because the chart uses Helm features that interact non-obviously with
 ArgoCD's `helm template` rendering model.
 
+> **Upgrading from a pre-`0.5.0` (Onyx v3) release?** Chart `0.5.0` retires
+> Vespa (Onyx v4 makes OpenSearch the sole document index). The legacy
+> `da-vespa` StatefulSet is no longer rendered. Retire it deliberately —
+> see [`vespa-decommission.md`](./vespa-decommission.md) — rather than
+> relying on ArgoCD auto-prune for the irreversible PV deletion.
+
 ## TL;DR checklist
 
 - [ ] `argocd-repo-server` can reach the four subchart repos (see
@@ -29,7 +35,7 @@ ArgoCD's `helm template` rendering model.
 ### Symptom
 
 After a successful argocd sync, one or more StatefulSets
-(`onyx-ai-garage`, `da-vespa`, `onyx-opensearch-master`) appear
+(`onyx-ai-garage`, `onyx-opensearch-master`) appear
 permanently `OutOfSync`. The argocd diff shows that
 `volumeClaimTemplates` entries in the LIVE cluster state contain extra
 fields the rendered manifest does not:
@@ -95,9 +101,8 @@ spec:
 ```
 
 Scope: the rule applies to every StatefulSet in the Application, so it
-covers all three (`onyx-ai-garage`, `da-vespa`,
-`onyx-opensearch-master`) plus any future ones without needing to
-list them individually. The `volumeClaimTemplates` paths only ignore
+covers both (`onyx-ai-garage`, `onyx-opensearch-master`) plus any
+future ones without needing to list them individually. The `volumeClaimTemplates` paths only ignore
 the specific fields Kubernetes defaults; genuine operator changes to
 `volumeClaimTemplates` (e.g., a new volume with a different name)
 would still surface as drift correctly. The `checksum/secret`
@@ -207,6 +212,15 @@ spec:
     - group: ""
       kind: Secret
       name: onyx-ai-redis-ha
+      jsonPointers:
+        - /data
+        - /stringData
+    # USER_AUTH_SECRET (Onyx v4+). IMPORTANT: if this churns, every issued
+    # session/token is invalidated (mass logout), so this entry matters more
+    # than the datastore-password ones above.
+    - group: ""
+      kind: Secret
+      name: onyx-ai-userauth
       jsonPointers:
         - /data
         - /stringData
@@ -383,7 +397,7 @@ The chart uses three argocd sync waves:
 | Wave | Resources | Purpose |
 |------|-----------|---------|
 | `-1` | Credentials secrets (garage, valkey, redis-ha, external-*), bootstrap ConfigMap | Exist before anything references them |
-| `0` (default) | All main workloads (garage StatefulSet, valkey Deployment, onyx api/web/celery, opensearch, vespa, CNPG Cluster), services, PVCs | Main sync phase |
+| `0` (default) | All main workloads (garage StatefulSet, valkey Deployment, onyx api/web/celery, opensearch, CNPG Cluster), services, PVCs | Main sync phase |
 | `1` | Traefik ingress / middleware, garage bootstrap Job (as a Sync hook) | Applied after the main workloads land |
 
 The bootstrap Job deliberately doesn't wait for main workloads to be
@@ -503,6 +517,14 @@ spec:
       jsonPointers:
         - /data
         - /stringData
+    # REQUIRED on v4+: USER_AUTH_SECRET. Without this, every sync regenerates
+    # it and invalidates all sessions/tokens (mass logout) — not just once.
+    - group: ""
+      kind: Secret
+      name: onyx-ai-userauth
+      jsonPointers:
+        - /data
+        - /stringData
 ```
 
 ### Notes on the sample
@@ -514,8 +536,11 @@ spec:
 - `selfHeal: true` will re-sync the bootstrap Job if anyone manually
   deletes it, but argocd won't churn on TTL cleanup because of the
   Sync hook annotation.
-- The `ignoreDifferences` block only covers garage + valkey by default.
-  Add the `onyx-ai-redis-ha` entry if you enable `redis.ha.enabled`.
+- The `ignoreDifferences` block covers garage + valkey + the v4 `onyx-ai-userauth`
+  secret. Add the `onyx-ai-redis-ha` entry if you enable `redis.ha.enabled`. If
+  you manage USER_AUTH_SECRET yourself (set `onyx.auth.userauth.existingSecret`
+  to your own secret, or `""` to use `values.user_auth_secret`), drop the
+  `onyx-ai-userauth` entry — the wrapper no longer renders that secret.
 - `retry.limit: 10` gives the initial install enough room to tolerate
   slow garage / postgres startup on cold clusters. The `maxDuration: 10m`
   caps total retry time.

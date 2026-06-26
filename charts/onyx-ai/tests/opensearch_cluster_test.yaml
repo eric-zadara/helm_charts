@@ -19,13 +19,18 @@ tests:
           value: keep
       - equal:
           path: spec.general.version
-          value: "3.6.0"
+          value: "3.5.0"
       - equal:
           path: spec.general.httpPort
           value: 9200
       - equal:
           path: spec.general.setVMMaxMapCount
           value: true
+      # dashboards.tls.secret must be an object ({}), never null — null is
+      # rejected by the OpenSearchCluster CRD under server-side apply.
+      - equal:
+          path: spec.dashboards.tls.secret
+          value: {}
 
   - it: nodePool has combined master+data+ingest roles with 3 replicas
     template: charts/opensearch-cluster/templates/cluster.yaml
@@ -107,11 +112,6 @@ tests:
           path: data.ENABLE_OPENSEARCH_RETRIEVAL_FOR_ONYX
           value: "true"
 
-  # NOTE: helm-unittest cannot load disabled-subchart templates (same limitation
-  # as Task 2/8). The vespa and upstream bundled-opensearch StatefulSet "is NOT
-  # rendered" assertions are omitted; correctness is verified by the configmap
-  # assertion above and downstream integration tests.
-
   - it: render fails when both opensearch-cluster and onyx.opensearch are enabled
     template: templates/NOTES.txt
     set:
@@ -121,23 +121,36 @@ tests:
       - failedTemplate:
           errorMessage: "opensearch-cluster.enabled AND onyx.opensearch.enabled are both true — pick one. Set onyx.opensearch.enabled: false when using the wrapper's operator-managed cluster."
 
-  - it: render fails when no opensearch backend is configured and vespa is also disabled
+  - it: render fails when no OpenSearch backend is configured
     template: templates/NOTES.txt
     set:
       opensearch-cluster.enabled: false
       onyx.opensearch.enabled: false
       externalOpenSearch.host: ""
-      onyx.vespa.enabled: false
       onyx.configMap.ENABLE_OPENSEARCH_RETRIEVAL_FOR_ONYX: "true"
     asserts:
       - failedTemplate:
           errorMessage: "No OpenSearch backend configured. Set one of: opensearch-cluster.enabled: true, onyx.opensearch.enabled: true, or externalOpenSearch.host."
 
-  - it: render fails when vespa disabled but retrieval flag not set to true
+  - it: render fails when retrieval flag is not "true"
     template: templates/NOTES.txt
     set:
-      onyx.vespa.enabled: false
       onyx.configMap.ENABLE_OPENSEARCH_RETRIEVAL_FOR_ONYX: "false"
     asserts:
       - failedTemplate:
-          errorMessage: "onyx.vespa.enabled is false but onyx.configMap.ENABLE_OPENSEARCH_RETRIEVAL_FOR_ONYX is not \"true\". Onyx would index but not query — explicitly set the retrieval flag."
+          errorMessage: "ENABLE_OPENSEARCH_RETRIEVAL_FOR_ONYX must be \"true\": Vespa is retired, so OpenSearch is the only retrieval backend."
+
+  - it: configmap disables vespa and keeps OpenSearch as sole index
+    template: charts/onyx/templates/configmap.yaml
+    asserts:
+      - equal:
+          path: data.ONYX_DISABLE_VESPA
+          value: "true"
+      - equal:
+          path: data.ENABLE_OPENSEARCH_INDEXING_FOR_ONYX
+          value: "true"
+      - equal:
+          path: data.ENABLE_OPENSEARCH_RETRIEVAL_FOR_ONYX
+          value: "true"
+      - notExists:
+          path: data.VESPA_HOST

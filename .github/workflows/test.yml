@@ -73,6 +73,44 @@ jobs:
       - name: Install helm-unittest
         run: helm plugin install https://github.com/helm-unittest/helm-unittest.git --verify=false
 
+      - name: Set up yq
+        uses: mikefarah/yq@v4.45.4
+
+      - name: Add Helm repositories
+        run: |
+          helm repo add bitnami https://charts.bitnami.com/bitnami
+          helm repo add cnpg https://cloudnative-pg.github.io/charts
+          helm repo add eric-zadara https://eric-zadara.github.io/helm_charts/
+          helm repo add knative https://knative.github.io/operator
+          helm repo add nvidia https://helm.ngc.nvidia.com/nvidia
+          helm repo add onyx-dot-app https://onyx-dot-app.github.io/onyx/
+          helm repo add garage https://datahub-local.github.io/garage-helm
+          helm repo add valkey https://valkey.io/valkey-helm/
+          helm repo add opensearch-project https://opensearch-project.github.io/opensearch-k8s-operator
+          helm repo update
+
+      - name: Build chart dependencies
+        run: |
+          # helm-unittest renders subchart templates (e.g. charts/onyx/...,
+          # charts/opensearch-cluster/...), so the dependencies must be
+          # materialized first. Resolve eric-zadara sibling charts from the
+          # local checkout (CI-only) the same way the install job does.
+          chart_yaml="charts/${{ matrix.chart }}/Chart.yaml"
+          [[ ! -f "$chart_yaml" ]] && exit 0
+          deps=$(yq -r '.dependencies[]? | [.name, .version, .repository] | @tsv' "$chart_yaml" 2>/dev/null) || true
+          while IFS=$'\t' read -r name version repo; do
+            [[ -z "$name" ]] && continue
+            [[ "$repo" != *"eric-zadara"* ]] && continue
+            [[ ! -f "charts/$name/Chart.yaml" ]] && continue
+            local_version=$(yq -r '.version' "charts/$name/Chart.yaml")
+            if [[ "$version" == "$local_version" ]]; then
+              echo "Resolving $name@$version from local checkout"
+              yq -i "(.dependencies[] | select(.name == \"$name\")).repository = \"file://../$name\"" "$chart_yaml"
+            fi
+          done <<< "$deps"
+          helm dependency build "charts/${{ matrix.chart }}"
+          git checkout -- "$chart_yaml" 2>/dev/null || true
+
       - name: Run helm-unittest
         run: |
           if ls charts/${{ matrix.chart }}/tests/*_test.yaml 1>/dev/null 2>&1; then
@@ -123,6 +161,8 @@ jobs:
           helm repo add nvidia https://helm.ngc.nvidia.com/nvidia
           helm repo add onyx-dot-app https://onyx-dot-app.github.io/onyx/
           helm repo add garage https://datahub-local.github.io/garage-helm
+          helm repo add valkey https://valkey.io/valkey-helm/
+          helm repo add opensearch-project https://opensearch-project.github.io/opensearch-k8s-operator
           helm repo update
 
       - name: Create kind cluster
@@ -204,9 +244,39 @@ jobs:
                 ;;
               cnpg-operator)
                 echo "Installing CNPG operator..."
+                # Pin to 0.22.0 (CNPG 1.24.0) to match production, which deploys
+                # cloudnative-pg via argo-examples-operators (targetRevision:
+                # 0.22.0). The unpinned latest is several minor versions newer
+                # and reconciles the cluster chart's Pooler CR differently.
                 helm install cnpg cnpg/cloudnative-pg \
+                  --version 0.22.0 \
                   --namespace cnpg-system --create-namespace \
                   --wait --timeout 5m
+                ;;
+              opensearch-operator)
+                echo "Installing OpenSearch operator..."
+                # Pin to 3.0.2 to match production, which deploys this operator
+                # via the argo-examples-operators chart (targetRevision: 3.0.2).
+                # webhook.enabled=false skips the cert-manager Certificate/Issuer
+                # the operator would otherwise create for its admission webhook
+                # (cert-manager isn't installed); the operator still ships the
+                # opensearch.org CRDs and reconciles the CR.
+                # NOTE: not used by the default CI install (see opensearch-standalone)
+                # — kept for profiles that exercise the operator-managed cluster.
+                helm install opensearch-operator opensearch-project/opensearch-operator \
+                  --version 3.0.2 \
+                  --namespace opensearch-operator-system --create-namespace \
+                  --set webhook.enabled=false \
+                  --wait --timeout 5m
+                ;;
+              opensearch-standalone)
+                echo "Deploying standalone OpenSearch (CI external backend)..."
+                # A single-node, security-disabled OpenSearch the chart points at
+                # via externalOpenSearch. Avoids the operator's flaky single-node
+                # bootstrap on kind (see ci/opensearch-standalone.yaml).
+                kubectl apply -f charts/${{ matrix.chart }}/ci/opensearch-standalone.yaml
+                kubectl wait --for=condition=available deploy/opensearch-ci \
+                  --namespace default --timeout 5m
                 ;;
               inference-crds)
                 install_prereq inference-crds 5m
@@ -249,6 +319,34 @@ jobs:
           # Restore Chart.yaml after local resolution
           git checkout -- "$chart_yaml" 2>/dev/null || true
 
+      - name: Pre-pull chart images into kind
+        run: |
+          # Pre-pull the chart's onyx images directly into the kind node's
+          # containerd BEFORE install. Two reasons:
+          #   1. Disk: `crictl pull` stores ONE copy (in the node's containerd).
+          #      `docker pull` + `kind load` stores the image twice (runner docker
+          #      AND containerd) — the multi-GB onyx-backend / onyx-model-server
+          #      (CUDA/cuDNN) images can then exhaust the runner root disk
+          #      ("no space left on device").
+          #   2. Timing: with imagePullPolicy IfNotPresent the pods reuse these,
+          #      so the pulls don't run during `helm install --wait` and blow each
+          #      Deployment's progressDeadlineSeconds (k8s default 600s, which
+          #      onyx's api/celery/model deployments don't override).
+          # No-op for charts without onyxdotapp images.
+          VALUES_ARGS=""
+          if [[ -f "charts/${{ matrix.chart }}/ci/default-values.yaml" ]]; then
+            VALUES_ARGS="-f charts/${{ matrix.chart }}/ci/default-values.yaml"
+          fi
+          imgs=$(helm template "${{ matrix.chart }}" "charts/${{ matrix.chart }}" $VALUES_ARGS 2>/dev/null \
+            | grep -oE 'image: *"?[^"[:space:]]+' | awk '{print $2}' | tr -d '"' \
+            | sort -u | grep -iE 'onyxdotapp' || true)
+          node="test-${{ matrix.chart }}-${{ matrix.k8s-version }}-control-plane"
+          for img in $imgs; do
+            echo "::group::pre-pull $img"
+            docker exec "$node" crictl pull "$img" || echo "skip $img"
+            echo "::endgroup::"
+          done
+
       - name: Install chart
         run: |
           VALUES_ARGS=""
@@ -285,16 +383,31 @@ jobs:
       - name: Debug on failure
         if: failure()
         run: |
-          echo "=== Failed/Pending pods ==="
-          kubectl get pods -A | grep -v Running | grep -v Completed || true
+          echo "=== All pods ==="
+          kubectl get pods -A -o wide || true
           echo ""
-          echo "=== Pod describe for non-running pods ==="
-          for pod in $(kubectl get pods -A -o jsonpath='{range .items[?(@.status.phase!="Running")]}{.metadata.namespace}/{.metadata.name}{"\n"}{end}' 2>/dev/null); do
-            ns="${pod%%/*}"
-            name="${pod##*/}"
-            echo "--- $ns/$name ---"
-            kubectl describe pod "$name" -n "$ns" 2>/dev/null | tail -30
+          # Select pods that are NOT Ready (covers CrashLoopBackOff/Error, which
+          # report phase=Running, so a phase filter would miss them). Each line:
+          # "<ns> <name>".
+          not_ready=$(kubectl get pods -A \
+            -o jsonpath='{range .items[*]}{.metadata.namespace} {.metadata.name} {range .status.conditions[?(@.type=="Ready")]}{.status}{end}{"\n"}{end}' 2>/dev/null \
+            | awk '$3!="True"{print $1" "$2}')
+          echo "=== Not-Ready pods: describe + logs ==="
+          echo "$not_ready" | while read -r ns name; do
+            [ -z "$name" ] && continue
+            echo "----- $ns/$name -----"
+            kubectl describe pod "$name" -n "$ns" 2>/dev/null | sed -n '/^Events:/,$p'
+            for c in $(kubectl get pod "$name" -n "$ns" -o jsonpath='{.spec.containers[*].name}' 2>/dev/null); do
+              echo "--- logs $ns/$name [$c] (current) ---"
+              kubectl logs "$name" -n "$ns" -c "$c" --tail=60 2>&1 | tail -60 || true
+              echo "--- logs $ns/$name [$c] (previous) ---"
+              kubectl logs "$name" -n "$ns" -c "$c" --previous --tail=60 2>&1 | tail -60 || true
+            done
             echo ""
           done
+          echo "=== CNPG clusters / poolers ==="
+          kubectl get clusters.postgresql.cnpg.io,poolers.postgresql.cnpg.io -A 2>/dev/null || true
+          echo "=== OpenSearchClusters ==="
+          kubectl get opensearchclusters.opensearch.org -A 2>/dev/null || true
           echo "=== Recent events ==="
-          kubectl get events -A --sort-by='.lastTimestamp' 2>/dev/null | tail -40
+          kubectl get events -A --sort-by='.lastTimestamp' 2>/dev/null | tail -60

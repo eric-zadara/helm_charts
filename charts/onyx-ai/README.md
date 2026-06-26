@@ -6,7 +6,7 @@ Batteries-included Helm chart for [Onyx](https://github.com/onyx-dot-app/onyx), 
 
 | Component | Chart | Description |
 |-----------|-------|-------------|
-| Onyx | `onyx` (upstream, `onyx-dot-app/onyx` 0.4.40) | API server, web server, background workers |
+| Onyx | `onyx` (upstream, `onyx-dot-app/onyx` 0.6.7) | API server, web server, background workers |
 | PostgreSQL | `cluster` (CNPG, aliased `postgresql-cluster`) | HA PostgreSQL via CloudNative-PG operator |
 | Object Storage | `garage` (`datahub-local/garage-helm` 0.4.1) | Lightweight S3-compatible storage for document files (wrapper-managed bootstrap job handles bucket + key + ACL setup via the garage admin API v2) |
 | Redis/Cache | `valkey` (`valkey-io/valkey-helm` 0.9.3, official) | Redis-compatible cache and Celery task queue backend |
@@ -536,6 +536,35 @@ kubectl port-forward svc/onyx-ai-postgresql-cluster-rw 5432:5432
 LLM providers (OpenAI, Anthropic, etc.) are configured through the Onyx admin web interface after deployment, not via Helm values. The `GEN_AI_*` environment variables are deprecated.
 
 ## Upgrade Notes
+
+### 0.5.0 — Onyx v4 upgrade (Vespa removed)
+
+Bumps the `onyx` subchart `0.4.44 → 0.6.7` and pins `appVersion` to `v4.2.0`.
+
+**Vespa retired; OpenSearch is the sole document index.** Onyx v4 drops the
+bundled Vespa subchart. The wrapper now sets
+`onyx.configMap.ONYX_DISABLE_VESPA: "true"` and keeps OpenSearch indexing and
+retrieval flags `"true"`. Because the chart has dual-written to OpenSearch
+since 0.4.0, OpenSearch already holds the full live index — **no reindex is
+required**. The legacy `da-vespa` StatefulSet is no longer rendered; retire it
+manually (it is not auto-pruned) per
+[`docs/vespa-decommission.md`](docs/vespa-decommission.md).
+
+**Craft sandbox wired but default-off.** Onyx v4's agentic code-execution
+sandbox ("Craft", distinct from the existing `codeInterpreter` sidecar) is
+gated behind `onyx.configMap.ENABLE_CRAFT` and left **off** by default. Its
+values (`onyx.craft`, `onyx.sandboxPod`, `onyx.sandboxProxy`,
+`onyx.sandboxPushPolicy`, `onyx.auth.sandboxPushSecret`) ship with
+upstream-matching defaults so prod can enable it via the ArgoCD overlay.
+Enabling it requires a dedicated sandbox node pool (nodes labelled
+`onyx.app/workload: sandbox`, tainted `workload=sandbox:NoSchedule`), the
+`sandbox-proxy-ca` secret, `onyx.configMap.SANDBOX_API_SERVER_URL`, and
+`onyx.auth.sandboxPushSecret`. Enabling Craft also activates the new
+scheduled-tasks Celery worker.
+
+**ServiceMonitors wired but default-off.** `onyx.monitoring.serviceMonitors`
+is surfaced (default `enabled: false`) so the chart still installs without a
+Prometheus Operator; enable it in the prod overlay.
 
 ### 0.2.0 — garage bootstrap + valkey upstream swap + subchart bumps
 

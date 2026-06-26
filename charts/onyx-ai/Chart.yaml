@@ -2,8 +2,8 @@ apiVersion: v2
 name: onyx-ai
 description: Helm chart wrapping Onyx with HA defaults, CNPG PostgreSQL, and Traefik ingress
 type: application
-version: 0.4.10
-appVersion: "v3.2.2"
+version: 0.5.0
+appVersion: "v4.2.0"
 
 home: https://github.com/zadarastorage/helm-charts
 sources:
@@ -18,12 +18,12 @@ annotations:
   category: AI/RAG
   licenses: MIT
   testing/tier: "2"
-  testing/prerequisites: "cnpg-operator"
+  testing/prerequisites: "cnpg-operator,opensearch-standalone"
   testing/timeout: "25m"
 
 dependencies:
   - name: onyx
-    version: "0.4.44"
+    version: "0.6.7"
     repository: "https://onyx-dot-app.github.io/onyx/"
   - name: cluster
     version: "0.5.0"

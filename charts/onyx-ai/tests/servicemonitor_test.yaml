@@ -1,0 +1,17 @@
+suite: ServiceMonitors default-off, render when enabled
+release:
+  name: onyx-ai
+  namespace: onyx-ai
+tests:
+  - it: no ServiceMonitor rendered by default
+    template: charts/onyx/templates/api-servicemonitor.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+  - it: ServiceMonitor renders when enabled
+    template: charts/onyx/templates/api-servicemonitor.yaml
+    set:
+      onyx.monitoring.serviceMonitors.enabled: true
+    asserts:
+      - isKind:
+          of: ServiceMonitor

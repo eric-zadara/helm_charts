@@ -528,7 +528,7 @@ onyx:
   # onyx subchart version in Chart.yaml (upstream does not pin their
   # chart's appVersion either).
   global:
-    version: "v3.2.2"
+    version: "v4.2.0"
     pullPolicy: "IfNotPresent"
 
   # ---------------------------------------------------------------------------
@@ -556,16 +556,6 @@ onyx:
   postgresql:
     enabled: false  # Disabled - using postgresql-cluster subchart instead
 
-  # Vespa search engine — REQUIRED through onyx v3.x (hardcoded runtime dependency).
-  # The v3.x application code unconditionally instantiates VespaIndex in
-  # factory.py's get_all_document_indices() and crashes on startup if Vespa
-  # is unreachable. OpenSearch is the RETRIEVAL backend (via the
-  # ENABLE_OPENSEARCH_RETRIEVAL_FOR_ONYX flag below), but Vespa still
-  # receives all index writes as a dual-write partner.
-  # Drop Vespa when upstream ships v4.0.0 (VespaIndex removed from code).
-  vespa:
-    enabled: true
-
   # ---------------------------------------------------------------------------
   # Phase 4: Redis subchart (DISABLED - using Valkey at wrapper level)
   # ---------------------------------------------------------------------------
@@ -578,6 +568,14 @@ onyx:
   # auto-set only fires when onyx.redis.enabled: true.
   redis:
     enabled: false
+
+  # ServiceMonitors are wired but DEFAULT-OFF so the chart installs without a
+  # Prometheus Operator. Prod enables them via the Argo overlay and sets
+  # `labels` to match its Prometheus serviceMonitorSelector.
+  monitoring:
+    serviceMonitors:
+      enabled: false
+      labels: {}
 
   # ---------------------------------------------------------------------------
   # ConfigMap overrides (injected into upstream onyx env-configmap)
@@ -592,15 +590,19 @@ onyx:
     # "onyx-ai-postgresql-cluster-rw".
     POSTGRES_HOST: "onyx-ai-postgresql-cluster-pooler-rw"
     POSTGRES_PORT: "5432"
-    # --- OpenSearch wiring (operator-managed cluster, dual-write) ---
-    # v3.x dual-write: Vespa receives all index writes (hardcoded in factory.py),
-    # OpenSearch ALSO receives writes (ENABLE_OPENSEARCH_INDEXING), and OpenSearch
-    # handles all retrieval queries (ENABLE_OPENSEARCH_RETRIEVAL).
+    # --- OpenSearch wiring (operator-managed cluster, sole document index) ---
+    # v4 (chart 0.6.x) retired the bundled Vespa subchart. Onyx code keeps
+    # VespaIndex behind ONYX_DISABLE_VESPA (default "true"); with Vespa
+    # disabled, OpenSearch is the only index. factory.py guards REQUIRE that
+    # when ONYX_DISABLE_VESPA is true, OpenSearch indexing AND retrieval are
+    # enabled — both are forced "true" here. We dual-wrote to OpenSearch since
+    # v3, so it already holds the full live index (no reindex on cutover).
     #
     # The upstream configmap only emits OPENSEARCH_* keys when
-    # onyx.opensearch.enabled is true AND hardcodes the retrieval flag to "false".
-    # Since we disabled the upstream subchart (replaced by our operator-managed
-    # cluster), we re-emit and flip the retrieval flag here.
+    # onyx.opensearch.enabled is true AND hardcodes the retrieval flag to
+    # "false". Since we disabled the upstream subchart (operator-managed
+    # cluster instead), we re-emit and flip the retrieval flag here.
+    ONYX_DISABLE_VESPA: "true"
     OPENSEARCH_HOST: "onyx-ai-opensearch"
     OPENSEARCH_REST_API_PORT: "9200"
     ENABLE_OPENSEARCH_INDEXING_FOR_ONYX: "true"
@@ -775,11 +777,21 @@ onyx:
     # Required when using AUTH_TYPE "basic" with password reset or OIDC flows.
     # Generate secret: openssl rand -hex 32
     userauth:
-      enabled: false
+      # v4 REQUIRES USER_AUTH_SECRET (signs password-reset/verification tokens,
+      # OAuth/OIDC state, captcha cookies); the api-server exits on startup if
+      # it is empty. v3 did not require it. The wrapper generates and PERSISTS
+      # it via templates/user-auth-secret.yaml (Helm lookup) and wires it in
+      # through existingSecret below — same managed-secret pattern as
+      # opensearch-admin / valkey-credentials / garage-credentials.
+      #
+      # To manage the value yourself instead, point existingSecret at your own
+      # secret (or source it via externalSecrets); the wrapper-managed secret
+      # then no-ops. ArgoCD: add `onyx-ai-userauth` to ignoreDifferences
+      # (see docs/argocd.md) — if it churns, every session/token is invalidated.
+      enabled: true
+      existingSecret: onyx-ai-userauth
       secretKeys:
         USER_AUTH_SECRET: user_auth_secret
-      values:
-        user_auth_secret: ""
 
     # OpenSearch Credentials (auth.opensearch passthrough)
     #
@@ -793,6 +805,24 @@ onyx:
       secretKeys:
         OPENSEARCH_ADMIN_USERNAME: username
         OPENSEARCH_ADMIN_PASSWORD: password
+
+    # ---------------------------------------------------------------------------
+    # Craft sandbox push auth secret (DEFAULT-OFF)
+    # ---------------------------------------------------------------------------
+    # Ed25519 private key for sandbox push auth (only the public key reaches
+    # sandbox pods). Enable via Argo overlay when Craft is active. Generate a
+    # fresh key (base64 of the 32 raw Ed25519 private bytes), e.g.:
+    #   openssl genpkey -algorithm ed25519 -outform DER | tail -c 32 | base64
+    sandboxPushSecret:
+      enabled: false
+      # Restricted: only injected into pods that provision sandboxes (API server + scheduled-tasks worker)
+      allPods: false
+      secretName: "onyx-sandbox-push-secret"
+      existingSecret: ""
+      secretKeys:
+        ONYX_SANDBOX_PUSH_PRIVATE_KEY: private_key
+      values:
+        private_key: ""
 
   # OpenSearch - disabled in 0.4.0 cutover (replaced by operator-managed cluster above)
   opensearch:
@@ -921,6 +951,75 @@ onyx:
   ingress:
     enabled: false
 
+  # ---------------------------------------------------------------------------
+  # Craft sandbox subsystem (DEFAULT-OFF)
+  # ---------------------------------------------------------------------------
+  # Craft is the v4 agentic code-execution sandbox, gated behind
+  # onyx.configMap.ENABLE_CRAFT (we intentionally leave it UNSET = off).
+  # Enabling it (via the Argo overlay: onyx.configMap.ENABLE_CRAFT: "true")
+  # renders the scheduled-tasks worker, sandbox egress proxy, sandbox
+  # namespace, RBAC, and NetworkPolicies.
+  #
+  # PREREQUISITES prod must provide before enabling Craft:
+  #   1. A dedicated sandbox node pool: nodes labelled
+  #      `onyx.app/workload: sandbox`, tainted `workload=sandbox:NoSchedule`.
+  #   2. The `sandbox-proxy-ca` CA secret (onyx.sandboxProxy.caSecretName).
+  #   3. configMap.SANDBOX_API_SERVER_URL must be set (e.g. https://onyx.example.com).
+  #   4. auth.sandboxPushSecret.enabled=true with a valid Ed25519 private key.
+  #
+  # Distinct from onyx.codeInterpreter (existing code interpreter sidecar),
+  # which stays on independently of Craft.
+  #
+  # Do NOT add ENABLE_CRAFT here; it is intentionally absent (= off by default).
+  craft:
+    extraBoundServiceAccounts: []
+    # CIDR(s) of any non-pod cluster DNS listener the sandbox must reach
+    # (e.g. NodeLocal DNS cache: ["169.254.20.10/32"]). Empty = standard CoreDNS.
+    dnsExtraCIDRs: []
+    # CIDR(s) of the egress proxy when it is NOT a chart-labeled pod.
+    # Empty (default) = the chart-deployed proxy, covered by the podSelector.
+    proxyExtraCIDRs: []
+
+  sandboxPod:
+    nodeSelector:
+      onyx.app/workload: sandbox
+    tolerations:
+      - key: workload
+        operator: Equal
+        value: sandbox
+        effect: NoSchedule
+
+  sandboxProxy:
+    replicaCount: 2
+    terminationGracePeriodSeconds: 200
+    progressDeadlineSeconds: 300
+    confdirSizeLimit: 100Mi
+    caSecretName: "sandbox-proxy-ca"
+    caConfigMapName: "sandbox-proxy-ca-bundle"
+    podAnnotations: {}
+    serviceAccount:
+      annotations: {}
+      automount: true
+    # Matches the `onyx` user (uid 1001) baked into the backend image.
+    runAsUser: 1001
+    fsGroup: 1001
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+  # NetworkPolicy for the per-sandbox push daemon (port 8731).
+  # allowTelepresenceAmbassador: true only in local-dev overlays.
+  sandboxPushPolicy:
+    allowTelepresenceAmbassador: false
+
+
 # ------------------------------------------------------------------------------
 # CloudNativePG Cluster (alias: postgresql-cluster → cnpg/cluster subchart)
 # ------------------------------------------------------------------------------
@@ -957,6 +1056,14 @@ postgresql-cluster:
         memory: 8Gi      # bumped from 4Gi in 0.4.0
     primaryUpdateStrategy: unsupervised  # auto-failover during operator upgrades
     enableSuperuserAccess: true          # required for Alembic migrations
+    # CNPG BootstrapInitDB. Must be a NON-EMPTY object: the cluster subchart
+    # renders `initdb:` then `{{- with .Values.cluster.initdb }}`, and an empty
+    # `{}` is falsy in Go templates → bare `initdb:` → null, which the Cluster
+    # CRD rejects under server-side apply (helm 4). `database: app` is CNPG's
+    # own default; onyx connects to the `postgres` db as superuser, so this app
+    # database name is immaterial to onyx — it only makes the CR schema-valid.
+    initdb:
+      database: app
     postgresql:
       parameters:
         # Backend connection slots. Sized for the pooler's worst-case server-
@@ -966,7 +1073,7 @@ postgresql-cluster:
         max_connections: "750"
         # Reclaim idle-in-transaction connections after 60s to prevent pool
         # starvation from crashed workers that hold open transactions.
-        idle_in_transaction_session_timeout: "60min"  # milliseconds
+        idle_in_transaction_session_timeout: "60000"  # milliseconds (60s)
       pg_hba: []
 
   # PgBouncer poolers — each entry becomes a CNPG Pooler CR. The cluster
@@ -1229,6 +1336,13 @@ opensearch-cluster:
       # OpenSearch Dashboards is not needed by Onyx. Operators who want the UI
       # can override this in a values overlay.
       enable: false
+      # The subchart serializes the whole dashboards block via `toYaml`, and its
+      # default `tls.secret` is null. Null is invalid for the OpenSearchCluster
+      # CRD's typed-object field under server-side apply (helm 4 / current
+      # operators reject it). Force an empty object — harmless since dashboards
+      # is disabled, and valid under both client- and server-side apply.
+      tls:
+        secret: {}
 
     confMgmt:
       smartScaler: true

@@ -1,0 +1,30 @@
+suite: Craft sandbox + scheduled-tasks worker gated on ENABLE_CRAFT
+release:
+  name: onyx-ai
+  namespace: onyx-ai
+capabilities:
+  majorVersion: 1
+  minorVersion: 33
+tests:
+  - it: scheduled-tasks worker does NOT render by default
+    template: charts/onyx/templates/celery-worker-scheduled-tasks.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+  - it: ENABLE_CRAFT is not set in the configmap by default
+    template: charts/onyx/templates/configmap.yaml
+    asserts:
+      - notExists:
+          path: data.ENABLE_CRAFT
+  - it: scheduled-tasks worker renders when Craft is enabled
+    template: charts/onyx/templates/celery-worker-scheduled-tasks.yaml
+    set:
+      onyx.configMap.ENABLE_CRAFT: "true"
+      onyx.configMap.SANDBOX_API_SERVER_URL: "https://onyx.example.com"
+      onyx.auth.sandboxPushSecret.enabled: true
+      onyx.auth.sandboxPushSecret.values.private_key: "dGVzdC1rZXktZm9yLWhlbG0tdW5pdHRlc3Q="
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: Deployment

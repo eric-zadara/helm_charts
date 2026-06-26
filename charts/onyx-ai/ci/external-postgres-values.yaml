@@ -17,8 +17,6 @@ onyx:
     enabled: false
   codeInterpreter:
     enabled: false
-  vespa:
-    enabled: false
   api:
     replicaCount: 1
   webserver:
