@@ -517,6 +517,14 @@ spec:
       jsonPointers:
         - /data
         - /stringData
+    # REQUIRED on v4+: USER_AUTH_SECRET. Without this, every sync regenerates
+    # it and invalidates all sessions/tokens (mass logout) — not just once.
+    - group: ""
+      kind: Secret
+      name: onyx-ai-userauth
+      jsonPointers:
+        - /data
+        - /stringData
 ```
 
 ### Notes on the sample
@@ -528,8 +536,11 @@ spec:
 - `selfHeal: true` will re-sync the bootstrap Job if anyone manually
   deletes it, but argocd won't churn on TTL cleanup because of the
   Sync hook annotation.
-- The `ignoreDifferences` block only covers garage + valkey by default.
-  Add the `onyx-ai-redis-ha` entry if you enable `redis.ha.enabled`.
+- The `ignoreDifferences` block covers garage + valkey + the v4 `onyx-ai-userauth`
+  secret. Add the `onyx-ai-redis-ha` entry if you enable `redis.ha.enabled`. If
+  you manage USER_AUTH_SECRET yourself (set `onyx.auth.userauth.existingSecret`
+  to your own secret, or `""` to use `values.user_auth_secret`), drop the
+  `onyx-ai-userauth` entry — the wrapper no longer renders that secret.
 - `retry.limit: 10` gives the initial install enough room to tolerate
   slow garage / postgres startup on cold clusters. The `maxDuration: 10m`
   caps total retry time.
