@@ -319,14 +319,20 @@ jobs:
           # Restore Chart.yaml after local resolution
           git checkout -- "$chart_yaml" 2>/dev/null || true
 
-      - name: Pre-load chart images into kind
+      - name: Pre-pull chart images into kind
         run: |
-          # Pull the chart's onyx images on the runner and load them into the
-          # kind node BEFORE install. Otherwise the (multi-GB) onyx-backend and
-          # onyx-model-server pulls happen during `helm install --wait` and can
-          # blow each Deployment's progressDeadlineSeconds (k8s default 600s,
-          # which onyx's api/celery/model deployments don't override). No-op for
-          # charts without onyxdotapp images.
+          # Pre-pull the chart's onyx images directly into the kind node's
+          # containerd BEFORE install. Two reasons:
+          #   1. Disk: `crictl pull` stores ONE copy (in the node's containerd).
+          #      `docker pull` + `kind load` stores the image twice (runner docker
+          #      AND containerd) — the multi-GB onyx-backend / onyx-model-server
+          #      (CUDA/cuDNN) images can then exhaust the runner root disk
+          #      ("no space left on device").
+          #   2. Timing: with imagePullPolicy IfNotPresent the pods reuse these,
+          #      so the pulls don't run during `helm install --wait` and blow each
+          #      Deployment's progressDeadlineSeconds (k8s default 600s, which
+          #      onyx's api/celery/model deployments don't override).
+          # No-op for charts without onyxdotapp images.
           VALUES_ARGS=""
           if [[ -f "charts/${{ matrix.chart }}/ci/default-values.yaml" ]]; then
             VALUES_ARGS="-f charts/${{ matrix.chart }}/ci/default-values.yaml"
@@ -334,10 +340,10 @@ jobs:
           imgs=$(helm template "${{ matrix.chart }}" "charts/${{ matrix.chart }}" $VALUES_ARGS 2>/dev/null \
             | grep -oE 'image: *"?[^"[:space:]]+' | awk '{print $2}' | tr -d '"' \
             | sort -u | grep -iE 'onyxdotapp' || true)
+          node="test-${{ matrix.chart }}-${{ matrix.k8s-version }}-control-plane"
           for img in $imgs; do
-            echo "::group::pre-load $img"
-            docker pull "$img" && kind load docker-image "$img" \
-              --name "test-${{ matrix.chart }}-${{ matrix.k8s-version }}" || echo "skip $img"
+            echo "::group::pre-pull $img"
+            docker exec "$node" crictl pull "$img" || echo "skip $img"
             echo "::endgroup::"
           done
 
